@@ -1,14 +1,18 @@
 import { Link } from 'react-router-dom'
-import logo from '../assets/logo/musimaps-06.png'
+import { useThemeValue } from '../lib/theme'
+import logoLight from '../assets/logo/musimaps-06.png'
+import logoDark from '../assets/logo/musimaps-04.png'
 
 const year = new Date().getFullYear()
 
 export default function Footer() {
+  const theme = useThemeValue()
+
   return (
     <footer className="border-t border-hairline px-6 py-12 md:px-12">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
         <Link to="/" aria-label="MusiMaps — accueil">
-          <img src={logo} alt="MusiMaps" className="h-6 w-auto" />
+          <img src={theme === 'dark' ? logoDark : logoLight} alt="MusiMaps" className="h-6 w-auto" />
         </Link>
         <nav className="flex flex-wrap justify-center gap-8 text-sm text-secondary-text">
           <Link to="/globe" className="transition-colors hover:text-primary-text">
