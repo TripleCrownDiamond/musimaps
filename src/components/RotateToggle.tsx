@@ -17,7 +17,7 @@ export default function RotateToggle({
   const base =
     theme === 'dark'
       ? 'bg-white/10 hover:bg-white/20 backdrop-blur-xl'
-      : 'bg-white/85 hover:bg-white shadow-lg backdrop-blur-xl'
+      : 'bg-surface/85 hover:bg-surface shadow-lg backdrop-blur-xl'
 
   const label = active ? 'Mettre la rotation en pause' : 'Relancer la rotation'
 

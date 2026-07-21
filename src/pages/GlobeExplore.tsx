@@ -84,7 +84,7 @@ export default function GlobeExplore() {
       <Link
         to="/"
         aria-label="Retour à l'accueil"
-        className="absolute left-4 top-6 z-30 flex items-center gap-2 rounded-full bg-white/85 px-4 py-2.5 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-white sm:left-6"
+        className="absolute left-4 top-6 z-30 flex items-center gap-2 rounded-full bg-surface/85 px-4 py-2.5 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:left-6"
       >
         <ArrowLeft className="h-4 w-4" />
         <span className="hidden sm:inline">Accueil</span>
@@ -95,7 +95,7 @@ export default function GlobeExplore() {
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
-          className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-3 rounded-full bg-white/85 px-5 py-4 text-left shadow-lg backdrop-blur-xl transition-colors hover:bg-white"
+          className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-3 rounded-full bg-surface/85 px-5 py-4 text-left shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
         >
           <Search className="h-5 w-5 shrink-0 text-secondary-text" />
           <span className="flex-1 text-secondary-text">Chercher une ville, ou un artiste…</span>
@@ -111,7 +111,7 @@ export default function GlobeExplore() {
               setSelected(null)
               mapRef.current?.resetView()
             }}
-            className="pointer-events-auto flex items-center gap-2 rounded-full bg-white/85 px-5 py-3 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-white"
+            className="pointer-events-auto flex items-center gap-2 rounded-full bg-surface/85 px-5 py-3 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
           >
             <Globe2 className="h-4 w-4 text-brand-deep" /> Vue Globe
           </button>
@@ -260,7 +260,7 @@ export default function GlobeExplore() {
             setSelected(null)
             mapRef.current?.flyTo([2.2, 6.4], 3)
           }}
-          className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full bg-white/85 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-white"
+          className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full bg-surface/85 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
         >
           <ChevronLeft className="h-4 w-4" /> Retour
         </button>
