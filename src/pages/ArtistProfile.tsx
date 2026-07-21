@@ -25,14 +25,15 @@ export default function ArtistProfile() {
         {/* Banniere */}
         <section className="relative flex h-[60vh] min-h-[420px] items-end overflow-hidden bg-gradient-to-br from-brand-deep via-black to-black px-6 pb-12 md:px-12">
           <div className="map-bg absolute inset-0 opacity-10" />
+          {/* Positionne en absolu sous la navbar fixe : en flux, items-end le faisait
+              remonter sous la nav sur mobile. */}
+          <Link
+            to="/globe"
+            className="absolute left-6 top-24 z-20 inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25 md:left-12"
+          >
+            <ChevronLeft className="h-4 w-4" /> Retour à la carte
+          </Link>
           <div className="relative z-10 mx-auto w-full max-w-7xl">
-            <Link
-              to="/globe"
-              className="mb-8 inline-flex items-center gap-2 rounded-full bg-white/15 px-5 py-2.5 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25"
-            >
-              <ChevronLeft className="h-4 w-4" /> Retour à la carte
-            </Link>
-
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
               <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-br from-brand to-brand-deep text-4xl font-extrabold text-white shadow-2xl">
                 {initials}

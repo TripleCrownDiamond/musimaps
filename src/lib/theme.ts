@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 export type Theme = 'light' | 'dark'
 
 const KEY = 'musimaps.theme'
@@ -22,4 +24,22 @@ export function applyTheme(theme: Theme) {
   } catch {
     // stockage indisponible : le theme reste applique pour la session
   }
+}
+
+/** Suit en direct le theme applique sur <html> (bascule via le toggle). */
+export function useThemeValue(): Theme {
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof document !== 'undefined' ? currentTheme() : 'light',
+  )
+  useEffect(() => {
+    const sync = () => setTheme(currentTheme())
+    sync()
+    const observer = new MutationObserver(sync)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+    return () => observer.disconnect()
+  }, [])
+  return theme
 }

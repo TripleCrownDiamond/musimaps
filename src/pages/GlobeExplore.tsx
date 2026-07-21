@@ -7,6 +7,7 @@ import MapboxTokenNotice from '../components/MapboxTokenNotice'
 import RotateToggle from '../components/RotateToggle'
 import { artists, cities, searchArtists, type Artist } from '../data/artists'
 import { hasMapboxToken } from '../lib/mapbox'
+import { useThemeValue } from '../lib/theme'
 
 /** Distance approximative en km entre deux points (formule de haversine). */
 function distanceKm([lng1, lat1]: [number, number], [lng2, lat2]: [number, number]) {
@@ -26,6 +27,7 @@ export default function GlobeExplore() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Artist | null>(null)
   const [spinning, setSpinning] = useState(true)
+  const theme = useThemeValue()
 
   const handleReady = useCallback((handle: GlobeMapHandle) => {
     mapRef.current = handle
@@ -72,6 +74,7 @@ export default function GlobeExplore() {
           onSelectArtist={goToArtist}
           autoRotate={spinning}
           onAutoRotateChange={setSpinning}
+          theme={theme}
         />
       ) : (
         <MapboxTokenNotice />

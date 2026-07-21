@@ -21,7 +21,7 @@ export default function Footer() {
             Liste d'attente
           </a>
           <a
-            href="https://twitter.com/intent/tweet?text=D%C3%A9couvrez%20MusiMaps%20%E2%80%94%20l%27atlas%20vivant%20de%20la%20musique"
+            href="https://twitter.com/intent/tweet?text=D%C3%A9couvrez%20MusiMaps%20%E2%80%94%20la%20carte%20vivante%20de%20la%20musique"
             target="_blank"
             rel="noopener noreferrer"
             className="transition-colors hover:text-primary-text"
@@ -29,7 +29,7 @@ export default function Footer() {
             Twitter
           </a>
         </nav>
-        <p className="text-sm text-secondary-text">&copy; {year} MusiMaps. Atlas Technologique Musical.</p>
+        <p className="text-sm text-secondary-text">&copy; {year} MusiMaps. La carte vivante de la musique.</p>
       </div>
     </footer>
   )
