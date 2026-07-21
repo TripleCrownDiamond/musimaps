@@ -1,0 +1,215 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Cabinet Grotesk', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
+  --color-warm-white: #FAF7F5;
+  --color-secondary-bg: #F5F5F4;
+  --color-primary-text: #111111;
+  --color-secondary-text: #6B7280;
+  /* Cyan du logo : aplats et elements graphiques */
+  --color-brand: #00FCFC;
+  /* Variante foncee : texte et icones sur fond clair (le cyan pur est illisible) */
+  --color-brand-deep: #067C7C;
+  /* Teinte claire : fonds de pastilles */
+  --color-brand-soft: #DFFEFE;
+  --color-accent: #00FCFC;
+  --color-success: #22C55E;
+  /* Surfaces et bordures — bascule en dark via [data-theme="dark"] plus bas */
+  --color-surface: #FFFFFF;
+  --color-hairline: rgba(0, 0, 0, 0.05);
+  --color-hairline-strong: rgba(0, 0, 0, 0.1);
+  /* Bouton principal : inverse de la page (noir sur clair, blanc sur sombre) */
+  --color-ink: #111111;
+  --color-ink-foreground: #FFFFFF;
+}
+
+/* Palette sombre : on redefinit les memes tokens, tous les utilitaires suivent. */
+:root[data-theme='dark'] {
+  --map-dot: rgba(255, 255, 255, 0.06);
+  --color-warm-white: #0D0F13;
+  --color-secondary-bg: #191D24;
+  --color-surface: #14181F;
+  --color-primary-text: #F3F4F6;
+  --color-secondary-text: #9AA4AF;
+  --color-brand-deep: #2AE0E0; /* cyan lisible sur fond sombre */
+  --color-brand-soft: #0E3A3D;
+  --color-hairline: rgba(255, 255, 255, 0.09);
+  --color-hairline-strong: rgba(255, 255, 255, 0.16);
+  --color-ink: #F3F4F6;
+  --color-ink-foreground: #0D0F13;
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-warm-white);
+    color: var(--color-primary-text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer utilities {
+  .display-font {
+    font-family: var(--font-display);
+    letter-spacing: -0.04em;
+  }
+
+  .map-bg {
+    background-image: radial-gradient(circle at 2px 2px, var(--map-dot, #e5e5e5) 1px, transparent 0);
+    background-size: 40px 40px;
+  }
+
+  .scroll-zoom {
+    transition: transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .floating-card {
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+    border: 1px solid var(--color-hairline);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+  }
+
+  .artist-cover {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7)),
+      url('https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&q=80&w=1920');
+    background-size: cover;
+    background-position: center;
+  }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(2.5); opacity: 1; box-shadow: 0 0 10px var(--color-accent); }
+  100% { transform: scale(1); opacity: 0.4; }
+}
+
+@keyframes scaleCheck {
+  0% { transform: scale(0); opacity: 0; }
+  80% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes equalizer {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pulse-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-accent);
+  border-radius: 50%;
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.pulse-user {
+  background-color: var(--color-success);
+}
+
+.animate-check {
+  animation: scaleCheck 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.waveform-bar {
+  width: 3px;
+  background-color: var(--color-accent);
+  border-radius: 2px;
+  animation: equalizer 1s ease-in-out infinite;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.7s ease-out forwards;
+}
+
+/* Filigrane Mapbox masque a la demande.
+   Attention : les conditions d'utilisation Mapbox imposent d'afficher le logo
+   et l'attribution. Le retrait releve d'une decision produit assumee. */
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-bottom-left,
+.mapboxgl-ctrl-bottom-right {
+  display: none !important;
+}
+
+/* Pin artiste sur la carte */
+.artist-pin {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 3px solid #fff;
+  background: linear-gradient(135deg, var(--color-brand), var(--color-brand-deep));
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s ease;
+}
+
+.artist-pin:hover {
+  transform: scale(1.12);
+}
+
+.artist-pin::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sheet-in {
+  animation: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes loaderPulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes loaderTrack {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.loader-pulse {
+  animation: loaderPulse 1.6s ease-in-out infinite;
+}
+
+.loader-track {
+  animation: loaderTrack 1.4s ease-in-out infinite;
+}

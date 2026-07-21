@@ -1,0 +1,36 @@
+import { Link } from 'react-router-dom'
+import logo from '../assets/logo/musimaps-06.png'
+
+const year = new Date().getFullYear()
+
+export default function Footer() {
+  return (
+    <footer className="border-t border-hairline px-6 py-12 md:px-12">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
+        <Link to="/" aria-label="MusiMaps — accueil">
+          <img src={logo} alt="MusiMaps" className="h-6 w-auto" />
+        </Link>
+        <nav className="flex flex-wrap justify-center gap-8 text-sm text-secondary-text">
+          <Link to="/globe" className="transition-colors hover:text-primary-text">
+            La carte
+          </Link>
+          <Link to="/artistes" className="transition-colors hover:text-primary-text">
+            Espace artistes
+          </Link>
+          <a href="/#waitlist" className="transition-colors hover:text-primary-text">
+            Liste d'attente
+          </a>
+          <a
+            href="https://twitter.com/intent/tweet?text=D%C3%A9couvrez%20MusiMaps%20%E2%80%94%20l%27atlas%20vivant%20de%20la%20musique"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-primary-text"
+          >
+            Twitter
+          </a>
+        </nav>
+        <p className="text-sm text-secondary-text">&copy; {year} MusiMaps. Atlas Technologique Musical.</p>
+      </div>
+    </footer>
+  )
+}
