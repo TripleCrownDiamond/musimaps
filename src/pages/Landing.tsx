@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Globe2, Headphones, MapPin, Mic2, Play, Search, Sparkles } from 'lucide-react'
 import GlobeMap from '../components/GlobeMap'
-import RotateToggle from '../components/RotateToggle'
 import Countdown from '../components/Countdown'
 import { hasMapboxToken } from '../lib/mapbox'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
@@ -60,7 +59,6 @@ export default function Landing() {
   const mapBgRef = useRef<HTMLDivElement>(null)
   const [email, setEmail] = useState('')
   const [profile, setProfile] = useState<'artiste' | 'amateur'>('amateur')
-  const [spinning, setSpinning] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
@@ -210,13 +208,15 @@ export default function Landing() {
 
             {/* Pleine largeur de la fenetre : le halo Mapbox s'arrete au bord du
                 canvas, un conteneur etroit dessinerait un cadre visible sur le noir. */}
-            <div className="relative -mx-6 h-[70vh] max-h-[760px] min-h-[380px] w-screen md:-mx-12">
+            {/* Preview purement decoratif : non-interactif, rotation continue,
+                clics traversants pour ne pas capturer le scroll. */}
+            <div className="pointer-events-none relative -mx-6 h-[70vh] max-h-[760px] min-h-[380px] w-screen md:-mx-12">
               {hasMapboxToken ? (
                 <GlobeMap
-                  className="absolute inset-0 cursor-grab active:cursor-grabbing"
+                  className="absolute inset-0"
                   theme="dark"
-                  autoRotate={spinning}
-                  onAutoRotateChange={setSpinning}
+                  interactive={false}
+                  autoRotate
                   showPins
                 />
               ) : (
@@ -226,25 +226,13 @@ export default function Landing() {
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-4 sm:flex-row">
-              <Link
-                to="/globe"
-                className="flex items-center gap-2 rounded-full bg-brand px-10 py-5 text-lg font-bold text-primary-text transition-transform hover:scale-105"
-              >
-                <Globe2 className="h-5 w-5" />
-                Explorer la carte
-              </Link>
-              {hasMapboxToken && (
-                <RotateToggle
-                  theme="dark"
-                  active={spinning}
-                  onToggle={() => setSpinning((s) => !s)}
-                />
-              )}
-            </div>
-            <p className="-mt-4 text-sm text-secondary-text">
-              Faites glisser la carte pour la tourner à la main.
-            </p>
+            <Link
+              to="/globe"
+              className="flex items-center gap-2 rounded-full bg-brand px-10 py-5 text-lg font-bold text-primary-text transition-transform hover:scale-105"
+            >
+              <Globe2 className="h-5 w-5" />
+              Explorer la carte
+            </Link>
           </div>
         </section>
 
