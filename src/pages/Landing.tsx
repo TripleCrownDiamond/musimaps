@@ -7,8 +7,8 @@ import { hasMapboxToken } from '../lib/mapbox'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
 import PulseDots from '../components/PulseDots'
 import Footer from '../components/Footer'
-import autourDeVousImg from '../assets/autour-de-vous.png'
-import voyagerImg from '../assets/voyager.png'
+import autourDeVousImg from '../assets/autour-de-vous.webp'
+import voyagerImg from '../assets/voyager.webp'
 
 const features = [
   {
@@ -49,7 +49,7 @@ const profiles = [
   {
     id: 'amateur' as const,
     label: 'Amateur de musique',
-    description: 'Je veux découvrir les artistes autour de moi.',
+    description: 'Je veux découvrir les artistes.',
     icon: Headphones,
   },
 ]

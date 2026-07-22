@@ -84,7 +84,18 @@ export default function GlobeMap({
       attributionControl: false,
     })
 
-    map.on('style.load', () => map.setFog({ ...FOG[theme] }))
+    map.on('style.load', () => {
+      map.setFog({ ...FOG[theme] })
+      // Nettoyage des labels : on ne garde que pays / ville / quartier / rue
+      // (+ les markers artistes). On masque POI (restaurants, magasins…),
+      // transports, aeroports et les noms de reliefs / eaux.
+      const HIDE = /(poi|transit|airport|aeroway|natural|water|waterway|ferry|golf|building)/i
+      for (const layer of map.getStyle().layers ?? []) {
+        if (layer.type === 'symbol' && HIDE.test(layer.id)) {
+          map.setLayoutProperty(layer.id, 'visibility', 'none')
+        }
+      }
+    })
 
     // Rotation automatique, interrompue des que l'utilisateur manipule le globe
     let frame = requestAnimationFrame(function spin() {

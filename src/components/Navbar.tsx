@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
-import { currentTheme } from '../lib/theme'
-import logoLight from '../assets/logo/musimaps-06.png'
-import logoDark from '../assets/logo/musimaps-04.png'
+import logo from '../assets/logo/logo2.png'
 
 const links = [
   { to: '/globe', label: 'La carte' },
@@ -13,17 +11,7 @@ const links = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
-  const [dark, setDark] = useState(false)
   const { pathname, hash } = useLocation()
-
-  // Le logo suit le theme : version texte fonce en clair, texte blanc en sombre.
-  useEffect(() => {
-    const sync = () => setDark(currentTheme() === 'dark')
-    sync()
-    const observer = new MutationObserver(sync)
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => observer.disconnect()
-  }, [])
 
   // Sur l'accueil la waitlist est une ancre ; ailleurs il faut y revenir par la route.
   const waitlistTo = pathname === '/' ? '#waitlist' : '/#waitlist'
@@ -33,7 +21,7 @@ export default function Navbar() {
       <nav className="w-full max-w-7xl rounded-[2rem] border border-hairline bg-surface/70 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <Link to="/" onClick={() => setOpen(false)} aria-label="MusiMaps — accueil">
-            <img src={dark ? logoDark : logoLight} alt="MusiMaps" className="h-7 w-auto" />
+            <img src={logo} alt="MusiMaps" className="h-8 w-auto" />
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">
