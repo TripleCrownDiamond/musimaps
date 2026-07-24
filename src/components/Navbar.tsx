@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
-import logo from '../assets/logo/logo2.png'
+import logolight from '../assets/logo/musimaps-06.png'
+import logodark from '../assets/logo/musimaps-04.png'
 
 const links = [
   { to: '/globe', label: 'La carte' },
@@ -12,6 +13,16 @@ const links = [
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const { pathname, hash } = useLocation()
+  const [dark, setDark] = useState(false)
+  useEffect(() => {
+    const m = matchMedia('(prefers-color-scheme: dark)')
+    const update = () => setDark(document.documentElement.getAttribute('data-theme') === 'dark' || (!document.documentElement.getAttribute('data-theme') && m.matches))
+    update()
+    m.addEventListener('change', update)
+    const obs = new MutationObserver(update)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => { m.removeEventListener('change', update); obs.disconnect() }
+  }, [])
 
   // Sur l'accueil la waitlist est une ancre ; ailleurs il faut y revenir par la route.
   const waitlistTo = pathname === '/' ? '#waitlist' : '/#waitlist'
@@ -21,7 +32,7 @@ export default function Navbar() {
       <nav className="w-full max-w-7xl rounded-[2rem] border border-hairline bg-surface/70 px-6 py-3 backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <Link to="/" onClick={() => setOpen(false)} aria-label="MusiMaps — accueil">
-            <img src={logo} alt="MusiMaps" className="h-8 w-auto" />
+            <img src={dark ? logodark : logolight} alt="MusiMaps" className="h-8 w-auto" />
           </Link>
 
           <div className="hidden items-center gap-8 md:flex">

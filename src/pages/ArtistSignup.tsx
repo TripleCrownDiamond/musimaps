@@ -21,13 +21,13 @@ export default function ArtistSignup() {
   const update = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.artistName.trim()) return setError("Indiquez votre nom d'artiste.")
     if (!isValidEmail(form.email)) return setError('Cette adresse email est invalide.')
     if (!form.city.trim()) return setError('Indiquez la ville depuis laquelle vous créez.')
     setError(null)
-    saveSignup({
+    await saveSignup({
       email: form.email.trim(),
       profile: 'artiste',
       artistName: form.artistName.trim(),

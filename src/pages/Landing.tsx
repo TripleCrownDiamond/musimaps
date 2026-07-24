@@ -62,7 +62,7 @@ export default function Landing() {
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
-  const handleWaitlistSubmit = (e: React.FormEvent) => {
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isValidEmail(email)) {
       setError('Merci de saisir une adresse email valide.')
@@ -74,7 +74,7 @@ export default function Landing() {
       navigate('/artistes', { state: { email: email.trim() } })
       return
     }
-    saveSignup({ email: email.trim(), profile })
+    await saveSignup({ email: email.trim(), profile })
     setSubmitted(true)
     setTimeout(() => navigate('/merci', { state: { email: email.trim(), profile } }), 900)
   }
