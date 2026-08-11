@@ -27,6 +27,20 @@ npm run check          # build web + typecheck mobile — à passer avant toute 
 Couleur, seuil, libellé, formule, règle métier → `shared`.
 `StyleSheet`, classe Tailwind, navigation, composant → l'app.
 
+## Hiérarchie de marque
+
+| | Couleur | Rôle |
+|---|---|---|
+| **★ Principale** | bleu `#2F52E0` | boutons, texte de marque, icônes, liens, frontières du globe |
+| **☆ Secondaire** | vert lime `#A8FF35` | accents, aplats, éléments graphiques, mise en évidence |
+
+C'est la hiérarchie de la landing, et elle vaut partout — web comme mobile.
+
+⚠️ **Les noms historiques disent l'inverse** : `brand` contient le **secondaire** (lime) et
+`brandDeep` la **principale** (bleu). Ils sont conservés car ~600 sites d'appel en dépendent.
+Dans tout code nouveau, utiliser `brandPrimary` / `brandSecondary` (mobile) et
+`--color-brand-primary` / `--color-brand-secondary` (web).
+
 ## Non négociable
 
 - **Jamais de copier-coller entre `apps/web` et `apps/mobile`.** Le besoin commun s'extrait dans

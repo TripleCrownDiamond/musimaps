@@ -29,6 +29,10 @@ const THEME_KEYS = [
   ['--color-secondary-bg', 'secondaryBg'],
   ['--color-primary-text', 'primaryText'],
   ['--color-secondary-text', 'secondaryText'],
+  // Noms semantiques — a privilegier dans tout code nouveau.
+  ['--color-brand-primary', 'brandPrimary'],
+  ['--color-brand-secondary', 'brandSecondary'],
+  // Noms historiques, conserves : ~600 sites d'appel en dependent.
   ['--color-brand', 'brand'],
   ['--color-brand-deep', 'brandDeep'],
   ['--color-brand-deep-foreground', 'brandDeepForeground'],

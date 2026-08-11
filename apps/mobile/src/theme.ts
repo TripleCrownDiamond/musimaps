@@ -22,7 +22,13 @@ function toAppColors(p: typeof lightPalette, blackTone: string) {
     muted: p.muted,
     /** Filet des cartes et séparateurs — niveau « marqué » du web. */
     line: p.hairlineStrong,
+    /** ★ PRINCIPALE — bleu. À utiliser dans tout code nouveau. */
+    brandPrimary: p.brandPrimary,
+    /** ☆ SECONDAIRE — vert lime. */
+    brandSecondary: p.brandSecondary,
+    /** @deprecated Nom trompeur : vaut le lime. Voir `brandSecondary`. */
     brand: p.brand,
+    /** @deprecated Nom trompeur : vaut le bleu. Voir `brandPrimary`. */
     brandDeep: p.brandDeep,
     brandSoft: p.brandSoft,
     danger: p.danger,

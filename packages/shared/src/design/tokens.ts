@@ -14,6 +14,27 @@
  * web, `success` sombre différent). Toute nouvelle couleur passe par ici.
  */
 
+/**
+ * HIÉRARCHIE DE MARQUE — la référence, telle qu'elle s'applique sur la landing.
+ *
+ *   PRINCIPALE  : le bleu #2F52E0. Boutons, texte de marque, icônes, liens,
+ *                 tracés de frontières sur le globe. C'est la couleur qui
+ *                 porte l'identité — 192 usages sur le web, 133 sur mobile.
+ *   SECONDAIRE  : le vert lime #A8FF35. Accents, aplats, éléments graphiques,
+ *                 mise en évidence ponctuelle — 124 usages web, 62 mobile.
+ *
+ * ⚠️ Les noms historiques sont trompeurs et le resteront tant qu'on ne les
+ * aura pas renommés partout : `brand` contient le SECONDAIRE (lime) et
+ * `brandDeep` contient le PRINCIPAL (bleu). Ils sont conservés parce que
+ * ~600 sites d'appel en dépendent des deux côtés.
+ *
+ * ➜ Dans tout code nouveau, utiliser `brandPrimary` / `brandSecondary`.
+ */
+const BRAND_PRIMARY = '#2F52E0';
+const BRAND_SECONDARY = '#A8FF35';
+/** Blanc sur bleu — contraste ~6:1, identique en clair et en sombre. */
+const BRAND_PRIMARY_FG = '#FFFFFF';
+
 /** Jeu de couleurs complet d'un thème. */
 export interface ThemePalette {
   /** Fond de page. */
@@ -24,15 +45,21 @@ export interface ThemePalette {
   primaryText: string;
   /** Texte secondaire. */
   secondaryText: string;
-  /** Vert lime du logo : aplats et éléments graphiques. */
+  /** ★ PRINCIPALE — bleu. Boutons, texte de marque, icônes, liens. */
+  brandPrimary: string;
+  /** ☆ SECONDAIRE — vert lime. Accents, aplats, mise en évidence. */
+  brandSecondary: string;
+  /** Texte posé sur la couleur principale. */
+  brandPrimaryForeground: string;
+  /** @deprecated Nom trompeur — vaut le SECONDAIRE (lime). Voir `brandSecondary`. */
   brand: string;
-  /** Variante foncée (bleu) : texte, icônes, boutons secondaires. */
+  /** @deprecated Nom trompeur — vaut la PRINCIPALE (bleu). Voir `brandPrimary`. */
   brandDeep: string;
-  /** Texte posé sur `brandDeep`. */
+  /** @deprecated Voir `brandPrimaryForeground`. */
   brandDeepForeground: string;
-  /** Teinte claire : fonds de pastilles. */
+  /** Teinte claire de la principale : fonds de pastilles. */
   brandSoft: string;
-  /** Accent — aligné sur `brand`. */
+  /** @deprecated Voir `brandSecondary`. */
   accent: string;
   /** Succès / validation. */
   success: string;
@@ -59,11 +86,14 @@ export const lightPalette: ThemePalette = {
   secondaryBg: '#F5F5F4',
   primaryText: '#111111',
   secondaryText: '#6B7280',
-  brand: '#A8FF35',
-  brandDeep: '#2F52E0',
-  brandDeepForeground: '#FFFFFF',
+  brandPrimary: BRAND_PRIMARY,
+  brandSecondary: BRAND_SECONDARY,
+  brandPrimaryForeground: BRAND_PRIMARY_FG,
+  brand: BRAND_SECONDARY,
+  brandDeep: BRAND_PRIMARY,
+  brandDeepForeground: BRAND_PRIMARY_FG,
   brandSoft: '#E4EAFB',
-  accent: '#A8FF35',
+  accent: BRAND_SECONDARY,
   success: '#22C55E',
   danger: '#DC2626',
   surface: '#FFFFFF',
@@ -80,11 +110,14 @@ export const darkPalette: ThemePalette = {
   secondaryBg: '#191D24',
   primaryText: '#F3F4F6',
   secondaryText: '#9AA4AF',
-  brand: '#A8FF35',
-  brandDeep: '#2F52E0',
-  brandDeepForeground: '#FFFFFF',
+  brandPrimary: BRAND_PRIMARY,
+  brandSecondary: BRAND_SECONDARY,
+  brandPrimaryForeground: BRAND_PRIMARY_FG,
+  brand: BRAND_SECONDARY,
+  brandDeep: BRAND_PRIMARY,
+  brandDeepForeground: BRAND_PRIMARY_FG,
   brandSoft: '#1E2A44',
-  accent: '#A8FF35',
+  accent: BRAND_SECONDARY,
   success: '#22C55E',
   danger: '#EF4444',
   surface: '#14181F',
