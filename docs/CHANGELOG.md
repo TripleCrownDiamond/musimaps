@@ -21,6 +21,12 @@
   halos calculés selon la taille du disque et navigation pin-à-pin avec contrôles de 36 px.
 - Le pin sélectionné est rendu au premier plan et son nom dispose de 200 px indépendamment du disque,
   afin de rester lisible dans les groupes denses.
+- Mobile : l'anneau de popularité est désormais centré sur le disque visible, et non étiré sur la
+  zone tactile de 72 × 82 px ; le grand contour ovale permanent disparaît.
+- Expo Web ignorait `styleJSON` et ne lisait `styleURL` qu'au montage : la carte est maintenant
+  remontée avec le document de style teinté, tandis que le natif conserve le contrat `styleJSON`.
+- Le fog bleu est également inscrit à la racine du style partagé, ce qui applique l'atmosphère de
+  marque dans la preview navigateur même lorsque le composant natif `Atmosphere` est indisponible.
 - Correction de la donnée Maher Zain : ses coordonnées Tripoli étaient associées au pays `SE` ; le pays
   est désormais `LY`, donc la navigation en Suède reste dans le groupe Stockholm.
 - `scripts/fix-geo-country.mjs` écrit désormais par connexion Postgres vérifiée et expose `--check` pour

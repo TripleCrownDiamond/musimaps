@@ -64,7 +64,13 @@ palette localement.
 Les couleurs sémantiques vivent dans `packages/shared/src/design/tokens.ts` ;
 le module carte ne contient aucune copie des hex de marque. Le web applique la
 recette aux couches Mapbox chargées, le mobile applique les mêmes actions au
-`styleJSON`.
+`styleJSON`. Le document porte aussi le fog à sa racine : cette voie est
+obligatoire pour Expo Web, dont l'adaptateur Mapbox n'expose pas le composant
+natif `Atmosphere` et ne relit pas dynamiquement `styleJSON`.
+
+La zone tactile d'un pin peut être plus grande que son disque, mais elle ne
+pilote jamais sa géométrie visible. Anneau et halo restent des cercles centrés
+sur le diamètre réel du pin ; ils ne s'étirent pas sur la zone de toucher.
 
 ---
 
