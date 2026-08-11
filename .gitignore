@@ -21,6 +21,13 @@ Thumbs.db
 .agents/
 /musimaps-app/
 
+# Outils tiers et etats locaux (jamais versionnes)
+.freebuff/
+supabase/.temp/
+
+# Artefacts de build/deploiement
+/musimaps-hostinger.zip
+
 # Logs
 *.log
 npm-debug.*
