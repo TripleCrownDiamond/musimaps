@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Favicon officielle (nouvelle icône). Le CMS peut la remplacer dynamiquement. -->
+    <link rel="icon" type="image/png" href="/favicon-32-v2.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-v2.png" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-v2.png" />
+    <meta name="theme-color" content="#A8FF35" />
+
+    <!-- SEO statique (par défaut FR) : le CMS applique ensuite les valeurs
+         publiées dynamiquement. Ces meta garantissent un aperçu correct
+         dans Google / réseaux sociaux même sans exécution du JS. -->
+    <title>Découvrez des artistes, des villes et des scènes musicales | Musimaps</title>
+    <meta
+      name="description"
+      content="Découvrez des villes, des artistes et des scènes musicales partout dans le monde. Explorez chaque lieu à travers sa musique, retrouvez vos artistes favoris et repérez les talents près de vous."
+    />
+    <meta
+      name="keywords"
+      content="Musimaps, découverte musicale, plateforme musicale, carte musicale, carte des artistes, carte interactive musique, scènes musicales"
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://musimaps.app/" />
+
+    <!-- Open Graph (aperçus de partage) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Musimaps" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="Découvrez le monde en musique | Musimaps" />
+    <meta
+      property="og:description"
+      content="Découvrez des artistes par ville et explorez les scènes musicales locales du monde entier."
+    />
+    <meta property="og:url" content="https://musimaps.app/" />
+    <meta property="og:image" content="https://musimaps.app/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Musimaps — Explorez le monde en musique" />
+
+    <!-- Carte X / Twitter (statique par défaut, le CMS l'affine par langue) -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Découvrez le monde en musique | Musimaps" />
+    <meta
+      name="twitter:description"
+      content="Découvrez des artistes par ville et explorez les scènes musicales locales du monde entier."
+    />
+    <meta name="twitter:image" content="https://musimaps.app/og-image.jpg" />
+
+    <!-- Alternates linguistiques : le français vit sur /, l'anglais sur /en -->
+    <link rel="alternate" hreflang="fr" href="https://musimaps.app/" />
+    <link rel="alternate" hreflang="en" href="https://musimaps.app/en" />
+    <link rel="alternate" hreflang="x-default" href="https://musimaps.app/" />
+
+    <script>
+      // Applique le theme avant le premier rendu pour eviter le flash.
+      (function () {
+        try {
+          var saved = localStorage.getItem('musimaps.theme')
+          var dark = saved
+            ? saved === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light'
+        }
+      })()
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800&f[]=satoshi@400,500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

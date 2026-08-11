@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Carte des Artistes | Musimaps</title><script src="https://cdn.tailwindcss.com"></script><script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script><link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800&f[]=satoshi@400,500&display=swap" rel="stylesheet"><style>:root{--warm-white:#FAF7F5;--secondary-bg:#F5F5F4;--primary-text:#111111;--secondary-text:#6B7280;--accent:#F59E0B;--success:#22C55E}.display-font{font-family:'Cabinet Grotesk',sans-serif;letter-spacing:-0.04em}body{font-family:'Satoshi',sans-serif;background-color:var(--warm-white);color:var(--primary-text);overflow:hidden}.map-container{height:calc(100vh - 80px);background-image:radial-gradient(circle at 2px 2px,#e5e5e5 1px,transparent 0);background-size:40px 40px}.pulse-dot{position:absolute;width:6px;height:6px;background-color:var(--accent);border-radius:50%;cursor:pointer;transition:transform 0.3s ease}.pulse-dot::after{content:'';position:absolute;inset:-8px;border-radius:50%;background-color:var(--accent);opacity:0.3;animation:pulse 2s infinite}.pulse-user{background-color:var(--success)}.pulse-user::after{background-color:var(--success)}@keyframes pulse{0%{transform:scale(1);opacity:0.4}50%{transform:scale(2.5);opacity:0}100%{transform:scale(1);opacity:0}}.floating-card{backdrop-filter:blur(12px);background:rgba(255,255,255,0.85);border:1px solid rgba(0,0,0,0.05);box-shadow:0 10px 30px rgba(0,0,0,0.05)}.artist-sidebar{width:400px;height:calc(100vh - 120px);scrollbar-width:none}.artist-sidebar::-webkit-scrollbar{display:none}.map-overlay-blur{mask-image:linear-gradient(to top,transparent,black 15%,black 85%,transparent)}</style>  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head><body><div class="relative min-h-screen bg-[#FAF7F5]"><!-- component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;vision&quot;,&quot;visionHref&quot;:&quot;#vision&quot;,&quot;aboutHref&quot;:&quot;#about&quot;,&quot;waitlistHref&quot;:&quot;#waitlist&quot;}, $emit() {} }">
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-center py-6 px-8 md:px-12">
+  <nav class="flex items-center justify-between w-full max-w-7xl bg-white/70 backdrop-blur-xl border border-black/5 rounded-full px-6 py-3">
+    <!-- Logo Section -->
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-2xl"></iconify-icon>
+      <span style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;" class="text-xl font-extrabold uppercase">Musimaps</span>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="hidden md:flex items-center gap-10">
+      <a 
+        :href="visionHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'vision', 'hover:text-orange-500': activeItem !== 'vision' }"
+      >
+        Vision
+      </a>
+      <a 
+        :href="aboutHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'about', 'hover:text-orange-500': activeItem !== 'about' }"
+      >
+        À Propos
+      </a>
+      <a 
+        :href="waitlistHref" 
+        class="bg-black text-white px-6 py-2.5 rounded-full text-sm font-medium hover:scale-105 transition-transform"
+      >
+        Rejoindre la liste
+      </a>
+    </div>
+
+    <!-- Mobile Toggle -->
+    <button 
+      @click="$emit('toggleMenu')"
+      class="md:hidden flex items-center justify-center p-1"
+    >
+      <iconify-icon icon="lucide:menu" class="text-2xl"></iconify-icon>
+    </button>
+  </nav>
+</header>
+</div>
+<!-- /component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) --><main class="pt-24 h-screen overflow-hidden flex"><div class="flex-1 relative bg-[#F5F5F4] overflow-hidden rounded-tr-[40px]"><div class="absolute inset-0 map-container opacity-60"></div><div id="artist-pins"><div class="pulse-dot" style="top:30%; left:40%" title="Aria Lyra"></div><div class="pulse-dot" style="top:45%; left:35%" title="Seya"></div><div class="pulse-dot" style="top:55%; left:60%" title="The Nomad"></div><div class="pulse-dot" style="top:20%; left:75%" title="Echo Chamber"></div><div class="pulse-dot" style="top:65%; left:20%" title="Luna Wave"></div><div class="pulse-dot pulse-user" style="top:50%; left:50%"></div></div><div class="absolute top-8 left-8 z-10 w-80 space-y-4"><div class="floating-card p-4 rounded-2xl flex items-center gap-3"><div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600"><iconify-icon icon="lucide:navigation"></iconify-icon></div><div><p class="text-[10px] text-secondary-text uppercase tracking-widest">Position Actuelle</p><p class="font-bold text-sm">Cotonou, Littoral</p></div></div><div class="relative"><input type="text" placeholder="Chercher un artiste ou une ville..." class="w-full pl-12 pr-4 py-4 rounded-2xl floating-card border-none text-sm outline-none focus:ring-2 focus:ring-orange-500 transition-all"><iconify-icon icon="lucide:search" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl"></iconify-icon></div></div><div class="absolute bottom-8 right-8 flex gap-2"><button class="w-12 h-12 floating-card rounded-full flex items-center justify-center hover:bg-white transition-colors"><iconify-icon icon="lucide:plus"></iconify-icon></button><button class="w-12 h-12 floating-card rounded-full flex items-center justify-center hover:bg-white transition-colors"><iconify-icon icon="lucide:minus"></iconify-icon></button><button class="w-12 h-12 floating-card rounded-full flex items-center justify-center bg-black text-white hover:scale-105 transition-all"><iconify-icon icon="lucide:crosshair"></iconify-icon></button></div></div><aside class="artist-sidebar p-8 overflow-y-auto space-y-6"><div class="flex items-center justify-between mb-2"><h2 class="display-font text-2xl">À proximité</h2><span class="px-3 py-1 bg-orange-100 text-orange-600 text-[10px] font-bold rounded-full uppercase tracking-tighter">12 Artistes</span></div><div class="space-y-4"><a id="artist-card-seya" href="https://draft-4941c060-7679-4c46-b7ac-5d78cb002768.preview.superdesign.dev" class="block group"><div class="floating-card p-4 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-orange-200"><div class="flex gap-4"><div class="relative h-24 w-24 rounded-2xl overflow-hidden flex-shrink-0"><img src="https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&q=80&w=200" alt="Seya" class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"></div><div class="flex flex-col justify-between py-1"><div class="space-y-1"><h3 class="display-font text-lg">Seya</h3><div class="flex items-center gap-1 text-xs text-secondary-text"><iconify-icon icon="lucide:map-pin" class="text-orange-500"></iconify-icon><span>1.2km away</span></div></div><div class="flex gap-2"><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Afrobeats</span><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Soul</span></div></div></div></div></a><a id="artist-card-nomad" href="https://draft-4941c060-7679-4c46-b7ac-5d78cb002768.preview.superdesign.dev" class="block group"><div class="floating-card p-4 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-orange-200"><div class="flex gap-4"><div class="relative h-24 w-24 rounded-2xl overflow-hidden flex-shrink-0"><img src="https://images.unsplash.com/photo-1520127877038-ed666a5007b3?auto=format&fit=crop&q=80&w=200" alt="The Nomad" class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"></div><div class="flex flex-col justify-between py-1"><div class="space-y-1"><h3 class="display-font text-lg">The Nomad</h3><div class="flex items-center gap-1 text-xs text-secondary-text"><iconify-icon icon="lucide:map-pin" class="text-orange-500"></iconify-icon><span>2.8km away</span></div></div><div class="flex gap-2"><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Electronic</span><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Ambient</span></div></div></div></div></a><a id="artist-card-aria" href="https://draft-4941c060-7679-4c46-b7ac-5d78cb002768.preview.superdesign.dev" class="block group"><div class="floating-card p-4 rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-orange-200"><div class="flex gap-4"><div class="relative h-24 w-24 rounded-2xl overflow-hidden flex-shrink-0"><img src="https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&q=80&w=200" alt="Aria Lyra" class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110"></div><div class="flex flex-col justify-between py-1"><div class="space-y-1"><h3 class="display-font text-lg">Aria Lyra</h3><div class="flex items-center gap-1 text-xs text-secondary-text"><iconify-icon icon="lucide:map-pin" class="text-orange-500"></iconify-icon><span>4.5km away</span></div></div><div class="flex gap-2"><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Jazz</span><span class="text-[10px] bg-gray-100 px-2 py-0.5 rounded-full">Blues</span></div></div></div></div></a><div class="pt-4"><a id="load-more-btn" href="#" class="w-full py-4 border border-dashed border-gray-200 rounded-2xl text-secondary-text text-sm font-medium flex items-center justify-center gap-2 hover:bg-white hover:border-orange-500 hover:text-orange-500 transition-all">Charger plus d'artistes <iconify-icon icon="lucide:plus"></iconify-icon></a></div></div></aside></main><!-- component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) -->
+<div v-scope="{ ...{&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;twitterHref&quot;:&quot;#twitter&quot;}, $emit() {} }">
+<footer class="py-12 px-6 md:px-12 border-t border-black/5">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-xl"></iconify-icon>
+      <span class="text-lg font-extrabold uppercase" style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;">Musimaps</span>
+    </div>
+    <div class="flex gap-8 text-sm text-gray-500">
+      <a :href="privacyHref" class="hover:text-black transition-colors">Confidentialité</a>
+      <a :href="termsHref" class="hover:text-black transition-colors">Conditions</a>
+      <a :href="twitterHref" class="hover:text-black transition-colors">Twitter</a>
+    </div>
+    <p class="text-sm text-gray-500">© 2024 Musimaps. Atlas Technologique Musical.</p>
+  </div>
+</footer>
+</div>
+<!-- /component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) --></div></body></html>

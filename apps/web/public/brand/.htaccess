@@ -1,0 +1,12 @@
+# Les logos de marque gardent des noms stables (logo-black.png, logo-white.png…)
+# contrairement aux bundles hashes. Un cache COURT évite qu'une ancienne
+# version reste servie (CDN/navigateur) après un redéploiement.
+<IfModule mod_headers.c>
+  Header set Cache-Control "public, max-age=3600"
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/png "access plus 1 hour"
+  ExpiresByType image/svg+xml "access plus 1 hour"
+</IfModule>

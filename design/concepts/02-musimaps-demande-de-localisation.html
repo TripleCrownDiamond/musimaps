@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Musimaps | Autorisation de Localisation</title><script src="https://cdn.tailwindcss.com"></script><script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script><link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800&f[]=satoshi@400,500&display=swap" rel="stylesheet"><style>:root{--warm-white:#FAF7F5;--secondary-bg:#F5F5F4;--primary-text:#111111;--secondary-text:#6B7280;--accent:#F59E0B;--success:#22C55E}body{font-family:'Satoshi',sans-serif;background-color:var(--warm-white);color:var(--primary-text);overflow-x:hidden}.display-font{font-family:'Cabinet Grotesk',sans-serif;letter-spacing:-0.04em}.map-bg{background-image:radial-gradient(circle at 2px 2px,#e5e5e5 1px,transparent 0);background-size:40px 40px}.pulse-dot{position:absolute;width:4px;height:4px;background-color:var(--accent);border-radius:50%;animation:pulse 3s infinite ease-in-out}@keyframes pulse{0%{transform:scale(1);opacity:0.4}50%{transform:scale(2.5);opacity:1;box-shadow:0 0 10px var(--accent)}100%{transform:scale(1);opacity:0.4}}.floating-card{backdrop-filter:blur(12px);background:rgba(255,255,255,0.8);border:1px solid rgba(0,0,0,0.05);box-shadow:0 20px 40px rgba(0,0,0,0.04)}</style>  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head><body><div class="min-h-screen bg-[#FAF7F5] flex flex-col"><!-- component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;vision&quot;,&quot;visionHref&quot;:&quot;#vision&quot;,&quot;aboutHref&quot;:&quot;#about&quot;,&quot;waitlistHref&quot;:&quot;#waitlist&quot;}, $emit() {} }">
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-center py-6 px-8 md:px-12">
+  <nav class="flex items-center justify-between w-full max-w-7xl bg-white/70 backdrop-blur-xl border border-black/5 rounded-full px-6 py-3">
+    <!-- Logo Section -->
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-2xl"></iconify-icon>
+      <span style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;" class="text-xl font-extrabold uppercase">Musimaps</span>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="hidden md:flex items-center gap-10">
+      <a 
+        :href="visionHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'vision', 'hover:text-orange-500': activeItem !== 'vision' }"
+      >
+        Vision
+      </a>
+      <a 
+        :href="aboutHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'about', 'hover:text-orange-500': activeItem !== 'about' }"
+      >
+        À Propos
+      </a>
+      <a 
+        :href="waitlistHref" 
+        class="bg-black text-white px-6 py-2.5 rounded-full text-sm font-medium hover:scale-105 transition-transform"
+      >
+        Rejoindre la liste
+      </a>
+    </div>
+
+    <!-- Mobile Toggle -->
+    <button 
+      @click="$emit('toggleMenu')"
+      class="md:hidden flex items-center justify-center p-1"
+    >
+      <iconify-icon icon="lucide:menu" class="text-2xl"></iconify-icon>
+    </button>
+  </nav>
+</header>
+</div>
+<!-- /component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) --><main class="flex-1 relative flex items-center justify-center pt-24 pb-12 overflow-hidden"><div class="absolute inset-0 z-0 map-bg opacity-40"></div><div class="absolute inset-0 z-10 pointer-events-none"><div class="pulse-dot" style="top:20%;left:25%"></div><div class="pulse-dot" style="top:40%;left:75%"></div><div class="pulse-dot" style="top:60%;left:30%"></div><div class="pulse-dot" style="top:80%;left:85%"></div><div class="pulse-dot" style="top:15%;left:60%"></div><div class="pulse-dot" style="top:70%;left:10%"></div></div><div class="relative z-20 w-full max-w-4xl px-6 flex flex-col items-center gap-12"><div class="text-center space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-700"><h1 class="display-font text-5xl md:text-8xl font-extrabold">Activez l'atlas.</h1><p class="text-xl text-secondary-text max-w-xl mx-auto">L'exploration commence là où vous êtes. Autorisez votre position pour révéler les artistes de votre territoire.</p></div><div class="floating-card p-8 md:p-12 rounded-[2.5rem] w-full max-w-lg space-y-8 animate-in fade-in zoom-in duration-1000 delay-200"><div class="flex justify-center"><div class="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-orange-500 shadow-inner ring-4 ring-orange-50/50"><iconify-icon icon="lucide:map-pin" class="text-4xl"></iconify-icon></div></div><div class="text-center space-y-2"><h2 class="display-font text-2xl font-bold uppercase tracking-tight">Localisation requise</h2><p class="text-secondary-text">Musimaps utilise votre position exacte uniquement pour afficher les créateurs à proximité et vous aider à découvrir la culture musicale de votre région.</p></div><div class="flex flex-col gap-3"><a id="cta-allow-location" href="https://draft-2fce3049-5d94-4e95-997b-694d7fb60299.preview.superdesign.dev" class="w-full py-5 bg-black text-white rounded-full text-lg font-medium flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">Autoriser la localisation</a><a id="cta-skip-location" href="#" class="w-full py-5 bg-transparent text-secondary-text border border-black/5 rounded-full text-lg font-medium flex items-center justify-center hover:bg-black/5 transition-colors">Plus tard</a></div><div class="flex items-center justify-center gap-2 text-xs text-secondary-text uppercase tracking-widest pt-4 font-medium"><iconify-icon icon="lucide:shield-check" class="text-green-500 text-base"></iconify-icon><span>Données anonymisées et protégées</span></div></div></div></main><section class="py-24 bg-[#F5F5F4] border-t border-black/5"><div class="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12"><div class="space-y-4 text-center md:text-left"><div class="w-12 h-12 bg-white rounded-xl shadow-sm border border-black/5 flex items-center justify-center text-orange-500 mx-auto md:mx-0"><iconify-icon icon="lucide:eye-off" class="text-2xl"></iconify-icon></div><h3 class="display-font text-xl uppercase">Confidentialité</h3><p class="text-secondary-text">Nous n'enregistrons jamais votre historique de déplacements. Votre position est traitée instantanément pour générer la carte.</p></div><div class="space-y-4 text-center md:text-left"><div class="w-12 h-12 bg-white rounded-xl shadow-sm border border-black/5 flex items-center justify-center text-orange-500 mx-auto md:mx-0"><iconify-icon icon="lucide:compass" class="text-2xl"></iconify-icon></div><h3 class="display-font text-xl uppercase">Précision</h3><p class="text-secondary-text">La géolocalisation nous permet de vous connecter aux artistes les plus proches, même dans les zones rurales.</p></div><div class="space-y-4 text-center md:text-left"><div class="w-12 h-12 bg-white rounded-xl shadow-sm border border-black/5 flex items-center justify-center text-orange-500 mx-auto md:mx-0"><iconify-icon icon="lucide:zap" class="text-2xl"></iconify-icon></div><h3 class="display-font text-xl uppercase">Expérience</h3><p class="text-secondary-text">Sans accès à la localisation, Musimaps reste un atlas statique. L'autoriser le rend vivant.</p></div></div></section><!-- component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) -->
+<div v-scope="{ ...{&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;twitterHref&quot;:&quot;#twitter&quot;}, $emit() {} }">
+<footer class="py-12 px-6 md:px-12 border-t border-black/5">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-xl"></iconify-icon>
+      <span class="text-lg font-extrabold uppercase" style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;">Musimaps</span>
+    </div>
+    <div class="flex gap-8 text-sm text-gray-500">
+      <a :href="privacyHref" class="hover:text-black transition-colors">Confidentialité</a>
+      <a :href="termsHref" class="hover:text-black transition-colors">Conditions</a>
+      <a :href="twitterHref" class="hover:text-black transition-colors">Twitter</a>
+    </div>
+    <p class="text-sm text-gray-500">© 2024 Musimaps. Atlas Technologique Musical.</p>
+  </div>
+</footer>
+</div>
+<!-- /component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) --></div></body></html>", "title": "Musimaps | Demande de Localisation", "description": "Minimalist and premium location permission request page. Features a floating material card with clear calls to action, an abstract pulsing map background, and a transparency section to build user trust.", "width": 1440, "height": 1200}

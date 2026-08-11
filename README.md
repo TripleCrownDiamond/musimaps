@@ -1,32 +1,48 @@
-# React + TypeScript + Vite
+# Musimaps monorepo
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Deux clients, une seule source métier et un seul backend Supabase.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```text
+musimaps/
+├─ apps/
+│  ├─ web/                  # React + Vite + Mapbox
+│  └─ mobile/               # React Native + Expo
+├─ packages/
+│  └─ shared/               # Types, artistes, villes et recherche
+├─ supabase/
+│  └─ migrations/           # Schéma commun aux deux applications
+└─ design/
+   ├─ concepts/             # Concepts HTML historiques
+   └─ figma/                # Source Figma et exports de référence
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Installation
+
+```bash
+npm install
+```
+
+## Commandes
+
+```bash
+npm run dev:web
+npm run dev:mobile
+npm run build:web
+npm run build:mobile:android
+npm run build:mobile:ios
+npm run check
+```
+
+## Responsabilités
+
+- `apps/web` contient uniquement les préoccupations navigateur et Mapbox.
+- `apps/mobile` contient uniquement les préoccupations Expo et natives.
+- `packages/shared` ne dépend d’aucun framework et constitue la source unique du catalogue.
+- `supabase` appartient au produit entier, pas à une application particulière.
+- chaque application conserve son propre `.env.local`, car les préfixes publics diffèrent :
+  `VITE_*` pour le web et `EXPO_PUBLIC_*` pour Expo.
+
+## Documentation
+
+- [`docs/PROJECT-STATE.md`](docs/PROJECT-STATE.md) — état complet : architecture, données, scripts, déploiement, accès.
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — historique des évolutions, features et fix.

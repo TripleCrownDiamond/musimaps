@@ -1,0 +1,706 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Le dark mode du site est pilote par [data-theme="dark"] (et non .dark). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme {
+  --font-display: 'Cabinet Grotesk', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
+  --color-warm-white: #FAF7F5;
+  --color-secondary-bg: #F5F5F4;
+  --color-primary-text: #111111;
+  --color-secondary-text: #6B7280;
+  /* Vert lime du logo : aplats et elements graphiques */
+  --color-brand: #A8FF35;
+  /* Variante foncee (bleu) : texte, icones et boutons secondaires */
+  --color-brand-deep: #2F52E0;
+  /* Texte sur fond bleu : blanc en mode clair (contraste ~6:1) */
+  --color-brand-deep-foreground: #FFFFFF;
+  /* Teinte claire : fonds de pastilles */
+  --color-brand-soft: #E4EAFB;
+  --color-accent: #A8FF35;
+  --color-success: #22C55E;
+  /* Surfaces et bordures — bascule en dark via [data-theme="dark"] plus bas */
+  --color-surface: #FFFFFF;
+  --color-hairline: rgba(0, 0, 0, 0.05);
+  --color-hairline-strong: rgba(0, 0, 0, 0.1);
+  /* Bouton principal : inverse de la page (noir sur clair, blanc sur sombre) */
+  --color-ink: #111111;
+  --color-ink-foreground: #FFFFFF;
+}
+
+/* Palette sombre : on redefinit les memes tokens, tous les utilitaires suivent. */
+:root[data-theme='dark'] {
+  --map-dot: rgba(255, 255, 255, 0.06);
+  --color-warm-white: #0D0F13;
+  --color-secondary-bg: #191D24;
+  --color-surface: #14181F;
+  --color-primary-text: #F3F4F6;
+  --color-secondary-text: #9AA4AF;
+  --color-brand-deep: #2F52E0;
+  --color-brand-deep-foreground: #FFFFFF;
+  --color-brand-soft: #1E2A44;
+  --color-hairline: rgba(255, 255, 255, 0.09);
+  --color-hairline-strong: rgba(255, 255, 255, 0.16);
+  --color-ink: #F3F4F6;
+  --color-ink-foreground: #0D0F13;
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Selects natifs (formulaires) : texte du contrôle fermé ET liste
+     d'options toujours lisibles, en clair comme en sombre. Sans ces
+     couleurs explicites, certains navigateurs rendent la liste avec un
+     texte illisible (blanc sur blanc / noir sur noir selon color-scheme). */
+  select {
+    background-color: var(--color-surface);
+    color: var(--color-primary-text);
+  }
+  select option {
+    background-color: var(--color-surface);
+    color: var(--color-primary-text);
+  }
+
+  /* Titres en Cabinet Grotesk partout (landing + admin) pour une seule
+     identité typographique, alignée sur la landing page. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--color-warm-white);
+    color: var(--color-primary-text);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer utilities {
+  .display-font {
+    font-family: var(--font-display);
+    letter-spacing: -0.04em;
+  }
+
+  /* Flèche de dropdown pour les selects natifs sans apparence native
+     (appearance-none) : on voit que c'est une liste déroulante. */
+  .select-chevron {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1.1rem center;
+    background-size: 1rem;
+    padding-right: 2.75rem;
+  }
+
+  .map-bg {
+    background-image: radial-gradient(circle at 2px 2px, var(--map-dot, #e5e5e5) 1px, transparent 0);
+    background-size: 40px 40px;
+  }
+
+  .scroll-zoom {
+    transition: transform 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .floating-card {
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+    border: 1px solid var(--color-hairline);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.04);
+  }
+
+  .artist-cover {
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.7)),
+      url('https://images.unsplash.com/photo-1493225255756-d9584f8606e9?auto=format&fit=crop&q=80&w=1920');
+    background-size: cover;
+    background-position: center;
+  }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(2.5); opacity: 1; box-shadow: 0 0 10px var(--color-accent); }
+  100% { transform: scale(1); opacity: 0.4; }
+}
+
+@keyframes scaleCheck {
+  0% { transform: scale(0); opacity: 0; }
+  80% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes equalizer {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pulse-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-accent);
+  border-radius: 50%;
+  animation: pulse 3s infinite ease-in-out;
+}
+
+.pulse-user {
+  background-color: var(--color-success);
+}
+
+.animate-check {
+  animation: scaleCheck 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.waveform-bar {
+  width: 3px;
+  background-color: var(--color-accent);
+  border-radius: 2px;
+  animation: equalizer 1s ease-in-out infinite;
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.7s ease-out forwards;
+}
+
+/* ============================================================
+   Scroll-reveal (composant Reveal) : entrée par animation CSS
+   (revealIn) déclenchée quand l'élément entre dans le viewport.
+   ============================================================ */
+@keyframes revealIn {
+  from {
+    opacity: 0;
+    transform: var(--reveal-from, translateY(2.5rem));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Pop des icônes de la frise « Comment ça marche » au déclenchement. */
+[data-revealed='false'] .journey-icon,
+[data-revealed='false'] .journey-num {
+  transform: scale(0.4);
+  opacity: 0;
+}
+[data-revealed='true'] .journey-icon {
+  animation: iconPop 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.15s both;
+}
+[data-revealed='true'] .journey-num {
+  animation: iconPop 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.22s both;
+}
+@keyframes iconPop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Accessibilité : pas d'animation si l'utilisateur le demande. */
+@media (prefers-reduced-motion: reduce) {
+  [data-revealed='false'] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  [data-revealed='true'] .journey-icon,
+  [data-revealed='true'] .journey-num {
+    animation: none;
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   Tokens shadcn/ui — basés sur la palette Musimaps existante.
+   --color-accent reste le vert lime du site (#A8FF35).
+   ============================================================ */
+:root {
+  --background: #FAF7F5;
+  --foreground: #111111;
+  --card: #FFFFFF;
+  --card-foreground: #111111;
+  --popover: #FFFFFF;
+  --popover-foreground: #111111;
+  /* Action primaire : le bleu de la marque (#2F52E0). */
+  --primary: #2F52E0;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F4;
+  --secondary-foreground: #111111;
+  --muted: #F5F5F4;
+  --muted-foreground: #6B7280;
+  --accent: #A8FF35;
+  /* Texte sur fond vert lime : toujours sombre pour rester lisible (light + dark). */
+  --accent-foreground: #111111;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.14);
+  --ring: #2F52E0;
+  --radius: 0.75rem;
+}
+
+:root[data-theme='dark'] {
+  --background: #0D0F13;
+  --foreground: #F3F4F6;
+  --card: #14181F;
+  --card-foreground: #F3F4F6;
+  --popover: #14181F;
+  --popover-foreground: #F3F4F6;
+  --primary: #2F52E0;
+  --primary-foreground: #FFFFFF;
+  --secondary: #191D24;
+  --secondary-foreground: #F3F4F6;
+  --muted: #191D24;
+  --muted-foreground: #9AA4AF;
+  /* Sur le cyan du thème sombre, le texte doit rester noir, pas cyan. */
+  --accent-foreground: #111111;
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.16);
+  --ring: #2F52E0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* Filigrane Mapbox masque a la demande.
+   Attention : les conditions d'utilisation Mapbox imposent d'afficher le logo
+   et l'attribution. Le retrait releve d'une decision produit assumee. */
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-bottom-left,
+.mapboxgl-ctrl-bottom-right {
+  display: none !important;
+}
+
+/* Wrapper des markers : Mapbox pose dessus son transform (positionnement).
+   Le scale visuel est appliqué sur l'enfant .artist-pin pour ne jamais
+   mélanger scale et transform sur le même élément (sinon les pins sont
+   compressés vers le coin supérieur gauche de la carte). */
+.artist-pin__wrapper {
+  transform-origin: center;
+}
+
+/* Pin artiste sur la carte — LUMINEUX, coloré par DENSITÉ (tier de
+   popularité) : fond + halo dans la couleur du tier (--pin-tier-color /
+   --pin-tier-glow), encre contrastée (--pin-ink). Un artiste très suivi
+   brille en lime, un émergent en bleu, un discret en gris-bleu.
+   La taille est pilotée par le zoom via la variable --pin-scale (posée en
+   JS par GlobeMap) : très petit en vue globe, il grossit à l'approche. */
+.artist-pin {
+  position: relative;
+  /* Crée un stacking context : l'anneau (z-index -1) reste au-dessus de la carte. */
+  z-index: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  background: var(--pin-tier-color, var(--color-brand-deep));
+  color: var(--pin-ink, var(--color-brand-deep-foreground));
+  font-weight: 700;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* Scale + opacité continus selon le zoom (défauts si variables manquantes).
+     On utilise la propriété `scale` (indépendante) et non transform :
+     Mapbox positionne le marker avec un transform inline qui écraserait
+     un scale passé via transform. `scale` se combine avec lui. */
+  scale: var(--pin-scale, 1);
+  opacity: var(--pin-opacity, 1);
+  transition: scale 0.2s ease, opacity 0.35s ease, box-shadow 0.35s ease;
+  /* Halo lumineux : la couleur du tier irradie autour du pin. */
+  box-shadow:
+    0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
+    0 0 22px var(--pin-tier-glow, rgba(47, 82, 224, 0.25)),
+    0 4px 12px rgba(0, 0, 0, 0.22);
+}
+.artist-pin:hover {
+  box-shadow:
+    0 0 14px var(--pin-tier-glow, rgba(47, 82, 224, 0.5)),
+    0 0 30px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
+    0 6px 14px rgba(0, 0, 0, 0.28);
+}
+
+/* Anneau de densité : un halo 2px de la couleur du tier entoure le pin
+   (grise neutre → bleu de marque → bleu profond → lime). Posé sur un
+   pseudo-élément pour ne pas interférer avec le scale/transform de Mapbox. */
+.artist-pin::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 2px solid var(--pin-tier-color, transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.artist-pin:hover {
+  scale: calc(var(--pin-scale, 1) * 1.12);
+  opacity: 1;
+}
+
+/* Nom de l'artiste au survol d'un pin individuel — petite étiquette
+   discrète au-dessus du pin, comme sur le web (parité mobile). */
+.artist-pin__tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(13, 15, 19, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  transform: translateX(-50%) translateY(3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.28);
+}
+
+/* Le wrapper survolé passe au-dessus des pins voisins : son tooltip ne
+   peut plus être recouvert par un marker rendu après lui dans le DOM. */
+.artist-pin__wrapper:hover {
+  z-index: 1000;
+}
+
+/* Pin « sélectionné » (nav flèches de la mini-barre « lieu ») : grossi,
+   anneau lime plein et nom affiché en permanence — comme un survol forcé. */
+.artist-pin--selected {
+  z-index: 1200;
+  scale: calc(var(--pin-scale, 1) * 1.28);
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--color-brand), 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: artist-pin-pulse 1.6s ease-in-out infinite;
+}
+.artist-pin--selected::before {
+  inset: -9px;
+  border-width: 3px;
+  border-color: var(--color-brand);
+  opacity: 1;
+  animation: artist-pin-ring 1.6s ease-in-out infinite;
+}
+.artist-pin--selected .artist-pin__tooltip,
+.artist-pin__tooltip--visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  background: var(--color-brand);
+  color: #0b1420;
+  font-weight: 700;
+}
+@keyframes artist-pin-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--color-brand), 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 7px rgba(168, 255, 53, 0.55), 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+@keyframes artist-pin-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(168, 255, 53, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(168, 255, 53, 0);
+  }
+}
+
+.artist-pin__wrapper:hover .artist-pin__tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Pin de cluster (pays ou ville) : drapeau + CODE PAYS + compteur + fans
+   agrégés — plus grand et plus contrasté qu'un pin individuel.
+   En vue globe, il devient un PETIT POINT discret (texte masqué) qui
+   grossit et affiche ses stats au zoom (--pin-scale continu de 0.22 à 1.15). */
+.artist-pin--cluster {
+  width: auto;
+  min-width: 68px;
+  height: auto;
+  padding: 7px 13px;
+  border-radius: 17px;
+  border-width: 2px;
+  white-space: nowrap;
+  /* Fond + encre colorés par densité (comme les pins individuels). */
+  background: var(--pin-tier-color, var(--color-brand-deep));
+  color: var(--pin-ink, var(--color-brand-deep-foreground));
+  box-shadow:
+    0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.4)),
+    0 0 24px var(--pin-tier-glow, rgba(47, 82, 224, 0.28)),
+    0 4px 12px rgba(0, 0, 0, 0.22);
+  scale: max(var(--pin-scale, 1), 0.24);
+  opacity: max(var(--pin-opacity, 1), 0.92);
+}
+/* Vue globe (zoom faible) : les clusters se réduisent à de TRÈS PETITS
+   points fins et discrets (contenu masqué) qui grossissent à l'approche. */
+.map-zoom-far .artist-pin--cluster {
+  width: 10px;
+  min-width: 0;
+  height: 10px;
+  padding: 0;
+  border-radius: 50%;
+  border-width: 1px;
+  background: var(--pin-tier-color, var(--color-brand-deep));
+  box-shadow: 0 0 8px var(--pin-tier-glow, rgba(47, 82, 224, 0.5));
+  scale: max(var(--pin-scale, 1), 0.9);
+}
+.map-zoom-far .artist-pin--cluster .artist-pin__cluster-content {
+  opacity: 0;
+}
+.map-zoom-far .artist-pin--sub {
+  width: 8px;
+  height: 8px;
+  border-width: 1px;
+  background: var(--pin-tier-color, var(--color-brand));
+  box-shadow: 0 0 8px var(--pin-tier-glow, rgba(168, 255, 53, 0.5));
+}
+.artist-pin--cluster .artist-pin__cluster-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.05;
+}
+.artist-pin--cluster .artist-pin__cluster-main {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.artist-pin--cluster .artist-pin__cluster-stats {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.88;
+}
+.artist-pin--cluster::after {
+  display: none;
+}
+.artist-pin--cluster:hover {
+  scale: calc(max(var(--pin-scale, 1), 0.6) * 1.06);
+}
+
+/* Sous-cluster (~2 km) : même pilule que les clusters ville/pays mais plus
+   compacte et en accent lime — les artistes d'un même point géocodé sont
+   regroupés jusqu'à ce que le zoom les sépare en pins individuels. */
+.artist-pin--sub {
+  min-width: 44px;
+  padding: 6px 11px;
+  border-width: 1.5px;
+  border-color: rgba(0, 0, 0, 0.14);
+  background: var(--pin-tier-color, var(--color-brand));
+  color: var(--pin-ink, #0b1420);
+  box-shadow:
+    0 0 10px var(--pin-tier-glow, rgba(168, 255, 53, 0.4)),
+    0 0 22px var(--pin-tier-glow, rgba(168, 255, 53, 0.25)),
+    0 4px 12px rgba(0, 0, 0, 0.2);
+  scale: max(var(--pin-scale, 1), 0.65);
+}
+.artist-pin--sub .artist-pin__cluster-main {
+  font-size: 12px;
+}
+.artist-pin--sub:hover {
+  scale: calc(max(var(--pin-scale, 1), 0.65) * 1.08);
+}
+
+/* ------------------------------------------------------------------
+   Recherche repliable : quand on zoome (ou qu'une fiche s'ouvre), la
+   barre de recherche se replie en icône dans le coin haut droit.
+   L'icône « pop » avec un anneau pulsé pour montrer la transformation,
+   et la barre fond vers le haut (opacité + léger scale).
+   ------------------------------------------------------------------ */
+@keyframes search-icon-pop {
+  0% {
+    transform: scale(0.4) rotate(-20deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12) rotate(4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.search-icon {
+  animation: search-icon-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes search-icon-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.search-icon__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--color-brand-deep);
+  animation: search-icon-ring 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+/* La barre pleine fond vers le haut quand elle se replie. */
+.search-bar-collapsing {
+  transform: translateY(-14px) scale(0.96);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Pin avec photo : l'image remplit le cercle (repli initiales sinon). */
+.artist-pin--img {
+  padding: 0;
+}
+.artist-pin--img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+}
+
+.artist-pin::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
+
+/* Vue globe lointaine : flèche masquée (la taille et l'opacité sont déjà
+   pilotées en continu par --pin-scale / --pin-opacity posés en JS). */
+.map-zoom-far .artist-pin::after {
+  display: none;
+}
+
+/* Zoom rapproché : les pins reprennent leur place centrale. */
+.map-zoom-near .artist-pin {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+/* Artiste en tournée (au moins une date de concert) : anneau lime pulsé
+   derrière le pin — signal discret, sans bruit supplémentaire sur la carte. */
+.artist-pin--event .artist-pin__ring {
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-accent);
+  animation: eventRing 2.4s ease-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes eventRing {
+  0% { transform: scale(1); opacity: 0.95; }
+  70% { transform: scale(1.9); opacity: 0; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artist-pin--event .artist-pin__ring {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+@keyframes sheetIn {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.sheet-in {
+  animation: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Masque la barre de défilement verticale des panneaux (ex. recherche). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@keyframes loaderPulse {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+@keyframes loaderTrack {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.loader-pulse {
+  animation: loaderPulse 1.6s ease-in-out infinite;
+}
+
+.loader-track {
+  animation: loaderTrack 1.4s ease-in-out infinite;
+}

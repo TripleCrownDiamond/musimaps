@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Confirmation | Musimaps</title><script src="https://cdn.tailwindcss.com"></script><script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script><link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800&f[]=satoshi@400,500&display=swap" rel="stylesheet"><style>:root{--warm-white:#FAF7F5;--secondary-bg:#F5F5F4;--primary-text:#111111;--secondary-text:#6B7280;--accent:#F59E0B;--success:#22C55E}body{font-family:'Satoshi',sans-serif;background-color:var(--warm-white);color:var(--primary-text);overflow-x:hidden}.display-font{font-family:'Cabinet Grotesk',sans-serif;letter-spacing:-0.04em}.map-bg{background-image:radial-gradient(circle at 2px 2px,#e5e5e5 1px,transparent 0);background-size:40px 40px}.pulse-dot{position:absolute;width:4px;height:4px;background-color:var(--accent);border-radius:50%;animation:pulse 3s infinite ease-in-out}@keyframes pulse{0%{transform:scale(1);opacity:0.4}50%{transform:scale(2.5);opacity:1;box-shadow:0 0 10px var(--accent)}100%{transform:scale(1);opacity:0.4}}.floating-card{backdrop-filter:blur(12px);background:rgba(255,255,255,0.8);border:1px solid rgba(0,0,0,0.05);box-shadow:0 20px 40px rgba(0,0,0,0.04)}@keyframes scaleCheck{0%{transform:scale(0);opacity:0}80%{transform:scale(1.2);opacity:1}100%{transform:scale(1);opacity:1}}.animate-check{animation:scaleCheck 0.6s cubic-bezier(0.175,0.885,0.32,1.275) forwards}</style>  <style>sd-component { display: block; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/petite-vue@0.4.1/dist/petite-vue.iife.js" defer init></script>
+</head><body><div class="min-h-screen flex flex-col"><!-- component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) -->
+<div v-scope="{ ...{&quot;activeItem&quot;:&quot;&quot;,&quot;visionHref&quot;:&quot;#vision&quot;,&quot;aboutHref&quot;:&quot;#about&quot;,&quot;waitlistHref&quot;:&quot;#waitlist&quot;}, $emit() {} }">
+<header class="fixed top-0 left-0 right-0 z-50 flex justify-center py-6 px-8 md:px-12">
+  <nav class="flex items-center justify-between w-full max-w-7xl bg-white/70 backdrop-blur-xl border border-black/5 rounded-full px-6 py-3">
+    <!-- Logo Section -->
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-2xl"></iconify-icon>
+      <span style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;" class="text-xl font-extrabold uppercase">Musimaps</span>
+    </div>
+
+    <!-- Desktop Navigation -->
+    <div class="hidden md:flex items-center gap-10">
+      <a 
+        :href="visionHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'vision', 'hover:text-orange-500': activeItem !== 'vision' }"
+      >
+        Vision
+      </a>
+      <a 
+        :href="aboutHref" 
+        class="text-sm font-medium transition-colors" 
+        :class="{ 'text-orange-500': activeItem === 'about', 'hover:text-orange-500': activeItem !== 'about' }"
+      >
+        À Propos
+      </a>
+      <a 
+        :href="waitlistHref" 
+        class="bg-black text-white px-6 py-2.5 rounded-full text-sm font-medium hover:scale-105 transition-transform"
+      >
+        Rejoindre la liste
+      </a>
+    </div>
+
+    <!-- Mobile Toggle -->
+    <button 
+      @click="$emit('toggleMenu')"
+      class="md:hidden flex items-center justify-center p-1"
+    >
+      <iconify-icon icon="lucide:menu" class="text-2xl"></iconify-icon>
+    </button>
+  </nav>
+</header>
+</div>
+<!-- /component: NavigationBar (6160ef60-f8b2-405d-8e78-176af6dc2d45) --><main class="flex-1 pt-32 pb-24 relative overflow-hidden"><div class="absolute inset-0 z-0 map-bg opacity-30"></div><div class="absolute inset-0 z-10 pointer-events-none"><div class="pulse-dot" style="top:15%;left:20%"></div><div class="pulse-dot" style="top:65%;left:10%"></div><div class="pulse-dot" style="top:40%;left:85%"></div></div><section class="relative z-20 max-w-7xl mx-auto px-6 flex flex-col items-center"><div class="mb-12 flex flex-col items-center text-center"><div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center text-green-500 text-5xl mb-8 animate-check"><iconify-icon icon="lucide:check-circle"></iconify-icon></div><h1 class="display-font text-6xl md:text-8xl font-extrabold mb-6 tracking-tight">Merci d'être des nôtres!</h1><p class="text-xl md:text-2xl text-secondary-text max-w-2xl font-light">Vérifiez votre email pour confirmer votre inscription et commencer l'expédition.</p></div><div class="w-full max-w-xl mb-24 animate-in fade-in slide-in-from-bottom-8 duration-700"><div class="floating-card p-8 rounded-3xl text-center space-y-4"><p class="text-sm text-secondary-text uppercase tracking-widest">Email de confirmation envoyé à</p><div class="flex items-center justify-center gap-3"><span class="text-xl font-medium">votre.email@exemple.com</span><iconify-icon icon="lucide:mail" class="text-orange-500"></iconify-icon></div><div class="pt-4"><button class="text-orange-500 text-sm font-medium hover:underline">Renvoyer l'email</button></div></div></div><div class="w-full space-y-12 animate-in fade-in duration-1000 delay-300"><h2 class="display-font text-3xl text-center uppercase tracking-tighter">Prochaines étapes</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-8"><div class="bg-white/50 p-10 rounded-3xl border border-black/5 flex flex-col items-start gap-6 hover:shadow-lg transition-shadow"><div class="w-14 h-14 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 text-2xl"><iconify-icon icon="lucide:inbox"></iconify-icon></div><div class="space-y-2"><h3 class="display-font text-xl">Consulter votre boîte</h3><p class="text-secondary-text text-sm">Recherchez l'email de bienvenue Musimaps dans votre boîte de réception ou vos spams.</p></div></div><div class="bg-white/50 p-10 rounded-3xl border border-black/5 flex flex-col items-start gap-6 hover:shadow-lg transition-shadow"><div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center text-green-500 text-2xl"><iconify-icon icon="lucide:shield-check"></iconify-icon></div><div class="space-y-2"><h3 class="display-font text-xl">Confirmer l'accès</h3><p class="text-secondary-text text-sm">Cliquez sur le bouton de vérification pour valider votre place sur la liste d'attente prioritaire.</p></div></div><div class="bg-white/50 p-10 rounded-3xl border border-black/5 flex flex-col items-start gap-6 hover:shadow-lg transition-shadow"><div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-500 text-2xl"><iconify-icon icon="lucide:map"></iconify-icon></div><div class="space-y-2"><h3 class="display-font text-xl">Explorer l'Atlas</h3><p class="text-secondary-text text-sm">Une fois confirmé, vous recevrez vos accès en avant-première pour explorer la carte mondiale.</p></div></div></div></div><div class="mt-20 flex flex-col sm:flex-row items-center justify-center gap-6"><a id="btn-return-home" href="https://draft-542d6ec4-e802-43e9-baf6-c7ee4b76c452.preview.superdesign.dev" class="px-10 py-5 bg-black text-white rounded-full text-lg font-medium hover:scale-105 transition-transform flex items-center gap-2">Retourner à l'accueil</a><button id="btn-share-twitter" class="px-10 py-5 bg-white border border-black/10 rounded-full text-lg font-medium hover:bg-gray-50 transition-colors flex items-center gap-2"><iconify-icon icon="lucide:share-2"></iconify-icon> Partager l'expédition</button></div></section></main><!-- component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) -->
+<div v-scope="{ ...{&quot;privacyHref&quot;:&quot;#privacy&quot;,&quot;termsHref&quot;:&quot;#terms&quot;,&quot;twitterHref&quot;:&quot;#twitter&quot;}, $emit() {} }">
+<footer class="py-12 px-6 md:px-12 border-t border-black/5">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+    <div class="flex items-center gap-2">
+      <iconify-icon icon="lucide:map-pin" class="text-orange-500 text-xl"></iconify-icon>
+      <span class="text-lg font-extrabold uppercase" style="font-family: 'Cabinet Grotesk', sans-serif; letter-spacing: -0.04em;">Musimaps</span>
+    </div>
+    <div class="flex gap-8 text-sm text-gray-500">
+      <a :href="privacyHref" class="hover:text-black transition-colors">Confidentialité</a>
+      <a :href="termsHref" class="hover:text-black transition-colors">Conditions</a>
+      <a :href="twitterHref" class="hover:text-black transition-colors">Twitter</a>
+    </div>
+    <p class="text-sm text-gray-500">© 2024 Musimaps. Atlas Technologique Musical.</p>
+  </div>
+</footer>
+</div>
+<!-- /component: Footer (2049e20f-f8af-4f45-8a73-8783db502e51) --></div></body></html>
