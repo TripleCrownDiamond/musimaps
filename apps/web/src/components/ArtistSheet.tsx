@@ -31,7 +31,7 @@ import {
   viewerCountryFromCity,
 } from '../lib/stats'
 import { fetchArtistTracks, type StreamedTrack } from '../lib/music'
-import { fetchArtistBooking, type ArtistBooking } from '../lib/profile'
+import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import BookingModal from './BookingModal'
 

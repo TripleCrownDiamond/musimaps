@@ -72,44 +72,18 @@ export async function uploadArtistImage(
  * bascule « réservable » et son catalogue de prestations (tarifs à venir).
  */
 
-export interface BookingPlan {
-  id: string
-  name: string
-  description: string
-  price: number
-  currency: string
-  duration: string
-  active: boolean
-}
-
-export interface ArtistBooking {
-  bookable: boolean
-  plans: BookingPlan[]
-}
-
-/** Forfaits + état réservable du profil revendiqué (ou du profil choisi). */
-export async function fetchArtistBooking(
-  artistId?: string,
-): Promise<ArtistBooking | null> {
-  if (!hasSupabase()) return null
-  const { data, error } = await supabase!.rpc('get_artist_booking', {
-    p_artist_id: artistId ?? '',
-  })
-  if (error || !data) return null
-  const booking = data as ArtistBooking | null
-  return booking && Array.isArray(booking.plans) ? booking : null
-}
-
 /** Met à jour réservable + forfaits (artiste revendiqué ou admin). */
 export async function updateArtistBooking(
   artistId: string,
   bookable: boolean,
+  // `description` et `duration` sont nullables en base (migration 00048 :
+  // TEXT sans NOT NULL, insertion via NULLIF). Le RPC accepte donc null.
   plans: Array<{
     name: string
-    description?: string
+    description?: string | null
     price: number
     currency?: string
-    duration?: string
+    duration?: string | null
     active: boolean
   }>,
 ): Promise<{ ok: boolean; error?: string }> {

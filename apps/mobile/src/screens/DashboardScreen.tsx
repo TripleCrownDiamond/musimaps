@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
-import { fetchBookings, type BookingRecord, type BookingStatus } from '../lib/booking';
+import { fetchBookings, type BookingRecord, type BookingStatus } from '@musimaps/shared';
 import {
   fetchArtistIdByName,
   fetchArtistStatsDetail,

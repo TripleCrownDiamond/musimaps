@@ -36,18 +36,20 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { fetchBookings, type BookingRecord } from '../lib/booking'
+import { fetchBookings, type BookingRecord } from '@musimaps/shared'
 import { setAccountType } from '../lib/discovery'
 import {
-  fetchArtistBooking,
   fetchMyArtistProfile,
   updateArtistBooking,
   updateMyArtistProfile,
   uploadArtistImage,
-  type ArtistBooking,
-  type BookingPlan,
   type ClaimedArtistProfile,
 } from '../lib/profile'
+import {
+  fetchArtistBooking,
+  type ArtistBooking,
+  type BookingPlan,
+} from '@musimaps/shared'
 import {
   checkin,
   fetchArtistFollowers,
@@ -823,7 +825,7 @@ export default function Dashboard() {
                     <div>
                       <span className="text-xs font-bold text-secondary-text">{t('dash.planDuration')}</span>
                       <input
-                        value={plan.duration}
+                        value={plan.duration ?? ''}
                         onChange={(e) => patchPlan(index, { duration: e.target.value })}
                         placeholder="2h"
                         className="mt-1 w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
@@ -857,7 +859,7 @@ export default function Dashboard() {
                     <div className="sm:col-span-2 lg:col-span-6">
                       <span className="text-xs font-bold text-secondary-text">{t('dash.planDesc')}</span>
                       <input
-                        value={plan.description}
+                        value={plan.description ?? ''}
                         onChange={(e) => patchPlan(index, { description: e.target.value })}
                         placeholder="Set complet…"
                         className="mt-1 w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"

@@ -16,7 +16,7 @@ import type { Artist } from '@musimaps/shared';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n, type MessageKey } from '../i18n';
-import { requestBooking, type BookingPref } from '../lib/booking';
+import { requestBooking, type BookingPref } from '@musimaps/shared';
 import { notifyArtistAction } from '../lib/stats';
 import { fonts, type AppColors } from '../theme';
 
