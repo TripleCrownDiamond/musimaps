@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { translate } from '@musimaps/shared'
 import {
   LANG_PATH_RE,
-  MESSAGES,
   localizePath,
   type Lang,
   type MessageKey,
@@ -48,15 +48,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang])
 
   const t = useCallback(
-    (key: MessageKey, params?: Record<string, string | number>) => {
-      let template = MESSAGES[lang][key] ?? MESSAGES.fr[key] ?? key
-      if (params) {
-        for (const [name, value] of Object.entries(params)) {
-          template = template.replaceAll(`{${name}}`, String(value))
-        }
-      }
-      return template
-    },
+    (key: MessageKey, params?: Record<string, string | number>) =>
+      translate(lang, key, params),
     [lang],
   )
 

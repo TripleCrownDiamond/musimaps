@@ -9,7 +9,7 @@
 |---|---|
 | 0 — Sécuriser la base | ✅ fait — `.gitignore` nettoyé, fusion dans `main`, `npm run check` vert |
 | 1 — Tokens partagés | ✅ fait — `packages/shared/src/design/tokens.ts`, CSS web **identique au bit près** |
-| 2 — i18n partagé | ⬜ à faire |
+| 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
 | 3 — Logique métier partagée | ⬜ à faire |
 | 3bis — Corrections carte | ⬜ à faire — voir [AUDIT-CARTE.md](AUDIT-CARTE.md) §4 |
 | 4 — Écrans mobiles manquants | ⬜ à faire |

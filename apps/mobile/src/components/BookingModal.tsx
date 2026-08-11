@@ -363,7 +363,7 @@ export function BookingModal({ artist, onClose }: BookingModalProps) {
             {done ? (
               <View style={styles.centerBlock}>
                 <Ionicons name="checkmark-circle" size={56} color={colors.success} />
-                <Text style={styles.stateTitle}>{t('booking.success')}</Text>
+                <Text style={styles.stateTitle}>{t('booking.successShort')}</Text>
               </View>
             ) : gated ? (
               <View style={styles.centerBlock}>

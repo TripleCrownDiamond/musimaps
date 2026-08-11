@@ -2,6 +2,7 @@ export type Coordinates = [longitude: number, latitude: number];
 
 export * from './geo'
 export * from './design/tokens'
+export { MESSAGES, translate, type Lang, type MessageKey } from './i18n'
 
 
 export interface Track {

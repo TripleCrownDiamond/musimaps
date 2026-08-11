@@ -164,11 +164,11 @@ export function ProfileEditScreen({ navigation, route }: Props) {
           <BrandMark size={40} />
         </View>
 
-        <Text style={styles.kicker}>{t('pedit.kicker')}</Text>
+        <Text style={styles.kicker}>{t('pedit.kickerDevice')}</Text>
         <Text style={styles.title}>
           {profile ? t('profile.editProfile') : t('profile.createProfile')}
         </Text>
-        <Text style={styles.subtitle}>{t('pedit.subtitle')}</Text>
+        <Text style={styles.subtitle}>{t('pedit.subtitleDevice')}</Text>
 
         <View style={styles.form}>
           <Field label={t('pedit.nameLabel')} value={displayName} onChangeText={setDisplayName} placeholder={t('pedit.namePh')} colors={colors} styles={styles} />

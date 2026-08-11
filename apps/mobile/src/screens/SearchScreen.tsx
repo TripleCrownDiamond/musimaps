@@ -356,7 +356,7 @@ export function SearchScreen({ navigation }: Props) {
                         ) : (
                           <Ionicons name="add" size={18} color={colors.brandDeep} />
                         )}
-                        <Text style={styles.addBtnText}>{t('discovery.add')}</Text>
+                        <Text style={styles.addBtnText}>{t('discovery.addShort')}</Text>
                       </Pressable>
                     )}
                     {showRefer && (

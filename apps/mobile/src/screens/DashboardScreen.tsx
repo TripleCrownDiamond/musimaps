@@ -130,7 +130,7 @@ export function DashboardScreen({ navigation }: Props) {
           <Text style={styles.sectionTitle}>{t('dash.chartAudience')}</Text>
           <ChartCard title={t('dash.analyticsDays')} colors={colors}>
             {detailStats.by_day.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.inkSoft }]}>{t('dash.analyticsNoData')}</Text>
+              <Text style={[styles.emptyText, { color: colors.inkSoft }]}>{t('dash.analyticsNoDataShort')}</Text>
             ) : (
               <BarChart
                 data={detailStats.by_day.map((d) => ({
@@ -143,7 +143,7 @@ export function DashboardScreen({ navigation }: Props) {
           </ChartCard>
           <ChartCard title={t('dash.analyticsCountries')} colors={colors}>
             {detailStats.top_countries.length === 0 ? (
-              <Text style={[styles.emptyText, { color: colors.inkSoft }]}>{t('dash.analyticsNoData')}</Text>
+              <Text style={[styles.emptyText, { color: colors.inkSoft }]}>{t('dash.analyticsNoDataShort')}</Text>
             ) : (
               <HBarList
                 data={detailStats.top_countries.map((c) => ({

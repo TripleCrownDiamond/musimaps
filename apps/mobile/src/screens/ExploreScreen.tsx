@@ -1717,7 +1717,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       <View style={styles.resultCopy}>
                         <Text style={styles.resultTitle} numberOfLines={1}>{c.name}</Text>
                         <Text style={styles.resultMeta}>
-                          {t('globe.countryArtists', { count: c.count, s: c.count > 1 ? 's' : '' })}
+                          {t('globe.countryArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
                         </Text>
                       </View>
                       <View style={styles.typeBadge}>
@@ -1771,7 +1771,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       <View style={styles.resultCopy}>
                         <Text style={styles.resultTitle} numberOfLines={1}>{c.flag} {c.city}</Text>
                         <Text style={styles.resultMeta}>
-                          {c.country} · {t('globe.placeArtists', { count: c.count, s: c.count > 1 ? 's' : '' })}
+                          {c.country} · {t('globe.placeArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
                         </Text>
                       </View>
                       <View style={styles.typeBadge}>
@@ -1835,7 +1835,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       <View style={styles.resultCopy}>
                         <Text style={styles.resultTitle} numberOfLines={1}>{g.genre}</Text>
                         <Text style={styles.resultMeta}>
-                          {t('globe.genreArtists', { count: g.count, s: g.count > 1 ? 's' : '' })}
+                          {t('globe.genreArtistsShort', { count: g.count, s: g.count > 1 ? 's' : '' })}
                         </Text>
                       </View>
                       <View style={styles.typeBadge}>
@@ -1898,7 +1898,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                             ) : (
                               <Ionicons name="add" size={17} color={colors.white} />
                             )}
-                            <Text style={styles.addBtnText}>{t('discovery.add')}</Text>
+                            <Text style={styles.addBtnText}>{t('discovery.addShort')}</Text>
                           </Pressable>
                         ) : (
                           <Pressable style={styles.referBtn} onPress={() => openRefer(candidate)}>
