@@ -27,8 +27,8 @@
 | `booking` | ✅ | **typage nullable faux côté web corrigé** |
 | `music` | ✅ | miroir exact, zéro écart de logique |
 | `auth` | ✅ | **`premium` écrasé côté web corrigé** — voir ci-dessous |
-| `stats` | ⬜ | 332 / 207 — 125 lignes d'écart à arbitrer |
-| `gamification` | ⬜ | 148 / 200 — le mobile a 52 lignes de plus |
+| `stats` | ✅ | try/catch manquants côté web repris ; favoris non synchronisés (voir ci-dessous) |
+| `gamification` | 🔴 | **pas une duplication — deux systèmes différents.** Décision produit requise |
 | `discovery` | ⬜ | **1710 / 1325 — en dernier, seul.** Voir ci-dessous |
 
 **`auth` — ce que la fusion a révélé :**
@@ -45,6 +45,38 @@
 - **Manque fonctionnel côté web** : ni suppression de compte ni changement d'email.
   La logique est désormais partagée et les clés i18n existent — il ne manque que
   l'interface. Tâche à part (enjeu RGPD).
+
+**`stats` — divergence produit relevée :**
+- **Les favoris ne se synchronisent pas.** Le web les stocke dans la table Supabase
+  `favorites`, liée au compte ; le mobile dans `AsyncStorage`, local à l'appareil
+  (`musimaps.mobile.favorites`). Sauver un artiste sur mobile ne le fait pas
+  apparaître sur le web, et une réinstallation efface tout. Le mobile ne consomme
+  donc ni `toggleFavorite` ni `fetchFavorites`, pourtant partagés.
+  Corriger = migrer les favoris mobiles vers Supabase + un chemin de reprise des
+  données locales existantes. C'est du développement, pas de la migration.
+
+**`gamification` — ce n'est PAS une duplication.**
+
+Les deux surfaces n'ont **aucun symbole en commun** :
+
+| | Web (`lib/gamification.ts`) | Mobile (`src/gamification.ts`) |
+|---|---|---|
+| Modèle | badges par rôle (`audience` / `artist`) | règles éditables (`BadgeRule`) |
+| Métriques | favoris, suivis, streak, bookings, revendication, vues, dates | villes visitées, favoris, profil créé |
+| Source | code | **CMS**, édité depuis l'admin (`BadgesPage`) |
+| Icônes | clés lucide | `Ionicons.glyphMap` — dépendance plateforme dans la logique |
+| Exports | `computeRoleBadges`, `earnedPoints`, `levelFromPoints`, `syncUserGamification` | `satisfiesRule`, `parseBadges`, `getLevelInfo`, `DEFAULT_BADGES` |
+
+Les deux écrivent dans la **même table `gamification`**, mais avec des clés
+différentes — `user_key = userId` côté web, `user_key = deviceId` côté mobile.
+Donc pas d'écrasement mutuel, mais :
+- une même personne peut apparaître **deux fois** au classement de l'admin ;
+- la colonne `badges` reçoit deux formes JSON incompatibles (`string[]` côté web,
+  `EarnedBadge[]` côté mobile) ;
+- le web écrit `visited_cities: 0, favorites: 0` en dur dans sa ligne.
+
+Fusionner sans trancher casserait les badges déjà acquis d'un des deux côtés.
+**Décision produit requise avant toute ligne de code.**
 
 **`discovery` — points connus avant de commencer :**
 - 385 lignes d'écart, c'est le module qui alimente la carte.
