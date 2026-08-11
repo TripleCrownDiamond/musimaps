@@ -1,6 +1,7 @@
 export type Coordinates = [longitude: number, latitude: number];
 
 export * from './geo'
+export * from './design/tokens'
 
 
 export interface Track {

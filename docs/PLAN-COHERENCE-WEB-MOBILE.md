@@ -1,7 +1,20 @@
 # Plan technique — Cohérence visuelle et fonctionnelle web ↔ mobile
 
 > Établi le 2026-08-11, à partir d'un audit du code réel.
-> Point de départ : commit de sauvegarde `e2819dc` sur `backup/monorepo-etat-actuel`.
+> Point de départ : commit de sauvegarde `e26bed0`.
+
+## Avancement
+
+| Phase | État |
+|---|---|
+| 0 — Sécuriser la base | ✅ fait — `.gitignore` nettoyé, fusion dans `main`, `npm run check` vert |
+| 1 — Tokens partagés | ✅ fait — `packages/shared/src/design/tokens.ts`, CSS web **identique au bit près** |
+| 2 — i18n partagé | ⬜ à faire |
+| 3 — Logique métier partagée | ⬜ à faire |
+| 3bis — Corrections carte | ⬜ à faire — voir [AUDIT-CARTE.md](AUDIT-CARTE.md) §4 |
+| 4 — Écrans mobiles manquants | ⬜ à faire |
+| 5 — Dashboard mobile à parité | ⬜ à faire |
+| 6 — Découpe du globe mobile | ⬜ à faire |
 
 ## Principe directeur
 

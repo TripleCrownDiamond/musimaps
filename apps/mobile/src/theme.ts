@@ -1,48 +1,53 @@
 /**
- * Palette Musimaps — alignée sur la landing page web :
- * fond warm-white, vert lime #A8FF35, encre #111, brandDeep bleu #2F52E0.
+ * Thème mobile — MAPPING de la source unique `@musimaps/shared`.
+ *
+ * Ce fichier ne définit AUCUNE couleur : il traduit les tokens partagés
+ * (packages/shared/src/design/tokens.ts) vers les noms attendus par les
+ * écrans RN. Pour changer une couleur, éditer tokens.ts — le web et le
+ * mobile suivent ensemble.
+ *
+ * Avant cette unification, la palette était recopiée à la main depuis
+ * index.css et avait divergé : brandSoft était vert (#F1FBDE) au lieu du
+ * bleu web (#E4EAFB), et `success` sombre valait #40D99A au lieu de #22C55E.
  */
-export const lightColors = {
-  background: '#FAF7F5',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F5F5F4',
-  ink: '#111111',
-  inkSoft: '#6B7280',
-  muted: '#9CA3AF',
-  line: 'rgba(0, 0, 0, 0.08)',
-  brand: '#A8FF35',
-  brandDeep: '#2F52E0',
-  brandSoft: '#F1FBDE',
-  danger: '#DC2626',
-  success: '#22C55E',
-  white: '#FFFFFF',
-  black: '#111111',
-};
+import { darkPalette, lightPalette } from '@musimaps/shared';
 
-export const darkColors: typeof lightColors = {
-  background: '#0D0F13',
-  surface: '#14181F',
-  surfaceMuted: '#191D24',
-  ink: '#F3F4F6',
-  inkSoft: '#9AA4AF',
-  muted: '#6B7280',
-  line: 'rgba(255, 255, 255, 0.14)',
-  brand: '#A8FF35',
-  brandDeep: '#2F52E0',
-  brandSoft: '#1E2A44',
-  danger: '#EF4444',
-  success: '#40D99A',
-  white: '#FFFFFF',
-  black: '#0D0F13',
-};
+function toAppColors(p: typeof lightPalette, blackTone: string) {
+  return {
+    background: p.warmWhite,
+    surface: p.surface,
+    surfaceMuted: p.secondaryBg,
+    ink: p.primaryText,
+    inkSoft: p.secondaryText,
+    muted: p.muted,
+    /** Filet des cartes et séparateurs — niveau « marqué » du web. */
+    line: p.hairlineStrong,
+    brand: p.brand,
+    brandDeep: p.brandDeep,
+    brandSoft: p.brandSoft,
+    danger: p.danger,
+    success: p.success,
+    white: '#FFFFFF',
+    /** Extrémité sombre de l'échelle : encre en clair, fond en sombre. */
+    black: blackTone,
+  };
+}
+
+export const lightColors = toAppColors(lightPalette, lightPalette.primaryText);
+export const darkColors: typeof lightColors = toAppColors(
+  darkPalette,
+  darkPalette.warmWhite,
+);
 
 /** Palette claire conservée pour les composants statiques plus anciens. */
 export const colors = lightColors;
 export type AppColors = typeof lightColors;
 
 /**
- * Polices — mêmes familles que le web : Cabinet Grotesk (display)
- * et Satoshi (corps), bundlées depuis Fontshare dans assets/fonts.
+ * Polices — mêmes familles que le web (Cabinet Grotesk / Satoshi), mais
+ * référencées par le nom d'enregistrement RN des .ttf bundlés dans
+ * `assets/fonts`. Ces identifiants sont propres à la plateforme : ils
+ * restent ici et ne remontent pas dans `shared`.
  */
 export const fonts = {
   display: 'CabinetGrotesk_Extrabold',

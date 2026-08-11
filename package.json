@@ -22,7 +22,9 @@
     "purge": "node scripts/purge-hostinger-cache.mjs",
     "deploy": "node scripts/deploy-hostinger.mjs",
     "typecheck": "npm run typecheck --workspace @musimaps/mobile",
-    "check": "npm run build:web && npm run typecheck"
+    "tokens": "node scripts/gen-tokens.mjs",
+    "tokens:check": "node scripts/gen-tokens.mjs --check",
+    "check": "npm run tokens:check && npm run build:web && npm run typecheck"
   },
   "devDependencies": {
     "basic-ftp": "^6.2.0",

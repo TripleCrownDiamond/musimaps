@@ -1,52 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Palette et typographie — GÉNÉRÉES depuis packages/shared/src/design/tokens.ts,
+   source unique partagee avec le mobile (apps/mobile/src/theme.ts).
+   Pour changer une couleur : editer tokens.ts puis `node scripts/gen-tokens.mjs`.
+   Ne jamais redefinir ces variables ici. */
+@import "./tokens.generated.css";
 
 /* Le dark mode du site est pilote par [data-theme="dark"] (et non .dark). */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
-
-@theme {
-  --font-display: 'Cabinet Grotesk', sans-serif;
-  --font-body: 'Satoshi', sans-serif;
-  --color-warm-white: #FAF7F5;
-  --color-secondary-bg: #F5F5F4;
-  --color-primary-text: #111111;
-  --color-secondary-text: #6B7280;
-  /* Vert lime du logo : aplats et elements graphiques */
-  --color-brand: #A8FF35;
-  /* Variante foncee (bleu) : texte, icones et boutons secondaires */
-  --color-brand-deep: #2F52E0;
-  /* Texte sur fond bleu : blanc en mode clair (contraste ~6:1) */
-  --color-brand-deep-foreground: #FFFFFF;
-  /* Teinte claire : fonds de pastilles */
-  --color-brand-soft: #E4EAFB;
-  --color-accent: #A8FF35;
-  --color-success: #22C55E;
-  /* Surfaces et bordures — bascule en dark via [data-theme="dark"] plus bas */
-  --color-surface: #FFFFFF;
-  --color-hairline: rgba(0, 0, 0, 0.05);
-  --color-hairline-strong: rgba(0, 0, 0, 0.1);
-  /* Bouton principal : inverse de la page (noir sur clair, blanc sur sombre) */
-  --color-ink: #111111;
-  --color-ink-foreground: #FFFFFF;
-}
-
-/* Palette sombre : on redefinit les memes tokens, tous les utilitaires suivent. */
-:root[data-theme='dark'] {
-  --map-dot: rgba(255, 255, 255, 0.06);
-  --color-warm-white: #0D0F13;
-  --color-secondary-bg: #191D24;
-  --color-surface: #14181F;
-  --color-primary-text: #F3F4F6;
-  --color-secondary-text: #9AA4AF;
-  --color-brand-deep: #2F52E0;
-  --color-brand-deep-foreground: #FFFFFF;
-  --color-brand-soft: #1E2A44;
-  --color-hairline: rgba(255, 255, 255, 0.09);
-  --color-hairline-strong: rgba(255, 255, 255, 0.16);
-  --color-ink: #F3F4F6;
-  --color-ink-foreground: #0D0F13;
-  color-scheme: dark;
-}
 
 @layer base {
   * {

@@ -1,0 +1,41 @@
+/* GÉNÉRÉ — ne pas éditer à la main.
+ * Source : packages/shared/src/design/tokens.ts
+ * Régénérer : node scripts/gen-tokens.mjs
+ */
+
+@theme {
+  --font-display: 'Cabinet Grotesk', sans-serif;
+  --font-body: 'Satoshi', sans-serif;
+  --color-warm-white: #FAF7F5;
+  --color-secondary-bg: #F5F5F4;
+  --color-primary-text: #111111;
+  --color-secondary-text: #6B7280;
+  --color-brand: #A8FF35;
+  --color-brand-deep: #2F52E0;
+  --color-brand-deep-foreground: #FFFFFF;
+  --color-brand-soft: #E4EAFB;
+  --color-accent: #A8FF35;
+  --color-success: #22C55E;
+  --color-surface: #FFFFFF;
+  --color-hairline: rgba(0, 0, 0, 0.05);
+  --color-hairline-strong: rgba(0, 0, 0, 0.1);
+  --color-ink: #111111;
+  --color-ink-foreground: #FFFFFF;
+}
+
+:root[data-theme='dark'] {
+  --map-dot: rgba(255, 255, 255, 0.06);
+  --color-warm-white: #0D0F13;
+  --color-secondary-bg: #191D24;
+  --color-surface: #14181F;
+  --color-primary-text: #F3F4F6;
+  --color-secondary-text: #9AA4AF;
+  --color-brand-deep: #2F52E0;
+  --color-brand-deep-foreground: #FFFFFF;
+  --color-brand-soft: #1E2A44;
+  --color-hairline: rgba(255, 255, 255, 0.09);
+  --color-hairline-strong: rgba(255, 255, 255, 0.16);
+  --color-ink: #F3F4F6;
+  --color-ink-foreground: #0D0F13;
+  color-scheme: dark;
+}
