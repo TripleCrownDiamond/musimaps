@@ -26,11 +26,7 @@ import {
   searchArtistOnline,
   type DiscoveredArtist,
 } from '../lib/discovery';
-import {
-  addSearchHistory,
-  clearSearchHistory,
-  getSearchHistory,
-} from '../lib/searchHistory';
+import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, shadow, type AppColors } from '../theme';
 

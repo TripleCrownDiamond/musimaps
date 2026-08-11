@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { configureRuntime } from '@musimaps/shared';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { BrandProvider } from './src/context/BrandContext';
@@ -33,7 +34,13 @@ import { SearchScreen } from './src/screens/SearchScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { supabase } from './src/lib/supabase';
+import { nativeStorage } from './src/lib/storage';
 import { dockStyle, fonts } from './src/theme';
+
+// Injecte le client Supabase et le stockage dans le socle partagé, AVANT
+// tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
+configureRuntime({ supabase, storage: nativeStorage });
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();

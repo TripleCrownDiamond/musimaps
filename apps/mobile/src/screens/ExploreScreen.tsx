@@ -53,11 +53,7 @@ import {
   type DiscoveredArtist,
   type NeighborhoodSuggestion,
 } from '../lib/discovery';
-import {
-  addSearchHistory,
-  clearSearchHistory,
-  getSearchHistory,
-} from '../lib/searchHistory';
+import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import { fetchAllArtistPopularity, recordPinView } from '../lib/stats';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { dockStyle, fonts, shadow, type AppColors } from '../theme';

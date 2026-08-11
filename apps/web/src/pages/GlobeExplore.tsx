@@ -32,11 +32,7 @@ import { fetchAllArtistPopularity, recordPinView } from '../lib/stats'
 import { toast } from 'sonner'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import {
-  addSearchHistory,
-  clearSearchHistory,
-  getSearchHistory,
-} from '../lib/searchHistory'
+import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
 
@@ -86,8 +82,10 @@ export default function GlobeExplore() {
   const [mapZoom, setMapZoom] = useState(GLOBE_VIEW.zoom)
   const searchCollapsed = selected !== null || mapZoom >= 3.2
 
-  // Historique de recherche (localStorage) + filtres du panneau Découverte.
-  const [history, setHistory] = useState<string[]>(() => getSearchHistory())
+  // Historique de recherche (stockage partagé, asynchrone) + filtres du
+  // panneau Découverte. Il se charge après le premier rendu : la liste part
+  // vide puis se remplit, comme sur mobile.
+  const [history, setHistory] = useState<string[]>([])
   const [discoverCity, setDiscoverCity] = useState('')
   const [discoverGenre, setDiscoverGenre] = useState('')
 
@@ -126,6 +124,11 @@ export default function GlobeExplore() {
   const [referBusy, setReferBusy] = useState(false)
   const [referError, setReferError] = useState<string | null>(null)
   const [referSent, setReferSent] = useState(false)
+
+  // Historique de recherche : lecture asynchrone du stockage partagé.
+  useEffect(() => {
+    void getSearchHistory().then(setHistory)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -346,7 +349,7 @@ export default function GlobeExplore() {
   const rememberQuery = useCallback((raw: string) => {
     const q = raw.trim()
     if (!q) return
-    setHistory(addSearchHistory(q))
+    void addSearchHistory(q).then(setHistory)
   }, [])
 
   const goToArtist = useCallback(
@@ -961,8 +964,7 @@ export default function GlobeExplore() {
                           <button
                             type="button"
                             onClick={() => {
-                              clearSearchHistory()
-                              setHistory([])
+                              void clearSearchHistory().then(() => setHistory([]))
                             }}
                             className="text-xs font-medium text-secondary-text underline-offset-2 hover:underline"
                           >
