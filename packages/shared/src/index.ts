@@ -14,6 +14,7 @@ export * from './lib/stats'
 export * from './lib/gamification'
 export * from './lib/discovery'
 export * from './map'
+export * from './map/style'
 
 
 export interface Track {

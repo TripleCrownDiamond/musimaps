@@ -22,6 +22,11 @@ import {
   pinZoomScale,
   POPULARITY_RING_COLORS,
   renderedPosition,
+  spinDeltaFor,
+  planStyleActions,
+  DETAIL_LINES_ZOOM,
+  FOG,
+  type MapTheme,
   tierOf,
   TIER_SIZE_FACTOR,
   type ClusterLevel,
@@ -60,24 +65,6 @@ export interface GlobeMapHandle {
  * absents retombent sur les followers parsés de l'objet.
  */
 
-/** Halo atmospherique : clair sur fond clair, spatial sur fond noir.
- *  Neutralisé (gris) pour rester cohérent avec la carte monochrome. */
-const FOG = {
-  light: {
-    color: 'rgb(228, 231, 235)',
-    'high-color': 'rgb(190, 197, 205)',
-    'horizon-blend': 0.08,
-    'space-color': 'rgb(240, 242, 245)',
-    'star-intensity': 0,
-  },
-  dark: {
-    color: 'rgb(12, 14, 18)',
-    'high-color': 'rgb(28, 33, 40)',
-    'horizon-blend': 0.06,
-    'space-color': 'rgb(4, 5, 8)',
-    'star-intensity': 0.15,
-  },
-} as const
 
 interface GlobeMapProps {
   /** Recoit l'API imperative une fois la carte prete. */
@@ -100,7 +87,7 @@ interface GlobeMapProps {
   /** Notifie le parent du niveau de zoom (pour replier la recherche en icône). */
   onZoomChange?: (zoom: number) => void
   /** Fond spatial : `dark` pour un globe pose sur une section noire. */
-  theme?: keyof typeof FOG
+  theme?: MapTheme
   showPins?: boolean
   /**
    * Artistes dont les pins doivent etre rendus. Quand ce tableau est fourni
@@ -238,30 +225,24 @@ export default function GlobeMap({
 
     map.on('style.load', () => {
       map.setFog({ ...FOG[theme] })
-      // Carte très épurée : la musique doit rester au premier plan.
-      const KEEP_LINE = /^admin-0-boundary(-bg|-disputed)?$/i
-      const KEEP_SYMBOL =
-        /^(country-label|continent-label|state-label|settlement-major-label)$/i
+      // Charte de la carte : quelles couches garder, lesquelles masquer, et
+      // la couleur des frontières — la recette vit dans
+      // `@musimaps/shared/map/style`, appliquée à l'identique par le mobile.
+      // La couleur du trait dérive du token de marque, elle n'est plus
+      // recopiée en rgba dans chaque plateforme.
       const zoomLines: string[] = []
-      for (const layer of map.getStyle().layers ?? []) {
-        if (layer.type === 'line' && !KEEP_LINE.test(layer.id)) {
-          map.setLayoutProperty(layer.id, 'visibility', 'none')
-          zoomLines.push(layer.id)
-        } else if (layer.type === 'symbol' && !KEEP_SYMBOL.test(layer.id)) {
-          map.setLayoutProperty(layer.id, 'visibility', 'none')
+      for (const action of planStyleActions(map.getStyle().layers ?? [], theme)) {
+        if (action.kind === 'boundary') {
+          map.setPaintProperty(action.id, 'line-color', action.color)
+          continue
         }
-      }
-      // Frontières aux couleurs de la marque : le trait des pays passe en
-      // bleu brand (le halo admin-0-boundary-bg garde son rôle de contraste).
-      // La carte reste monochrome — seuls les tracés portent l'identité.
-      const brandLine = theme === 'dark' ? 'rgba(47, 82, 224, 0.75)' : 'rgba(47, 82, 224, 0.5)'
-      for (const layer of map.getStyle().layers ?? []) {
-        if (layer.type === 'line' && /^admin-0-boundary(-disputed)?$/i.test(layer.id)) {
-          map.setPaintProperty(layer.id, 'line-color', brandLine)
-        }
+        map.setLayoutProperty(action.id, 'visibility', 'none')
+        // Les lignes de détail (routes…) reviennent au zoom rue ; les labels
+        // secondaires restent masqués.
+        if (action.detail) zoomLines.push(action.id)
       }
       const applyZoomLines = () => {
-        const show = map.getZoom() >= 12
+        const show = map.getZoom() >= DETAIL_LINES_ZOOM
         for (const id of zoomLines) {
           map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none')
         }
@@ -282,10 +263,16 @@ export default function GlobeMap({
     let frame = 0
     const startSpin = () => {
       cancelAnimationFrame(frame)
-      const spin = () => {
+      // Rotation exprimée en degrés par SECONDE (valeur partagée avec le
+      // mobile) et non par frame : la vitesse ne dépend plus de la cadence
+      // de rafraîchissement, et les deux plateformes tournent à l'identique.
+      let last = performance.now()
+      const spin = (now: number) => {
+        const elapsed = now - last
+        last = now
         if (spinRef.current) {
           const center = map.getCenter()
-          center.lng -= 0.06
+          center.lng -= spinDeltaFor(elapsed)
           map.jumpTo({ center })
         }
         frame = requestAnimationFrame(spin)

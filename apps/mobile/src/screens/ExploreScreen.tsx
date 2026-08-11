@@ -38,6 +38,10 @@ import {
   parseFollowersCount,
   pinGlowFor,
   GLOBE_CENTER,
+  GLOBE_SPIN_TICK_MS,
+  applyBrandStyle,
+  MAP_STYLE_ID,
+  type StyleLayer,
   isValidCoordinate,
   levelFor,
   MAX_ZOOM,
@@ -46,6 +50,7 @@ import {
   pinScaleFor,
   POPULARITY_RING_COLORS,
   renderedPosition,
+  spinDeltaFor,
   SEARCH_COLLAPSE_ZOOM,
   tierOf,
   type Artist,
@@ -971,10 +976,18 @@ export function ExploreScreen({ navigation, route }: Props) {
   }, [spinning]);
   useEffect(() => {
     if (!spinning) return;
+    // Rotation en degrés par SECONDE (valeur partagée avec le web) et pas
+    // par tick : le globe tourne à la même vitesse des deux côtés, et un
+    // appareil qui rame perd des images sans ralentir la rotation.
+    // Le tick passe de 120 ms à 33 ms — 8 images/s était visiblement saccadé.
+    let last = Date.now();
     const interval = setInterval(() => {
+      const now = Date.now();
+      const delta = spinDeltaFor(now - last);
+      last = now;
       spinSetIdRef.current += 1;
       pendingSpinMoveRef.current = spinSetIdRef.current;
-      centerRef.current = [centerRef.current[0] - 0.12, centerRef.current[1]];
+      centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
       cameraRef.current?.setCamera({
         centerCoordinate: centerRef.current,
         animationDuration: 0,
@@ -992,8 +1005,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         if (pendingSpinMoveRef.current === spinSetIdRef.current) {
           pendingSpinMoveRef.current = 0;
         }
-      }, 110);
-    }, 120);
+      }, Math.max(8, GLOBE_SPIN_TICK_MS - 8));
+    }, GLOBE_SPIN_TICK_MS);
     spinIntervalRef.current = interval;
     return () => {
       clearInterval(interval);
@@ -1135,19 +1148,16 @@ export function ExploreScreen({ navigation, route }: Props) {
     // couleur de frontière obsolète (thème précédent) le temps du rechargement.
     setTintedStyle(null);
     fetch(
-      `https://api.mapbox.com/styles/v1/mapbox/${theme === 'dark' ? 'dark' : 'light'}-v11?access_token=${MAPBOX_TOKEN}`,
+      `https://api.mapbox.com/styles/v1/mapbox/${MAP_STYLE_ID[theme === 'dark' ? 'dark' : 'light']}?access_token=${MAPBOX_TOKEN}`,
     )
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((style: Record<string, unknown>) => {
+      .then((style: { layers?: StyleLayer[] }) => {
         if (cancelled) return;
-        const brand = theme === 'dark' ? 'rgba(47, 82, 224, 0.75)' : 'rgba(47, 82, 224, 0.5)';
-        const layers = (style.layers as Array<{ id: string; type: string; paint?: Record<string, unknown> }>) ?? [];
-        for (const layer of layers) {
-          if (layer.type === 'line' && /^admin-0-boundary(-disputed)?$/i.test(layer.id)) {
-            layer.paint = { ...layer.paint, 'line-color': brand };
-          }
-        }
-        setTintedStyle(JSON.stringify(style));
+        // Charte partagée avec le web : frontières aux couleurs de la marque
+        // ET épuration des routes / labels secondaires. Le mobile ne faisait
+        // que teinter les frontières : la même carte était nettement plus
+        // chargée que sur le web.
+        setTintedStyle(JSON.stringify(applyBrandStyle(style, theme === 'dark' ? 'dark' : 'light')));
       })
       .catch(() => {});
     return () => {
@@ -1204,12 +1214,25 @@ export function ExploreScreen({ navigation, route }: Props) {
           )}
         </View>
       ) : (
-        // Le moindre contact arrête la rotation : sinon le tick de spin
-        // (120 ms) re-cale la caméra en continu et le globe semble figé au
-        // toucher. La View observe le toucher sans bloquer les gestes de la
-        // carte (elle ne devient pas responder).
+        // Le moindre contact arrête la rotation, en phase de CAPTURE.
+        //
+        // `onTouchStart` seul ne suffisait pas : la MapView est un composant
+        // natif qui consomme le geste avant que le système tactile de React
+        // Native ne le voie, donc le handler du parent ne se déclenchait pas
+        // — il fallait mettre la rotation en pause à la main avant de pouvoir
+        // manipuler le globe. `onStartShouldSetResponderCapture` s'exécute
+        // AVANT que l'enfant ne réclame le toucher ; on renvoie false pour
+        // que la carte reçoive quand même le geste normalement.
         <View
           style={StyleSheet.absoluteFill}
+          onStartShouldSetResponderCapture={() => {
+            handleTouchStart();
+            return false;
+          }}
+          onMoveShouldSetResponderCapture={() => {
+            handleTouchStart();
+            return false;
+          }}
           onTouchStart={handleTouchStart}
         >
         <Mapbox.MapView

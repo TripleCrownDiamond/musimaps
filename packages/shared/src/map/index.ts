@@ -276,3 +276,32 @@ export const MAX_ZOOM = 18;
 
 /** Centre et zoom de la vue globe au repos. */
 export const GLOBE_CENTER: [number, number] = [2.4, 8];
+
+/**
+ * Vitesse de rotation automatique du globe, en degrés de longitude par
+ * SECONDE — et non par frame ou par tick.
+ *
+ * Les deux plateformes exprimaient leur vitesse dans leur propre unité et
+ * avaient largement divergé :
+ *   web    : −0,06° par frame à 60 fps  → −3,6 °/s
+ *   mobile : −0,12° par tick de 120 ms  → −1,0 °/s
+ * Le web tournait donc 3,6× plus vite. Une valeur en °/s rend la rotation
+ * identique ET indépendante de la cadence de rafraîchissement : un appareil
+ * qui rame ralentit l'image, pas le globe.
+ */
+export const GLOBE_SPIN_DEG_PER_SEC = 3.6;
+
+/**
+ * Intervalle cible entre deux pas de rotation sur mobile, en millisecondes.
+ * 120 ms donnait 8 images par seconde — visiblement saccadé à côté des 60 fps
+ * du web. 33 ms vise 30 fps, fluide sans épuiser la batterie.
+ */
+export const GLOBE_SPIN_TICK_MS = 33;
+
+/** Déplacement de longitude pour un intervalle écoulé donné. */
+export function spinDeltaFor(elapsedMs: number): number {
+  // Borne haute : après un retour d'arrière-plan, `elapsed` peut valoir
+  // plusieurs secondes — le globe ferait un saut brutal.
+  const capped = Math.min(elapsedMs, 250);
+  return (GLOBE_SPIN_DEG_PER_SEC * capped) / 1000;
+}
