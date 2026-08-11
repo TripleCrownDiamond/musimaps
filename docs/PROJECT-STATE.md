@@ -51,7 +51,7 @@ musimaps/
 |---|---|
 | Web | React 19, Vite 8, TypeScript, Tailwind CSS 4, shadcn/ui (Radix), lucide-react |
 | Mobile | React Native 0.86, Expo SDK 57, @rnmapbox/maps 10, React Navigation, Ionicons |
-| Carte | Mapbox GL v3 (web) / @rnmapbox/maps (mobile) — styles `dark-v11` / `light-v11` monochromes, frontières teintées bleu brand `#2F52E0` |
+| Carte | Mapbox GL v3 (web) / @rnmapbox/maps (mobile) — recette partagée bleu/lime : eau, atmosphère et frontières bleues ; végétation et accents lime |
 | Backend | Supabase (auth, Postgres, RLS, Storage, Edge Functions) |
 | IA | Mistral via edge functions (`ai_verify` correction genres/bios, `ai_artist_agent` deep-search) |
 | Emails | SMTP Hostinger (`noreply@musimaps.com`) — envoi via `scripts/send-email.mjs` |
@@ -62,6 +62,8 @@ musimaps/
 **Identité de marque**
 - `brand` (lime) : `#A8FF35` — accent, pulse, badges.
 - `brandDeep` (bleu) : `#2F52E0` — actions, boutons, pins.
+- Globe : bleu dominant (eau, atmosphère, frontières), lime en accent (végétation, labels sombres),
+  palette et géométrie sémantiques identiques sur le web, sa preview et le mobile.
 - Fond clair `warm-white`, sombre `#0b0c10` ; police display **Cabinet Grotesk**, corps **Satoshi**.
 - Logo : icône double-pilule + wordmark « Musimaps » ; icône seule sur mobile/responsive, logo horizontal sur desktop.
 
@@ -196,7 +198,9 @@ curl -s https://musimaps.com/artistes | grep -oE 'assets/[A-Za-z0-9_-]+\.js' | s
   clic cluster = zoom + scope des pins au cluster + atterrissage sur le PREMIER pin (position dés-empilée) ;
   mini-barre lieu avec flèches de navigation pin-à-pin (PlacePanel) ; boutons Vue Globe / Play-Pause ;
   rotation automatique interrompue au toucher (mode `moveTo` natif, parité web `jumpTo`) ;
-  frontières pays teintées bleu brand ; pins **lumineux colorés par densité** (tier de popularité).
+  frontières pays teintées bleu brand ; pins **lumineux colorés par densité** (tier de popularité) ;
+  géométrie web/mobile commune (pins 36 px, clusters 68 px, sous-clusters 44 px, pad 36 px) et nom du
+  pin sélectionné lisible sur 200 px au-dessus des marqueurs voisins.
 - **Recherche** : villes, pays, genres, quartiers (Mapbox), artistes ; gating Musibrainz : un artiste
   trouvé en ligne peut être ajouté/revendiqué, sinon référencement proposé.
 - **Référencement artistes** : web + mobile, ville/pays (selects avec recherche) + **quartier/district**,

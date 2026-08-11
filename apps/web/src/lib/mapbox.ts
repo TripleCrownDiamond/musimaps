@@ -8,15 +8,6 @@ export const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefi
 
 export const hasMapboxToken = Boolean(MAPBOX_TOKEN && MAPBOX_TOKEN.startsWith('pk.'))
 
-/** Terre realiste (ocean bleu, relief) comme sur les maquettes. */
-export const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12'
-
-/** Styles de carte MONOCHROMES selon le thème (aucun vert, aucun relief
- *  coloré) : `dark-v11` en mode sombre, `light-v11` en mode clair — la
- *  musique reste au premier plan, la carte s'efface en niveaux de gris. */
-export const MAP_STYLE_DARK = 'mapbox://styles/mapbox/dark-v11'
-export const MAP_STYLE_LIGHT = 'mapbox://styles/mapbox/light-v11'
-
 /** Vue globe par defaut : Afrique de l'Ouest centree, globe entier visible. */
 export const GLOBE_VIEW = {
   center: [2.4, 8] as [number, number],

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Artist } from '@musimaps/shared';
+import { mapUi, type Artist } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fonts, shadow } from '../theme';
 
@@ -43,7 +43,7 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
   };
 
   return (
-    <View style={[styles.wrap, { bottom: 170 + insets.bottom }]}>
+    <View pointerEvents="box-none" style={[styles.wrap, { bottom: 170 + insets.bottom }]}>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
@@ -111,29 +111,30 @@ function createStyles() {
     card: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       borderRadius: 999,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'rgba(255,255,255,0.18)',
-      backgroundColor: 'rgba(8,12,18,0.55)',
-      paddingVertical: 5,
-      paddingHorizontal: 6,
+      borderColor: 'rgba(255,255,255,0.15)',
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      maxWidth: '100%',
       ...shadow,
     },
     arrow: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: mapUi.placeControlSize,
+      height: mapUi.placeControlSize,
+      borderRadius: mapUi.placeControlSize / 2,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.12)',
+      backgroundColor: 'rgba(255,255,255,0.10)',
     },
     copyBtn: {
       flexDirection: 'column',
       alignItems: 'flex-start',
       gap: 1,
-      paddingHorizontal: 10,
-      paddingVertical: 2,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
       minWidth: 0,
       flexShrink: 1,
     },
@@ -143,13 +144,13 @@ function createStyles() {
       fontSize: 14,
       lineHeight: 18,
       color: '#ffffff',
-      maxWidth: 170,
+      maxWidth: mapUi.pinLabelWidth,
     },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 5,
-      maxWidth: 170,
+      maxWidth: mapUi.pinLabelWidth,
     },
     meta: {
       fontFamily: fonts.medium,
@@ -158,9 +159,9 @@ function createStyles() {
       flexShrink: 1,
     },
     closeBtn: {
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      width: mapUi.placeControlSize,
+      height: mapUi.placeControlSize,
+      borderRadius: mapUi.placeControlSize / 2,
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: 2,

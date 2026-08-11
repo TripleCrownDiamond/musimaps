@@ -25,6 +25,15 @@
   --color-ink-foreground: #FFFFFF;
 }
 
+:root {
+  --map-pin-diameter: 36px;
+  --map-cluster-min-width: 68px;
+  --map-cluster-radius: 17px;
+  --map-cluster-padding-x: 13px;
+  --map-cluster-padding-y: 7px;
+  --map-subcluster-diameter: 40px;
+}
+
 :root[data-theme='dark'] {
   --map-dot: rgba(255, 255, 255, 0.06);
   --color-warm-white: #0D0F13;

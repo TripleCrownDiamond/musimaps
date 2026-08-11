@@ -84,6 +84,22 @@ export interface ThemePalette {
   muted: string;
   /** Pointillé de fond de carte. */
   mapDot: string;
+  /** Terre principale du globe — reste sobre pour laisser les pins dominer. */
+  mapLand: string;
+  /** Eau du globe — déclinaison de la couleur principale bleue. */
+  mapWater: string;
+  /** Parcs et végétation — déclinaison de l'accent lime. */
+  mapLandAccent: string;
+  /** Espace autour du globe. */
+  mapSpace: string;
+  /** Brume atmosphérique au niveau de l'horizon. */
+  mapFog: string;
+  /** Sommet du halo atmosphérique — couleur principale de marque. */
+  mapFogHigh: string;
+  /** Labels majeurs de la carte. */
+  mapLabel: string;
+  /** Halo sous les labels majeurs. */
+  mapLabelHalo: string;
 }
 
 export const lightPalette: ThemePalette = {
@@ -108,6 +124,14 @@ export const lightPalette: ThemePalette = {
   inkForeground: '#FFFFFF',
   muted: '#9CA3AF',
   mapDot: '#e5e5e5',
+  mapLand: '#F8F9F2',
+  mapWater: '#DCE4FF',
+  mapLandAccent: '#E7F8D1',
+  mapSpace: '#EEF2FF',
+  mapFog: '#D5DEFF',
+  mapFogHigh: BRAND_PRIMARY,
+  mapLabel: BRAND_PRIMARY,
+  mapLabelHalo: '#F8F9F2',
 };
 
 export const darkPalette: ThemePalette = {
@@ -132,7 +156,43 @@ export const darkPalette: ThemePalette = {
   inkForeground: '#0D0F13',
   muted: '#6B7280',
   mapDot: 'rgba(255, 255, 255, 0.06)',
+  mapLand: '#0A1024',
+  mapWater: '#142765',
+  mapLandAccent: '#24351A',
+  mapSpace: '#020615',
+  mapFog: '#101D4F',
+  mapFogHigh: BRAND_PRIMARY,
+  mapLabel: BRAND_SECONDARY,
+  mapLabelHalo: '#0A1024',
 };
+
+/**
+ * Géométrie des markers et contrôles de carte — identique web/mobile.
+ * Les valeurs web sont émises en variables CSS par `scripts/gen-tokens.mjs`;
+ * React Native consomme directement cet objet.
+ */
+export const mapUi = {
+  artistPinDiameter: 36,
+  markerTouchWidth: 72,
+  markerTouchHeight: 82,
+  clusterMinWidth: 68,
+  clusterRadius: 17,
+  clusterPaddingX: 13,
+  clusterPaddingY: 7,
+  /**
+   * Sous-cluster : un DISQUE, pas une pilule.
+   *
+   * Il valait `minWidth 44` + padding 11/6 pour un contenu d'un seul nombre,
+   * soit une boîte de 44 × 26. Le rayon de 17 px étant plafonné à la moitié
+   * de la hauteur par le moteur de rendu, les bouts devenaient entièrement
+   * arrondis sur une boîte plus large que haute : un ovale. Une largeur et
+   * une hauteur égales donnent le rond attendu.
+   */
+  subclusterDiameter: 40,
+  selectedPinScale: 1.28,
+  pinLabelWidth: 200,
+  placeControlSize: 36,
+} as const;
 
 /**
  * Familles typographiques. Le web les charge en webfonts, le mobile bundle

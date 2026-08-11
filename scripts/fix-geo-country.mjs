@@ -25,11 +25,13 @@
  * Usage :
  *   node scripts/fix-geo-country.mjs            # corrige tout
  *   node scripts/fix-geo-country.mjs --dry      # affiche seulement les changements
+ *   node scripts/fix-geo-country.mjs --check    # audit seul, code 1 si incohérence
  *   node scripts/fix-geo-country.mjs --id mb-…  # corrige un seul artiste
  */
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import pg from 'pg'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -43,6 +45,7 @@ function loadEnv(file) {
   return out
 }
 
+const rootEnv = loadEnv(path.join(root, '.env'))
 const webEnv = loadEnv(path.join(root, 'apps', 'web', '.env.local'))
 const url = webEnv.VITE_SUPABASE_URL
 const key = webEnv.VITE_SUPABASE_ANON_KEY
@@ -57,8 +60,43 @@ const headers = {
   Authorization: `Bearer ${key}`,
   'Content-Type': 'application/json',
 }
+const databasePassword = rootEnv.DATABASE_PASSWORD
+const projectRef = url.replace(/^https:\/\/([a-z0-9]+)\..*$/, '$1')
+const dbUrl = databasePassword
+  ? `postgresql://postgres.${projectRef}:${databasePassword}@aws-0-eu-west-1.pooler.supabase.com:5432/postgres`
+  : null
+let dbClient = null
 
-const dry = process.argv.includes('--dry')
+/**
+ * Écriture administrative vérifiée. L'ancien PATCH REST utilisait la clé
+ * anonyme : la RLS répondait sans erreur mais ne modifiait aucune ligne, puis
+ * le script annonçait malgré tout « corrigé ».
+ */
+async function patchArtist(id, patch) {
+  if (!dbUrl) throw new Error('DATABASE_PASSWORD manquant dans .env : correction impossible.')
+  const allowed = new Set(['country', 'flag', 'lat', 'lng'])
+  const entries = Object.entries(patch)
+  if (entries.length === 0 || entries.some(([column]) => !allowed.has(column))) {
+    throw new Error('Patch artiste invalide.')
+  }
+  if (!dbClient) {
+    dbClient = new pg.Client({ connectionString: dbUrl, ssl: { rejectUnauthorized: false } })
+    await dbClient.connect()
+  }
+  const values = entries.map(([, value]) => value)
+  values.push(id)
+  const setters = entries.map(([column], index) => `${column} = $${index + 1}`).join(', ')
+  const result = await dbClient.query(
+    `UPDATE map_artists SET ${setters} WHERE id = $${values.length} RETURNING id`,
+    values,
+  )
+  if (result.rowCount !== 1) {
+    throw new Error(`Correction non persistée pour ${id} (${result.rowCount ?? 0} ligne).`)
+  }
+}
+
+const check = process.argv.includes('--check')
+const dry = process.argv.includes('--dry') || check
 const onlyId = (() => {
   const i = process.argv.indexOf('--id')
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : null
@@ -136,6 +174,7 @@ let fixedCountry = 0
 let fixedCoords = 0
 let skipped = 0
 let failed = 0
+let issues = 0
 console.log(`Géocodage de ${rows.length} artiste(s)…`)
 
 for (const row of rows) {
@@ -166,12 +205,9 @@ for (const row of rows) {
     // Pin correctement posé dans le pays géographique → pays déclaré = origine.
     const action = dry ? '[DRY] corrigerait' : 'corrige'
     console.log(`  ${action} ${row.name}: ${declared || '∅'} → ${real} (${row.city ?? ''})`)
+    issues += 1
     if (!dry) {
-      await fetch(`${api}/map_artists?id=eq.${encodeURIComponent(row.id)}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ country: real, flag: flagEmoji(real) }),
-      })
+      await patchArtist(row.id, { country: real, flag: flagEmoji(real) })
       fixedCountry += 1
     }
     continue
@@ -185,12 +221,9 @@ for (const row of rows) {
     const [fLng, fLat] = fwdDecl.coords
     const action = dry ? '[DRY] déplacerait' : 'déplace'
     console.log(`  ${action} ${row.name}: coords → ${fLat.toFixed(3)},${fLng.toFixed(3)} (${row.city}, ${declared})`)
+    issues += 1
     if (!dry) {
-      await fetch(`${api}/map_artists?id=eq.${encodeURIComponent(row.id)}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ lat: fLat, lng: fLng }),
-      })
+      await patchArtist(row.id, { lat: fLat, lng: fLng })
       fixedCoords += 1
     }
     continue
@@ -200,14 +233,18 @@ for (const row of rows) {
   // pays géographique réel (cohérence pin ↔ libellé).
   const action = dry ? '[DRY] corrigerait' : 'corrige'
   console.log(`  ${action} ${row.name}: ${declared || '∅'} → ${real} (${row.city ?? ''})`)
+  issues += 1
   if (!dry) {
-    await fetch(`${api}/map_artists?id=eq.${encodeURIComponent(row.id)}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ country: real, flag: flagEmoji(real) }),
-    })
+    await patchArtist(row.id, { country: real, flag: flagEmoji(real) })
     fixedCountry += 1
   }
 }
 
+if (dbClient) await dbClient.end()
+
 console.log(`\nTerminé. ${fixedCountry} pays corrigé(s), ${fixedCoords} coordonnées corrigée(s), ${skipped} sans coordonnées, ${failed} sans résolution.`)
+
+if (check && issues > 0) {
+  console.error(`${issues} incohérence(s) géographique(s) détectée(s).`)
+  process.exit(1)
+}

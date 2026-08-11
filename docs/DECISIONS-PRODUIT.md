@@ -39,6 +39,35 @@ de dépasser `MAX_ZOOM`, et aucune vue ne doit afficher une adresse.
 
 ---
 
+## Identité visuelle du globe — bleu dominant, lime en accent
+
+Les trois rendus du globe — carte web principale, preview de la landing et
+carte mobile — suivent **la même recette** dans
+`packages/shared/src/map/style.ts`. Une plateforme ne redéfinit jamais sa
+palette localement.
+
+- **Bleu principal `#2F52E0`** : eau, halo atmosphérique et frontières. Le
+  globe doit être immédiatement identifiable comme Musimaps.
+- **Lime secondaire `#A8FF35`** : végétation, parcs, reliefs doux et labels
+  majeurs sur fond sombre. Le lime reste un accent, jamais la masse dominante.
+- **Terres sobres et teintées** : fond clair chaud en thème clair, bleu nuit en
+  thème sombre, pour préserver la lisibilité des pins.
+- **Pins** : leur couleur continue d'exprimer la notoriété ; la sélection la
+  plus forte reste lime. La palette du fond ne doit pas concurrencer leur halo.
+- **Géométrie commune** : pin artiste de base 36 px ; disque/pilule de cluster
+  de 68 px minimum avec rayon 17 px ; sous-cluster de 44 px minimum. Ces
+  dimensions viennent de `mapUi` dans les tokens partagés.
+- **Navigation pin-à-pin** : pill noir translucide, boutons circulaires de
+  36 px, nom courant sur une ligne indépendante du disque. Le nom sélectionné
+  doit rester lisible jusqu'à 200 px et passer au-dessus des pins voisins.
+
+Les couleurs sémantiques vivent dans `packages/shared/src/design/tokens.ts` ;
+le module carte ne contient aucune copie des hex de marque. Le web applique la
+recette aux couches Mapbox chargées, le mobile applique les mêmes actions au
+`styleJSON`.
+
+---
+
 ## Paliers de compte
 
 `account_type` admet trois valeurs en base (`CHECK`, migration 00029) :

@@ -26,6 +26,7 @@ import {
   planStyleActions,
   DETAIL_LINES_ZOOM,
   FOG,
+  MAP_STYLE,
   type MapTheme,
   tierOf,
   TIER_SIZE_FACTOR,
@@ -33,7 +34,7 @@ import {
   type PopularityMap,
   type PopularityTier,
 } from '@musimaps/shared'
-import { GLOBE_VIEW, MAPBOX_TOKEN, MAP_STYLE_DARK, MAP_STYLE_LIGHT } from '../lib/mapbox'
+import { GLOBE_VIEW, MAPBOX_TOKEN } from '../lib/mapbox'
 
 /** Artistes supplémentaires (découverts sur le web) à ajouter au globe. */
 const EMPTY: Artist[] = []
@@ -210,7 +211,7 @@ export default function GlobeMap({
     mapboxgl.accessToken = MAPBOX_TOKEN
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: theme === 'dark' ? MAP_STYLE_DARK : MAP_STYLE_LIGHT,
+      style: MAP_STYLE[theme],
       center: GLOBE_VIEW.center,
       zoom: GLOBE_VIEW.zoom,
       // Zoom profond autorisé (niveau rue/quartier) : les tuiles vectorielles
@@ -232,8 +233,8 @@ export default function GlobeMap({
       // recopiée en rgba dans chaque plateforme.
       const zoomLines: string[] = []
       for (const action of planStyleActions(map.getStyle().layers ?? [], theme)) {
-        if (action.kind === 'boundary') {
-          map.setPaintProperty(action.id, 'line-color', action.color)
+        if (action.kind === 'paint') {
+          map.setPaintProperty(action.id, action.property, action.value)
           continue
         }
         map.setLayoutProperty(action.id, 'visibility', 'none')

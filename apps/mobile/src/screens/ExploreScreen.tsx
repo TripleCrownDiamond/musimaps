@@ -40,10 +40,17 @@ import {
   GLOBE_CENTER,
   GLOBE_SPIN_TICK_MS,
   applyBrandStyle,
+  FOG,
+  MAP_STYLE,
   MAP_STYLE_ID,
+  type MapStyleDocument,
+  type MapTheme,
   type StyleLayer,
+  isInRegion,
   isValidCoordinate,
+  shouldReleaseScope,
   levelFor,
+  mapUi,
   MAX_ZOOM,
   PIN_LABEL_ZOOM,
   pinOpacityFor,
@@ -814,20 +821,19 @@ export function ExploreScreen({ navigation, route }: Props) {
   // --- Région visible + zoom (pins par niveau de cluster) ---
   const regionArtists = useMemo(() => {
     if (!region) return allArtists;
-    const { east, north, west, south } = region;
-    const crossesAntimeridian = west > east;
-    return allArtists.filter((artist) => {
-      const [longitude, latitude] = artist.coordinates;
-      if (!isValidCoordinate(artist.coordinates)) return false;
-      const longitudeIsVisible = crossesAntimeridian
-        ? longitude >= west || longitude <= east
-        : longitude >= west && longitude <= east;
-      return longitudeIsVisible && latitude >= south && latitude <= north;
-    });
+    // `isInRegion` élargit le cadrage de la marge de dés-empilement : le
+    // filtre porte sur la coordonnée BRUTE alors que le pin est dessiné
+    // jusqu'à 1,5 km plus loin. Sans cette marge, un artiste au bord se
+    // retrouvait affiché hors de la zone, et un autre juste dehors
+    // n'apparaissait jamais alors que son pin aurait été visible.
+    return allArtists.filter((artist) => isInRegion(artist.coordinates, region));
   }, [region, allArtists]);
 
   const pins = useMemo(() => {
-    const target = visiblePins;
+    // Au dézoom, on relâche le cadrage posé par un clic sur cluster ou une
+    // recherche : sinon la carte restait figée sur ce seul groupe et les
+    // autres clusters ne réapparaissaient jamais.
+    const target = shouldReleaseScope(mapZoom) ? [] : visiblePins;
     let base: Artist[];
     if (target.length > 0) {
       const ids = new Set(target.map((a) => a.id));
@@ -937,9 +943,20 @@ export function ExploreScreen({ navigation, route }: Props) {
    * même diamètre. En vue globe, tout était une pastille identique.
    */
   const pinSizeFor = (tier: PopularityTier) =>
-    Math.max(9, Math.round(34 * pinScaleFor(mapZoom, tier)));
+    Math.max(9, Math.round(mapUi.artistPinDiameter * pinScaleFor(mapZoom, tier)));
   /** Opacité selon le zoom — le mobile n'en avait pas, contrairement au web. */
   const pinOpacity = pinOpacityFor(mapZoom);
+
+  // Le marker sélectionné est rendu en dernier : son disque et surtout son
+  // étiquette restent au-dessus des gros pins voisins.
+  const orderedPins = useMemo(() => {
+    if (!highlightedId) return pins;
+    return [...pins].sort((a, b) => {
+      const aSelected = a.kind === 'artist' && a.artist.id === highlightedId ? 1 : 0;
+      const bSelected = b.kind === 'artist' && b.artist.id === highlightedId ? 1 : 0;
+      return aSelected - bSelected;
+    });
+  }, [pins, highlightedId]);
 
   const loadRegion = ({ properties }: VisibleRegion) => {
     const [east, north] = properties.bounds.ne;
@@ -1130,17 +1147,15 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   const showMap = locState === 'granted' || locState === 'skipped';
 
-  // Même style que le globe web : carte MONOCHROME selon le thème
-  // (dark-v11 en sombre, light-v11 en clair) — aucun vert ni relief coloré.
-  const globeStyleUrl =
-    theme === 'dark'
-      ? 'mapbox://styles/mapbox/dark-v11'
-      : 'mapbox://styles/mapbox/light-v11';
+  // Même recette que le globe web : base Mapbox par thème, surfaces bleu/lime
+  // et atmosphère issues des tokens sémantiques partagés.
+  const mapTheme: MapTheme = theme === 'dark' ? 'dark' : 'light';
+  const globeStyleUrl = MAP_STYLE[mapTheme];
   // Frontières aux couleurs de la marque (parité web) : on charge le style
   // Mapbox une fois, on teinte le trait des pays en bleu brand, puis on le
   // passe en styleJSON. Repli silencieux vers le style brut si le fetch
   // échoue (offline, token…) — la carte reste toujours visible.
-  const [tintedStyle, setTintedStyle] = useState<string | null>(null);
+  const [tintedStyle, setTintedStyle] = useState<MapStyleDocument | null>(null);
   useEffect(() => {
     if (!HAS_MAPBOX) return;
     let cancelled = false;
@@ -1148,7 +1163,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     // couleur de frontière obsolète (thème précédent) le temps du rechargement.
     setTintedStyle(null);
     fetch(
-      `https://api.mapbox.com/styles/v1/mapbox/${MAP_STYLE_ID[theme === 'dark' ? 'dark' : 'light']}?access_token=${MAPBOX_TOKEN}`,
+      `https://api.mapbox.com/styles/v1/mapbox/${MAP_STYLE_ID[mapTheme]}?access_token=${MAPBOX_TOKEN}`,
     )
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((style: { layers?: StyleLayer[] }) => {
@@ -1157,19 +1172,32 @@ export function ExploreScreen({ navigation, route }: Props) {
         // ET épuration des routes / labels secondaires. Le mobile ne faisait
         // que teinter les frontières : la même carte était nettement plus
         // chargée que sur le web.
-        setTintedStyle(JSON.stringify(applyBrandStyle(style, theme === 'dark' ? 'dark' : 'light')));
+        setTintedStyle(applyBrandStyle(style, mapTheme));
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [theme]);
+  }, [mapTheme]);
 
   // Clusters « points » en vue globe : petits ronds discrets qui grossissent
   // au zoom (même courbe d'échelle que le web : 0.22 → 1.15, avec un plancher
   // de 0.85 pour que le point de 22px reste visible (~19px) comme sur le web).
   const globeView = mapZoom < 3.5;
   const clusterScale = Math.min(1.15, Math.max(0.85, 0.22 + (mapZoom - 1) * 0.07));
+
+  // L'adaptateur web de @rnmapbox/maps ne lit que `styleURL`, une seule fois
+  // au montage, et ignore `styleJSON`. Mapbox GL JS accepte directement un
+  // document de style : on le lui passe par cette prop et on remonte la carte
+  // lorsque le fetch est terminé. Le natif conserve son contrat styleJSON.
+  const renderedStyleURL = Platform.OS === 'web'
+    ? ((tintedStyle ?? globeStyleUrl) as unknown as string)
+    : tintedStyle
+      ? undefined
+      : globeStyleUrl;
+  const renderedStyleJSON = Platform.OS !== 'web' && tintedStyle
+    ? JSON.stringify(tintedStyle)
+    : undefined;
 
   return (
     <View style={styles.container}>
@@ -1236,10 +1264,17 @@ export function ExploreScreen({ navigation, route }: Props) {
           onTouchStart={handleTouchStart}
         >
         <Mapbox.MapView
+        // La clé change dès que le style de marque est prêt — sur natif AUSSI.
+        // Elle valait 'native-map' en dur : la MapView recevait `styleURL`
+        // (style Mapbox brut) au montage, puis le style de marque arrivait du
+        // réseau et basculait sur `styleJSON`, mais le composant n'étant
+        // jamais remonté, la carte gardait le style brut indéfiniment. C'est
+        // la raison pour laquelle le mobile n'avait pas la bonne charte.
+        key={`${mapTheme}-${tintedStyle ? 'brand' : 'base'}`}
         style={StyleSheet.absoluteFill}
         ref={mapViewRef}
-        styleURL={tintedStyle ? undefined : globeStyleUrl}
-        styleJSON={tintedStyle ?? undefined}
+        styleURL={renderedStyleURL}
+        styleJSON={renderedStyleJSON}
         projection="globe"
         compassEnabled={false}
         scaleBarEnabled={false}
@@ -1280,15 +1315,15 @@ export function ExploreScreen({ navigation, route }: Props) {
         {Mapbox.Atmosphere != null && (
           <Mapbox.Atmosphere
             style={{
-              color: theme === 'dark' ? 'rgb(14, 16, 20)' : 'rgb(226, 229, 234)',
-              highColor: theme === 'dark' ? 'rgb(30, 35, 42)' : 'rgb(188, 195, 204)',
-              spaceColor: theme === 'dark' ? 'rgb(4, 5, 8)' : 'rgb(240, 242, 245)',
-              horizonBlend: 0.08,
-              starIntensity: theme === 'dark' ? 0.18 : 0,
+              color: FOG[mapTheme].color,
+              highColor: FOG[mapTheme]['high-color'],
+              spaceColor: FOG[mapTheme]['space-color'],
+              horizonBlend: FOG[mapTheme]['horizon-blend'],
+              starIntensity: FOG[mapTheme]['star-intensity'],
             }}
           />
         )}
-        {pins.map((pin) =>
+        {orderedPins.map((pin) =>
           pin.kind === 'cluster' ? (
             <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
               <Pressable
@@ -1390,50 +1425,82 @@ export function ExploreScreen({ navigation, route }: Props) {
                 )}
               </Pressable>
             </Mapbox.MarkerView>
-          ) : (
+          ) : (() => {
+            const selectedPin = pin.artist.id === highlightedId;
+            const displayedPinSize = selectedPin
+              ? Math.round(pinSizeFor(pin.tier) * mapUi.selectedPinScale)
+              : pinSizeFor(pin.tier);
+            const ringOutset = selectedPin ? 8 : 4;
+            const ringSize = displayedPinSize + ringOutset * 2;
+            const haloSize = displayedPinSize + 18;
+            return (
             <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('explore.seeArtist', { name: pin.artist.name })}
-                style={styles.markerWrap}
+                style={[
+                  styles.markerWrap,
+                  selectedPin && styles.markerWrapSelected,
+                ]}
                 onHoverIn={() => setHoveredId(pin.key)}
                 onHoverOut={() => setHoveredId((prev) => (prev === pin.key ? null : prev))}
                 onPress={() => goToArtist(pin.artist)}
               >
+                {/* Halo D'ABORD, anneau ENSUITE : le halo est plus large que
+                    l'anneau et était peint par-dessus, ce qui masquait
+                    complètement l'anneau de notoriété. */}
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.halo,
+                    pin.artist.trending && styles.haloTrending,
+                    selectedPin && styles.haloSelected,
+                    // Halo LUMINEUX coloré par densité (parité web : le pin
+                    // irradie dans la couleur de son tier de popularité).
+                    !pin.artist.trending &&
+                      !selectedPin && {
+                        backgroundColor: hexToRgba(POPULARITY_RING_COLORS[pin.tier], pinGlowFor(mapZoom, pin.tier)),
+                      },
+                    {
+                      width: haloSize,
+                      height: haloSize,
+                      borderRadius: haloSize / 2,
+                      top: (mapUi.markerTouchHeight - haloSize) / 2,
+                      left: (mapUi.markerTouchWidth - haloSize) / 2,
+                    },
+                  ]}
+                />
                 <View
                   pointerEvents="none"
                   style={[
                     styles.popRing,
-                    pin.artist.id === highlightedId && styles.popRingSelected,
+                    selectedPin && styles.popRingSelected,
                     {
+                      width: ringSize,
+                      height: ringSize,
+                      borderRadius: ringSize / 2,
+                      top: (mapUi.markerTouchHeight - ringSize) / 2,
+                      left: (mapUi.markerTouchWidth - ringSize) / 2,
                       borderColor:
-                        pin.artist.id === highlightedId
+                        selectedPin
                           ? colors.brand
                           : POPULARITY_RING_COLORS[pin.tier as 0 | 1 | 2 | 3],
                     },
                   ]}
                 />
-                <View
-                  style={[
-                    styles.halo,
-                    pin.artist.trending && styles.haloTrending,
-                    pin.artist.id === highlightedId && styles.haloSelected,
-                    // Halo LUMINEUX coloré par densité (parité web : le pin
-                    // irradie dans la couleur de son tier de popularité).
-                    !pin.artist.trending &&
-                      pin.artist.id !== highlightedId && {
-                        backgroundColor: hexToRgba(POPULARITY_RING_COLORS[pin.tier], pinGlowFor(mapZoom, pin.tier)),
-                      },
-                  ]}
-                />
                 <ArtistAvatar
                   artist={pin.artist}
-                  size={pin.artist.id === highlightedId ? Math.round(pinSizeFor(pin.tier) * 1.25) : pinSizeFor(pin.tier)}
+                  size={displayedPinSize}
+                  gradient={[
+                    POPULARITY_RING_COLORS[pin.tier],
+                    POPULARITY_RING_COLORS[pin.tier],
+                  ]}
+                  initialsColor={pin.tier === 3 ? '#0b1420' : '#ffffff'}
                 />
                 <View style={styles.markerTip} />
-                {(showPinNameFor(pin.key) || pin.artist.id === highlightedId) && (
+                {(showPinNameFor(pin.key) || selectedPin) && (
                   <Text
-                    style={[styles.pinName, pin.artist.id === highlightedId && styles.pinNameSelected]}
+                    style={[styles.pinName, selectedPin && styles.pinNameSelected]}
                     numberOfLines={1}
                   >
                     {pin.artist.name}
@@ -1441,7 +1508,8 @@ export function ExploreScreen({ navigation, route }: Props) {
                 )}
               </Pressable>
             </Mapbox.MarkerView>
-          ),
+            );
+          })(),
         )}
       </Mapbox.MapView>
         </View>
@@ -1971,21 +2039,27 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     missingToken: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
     missingTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 20, textAlign: 'center' },
     missingText: { color: colors.muted, fontFamily: fonts.body, fontSize: 14, lineHeight: 21, textAlign: 'center' },
-    markerWrap: { width: 64, height: 74, alignItems: 'center', justifyContent: 'center' },
-    halo: { position: 'absolute', width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(168,255,53,0.3)' },
-    haloTrending: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,78,91,0.26)' },
-    haloSelected: { width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(47,82,224,0.32)' },
+    markerWrap: {
+      width: mapUi.markerTouchWidth,
+      height: mapUi.markerTouchHeight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    markerWrapSelected: { zIndex: 1200 },
+    halo: { position: 'absolute', backgroundColor: 'rgba(168,255,53,0.3)' },
+    haloTrending: { backgroundColor: 'rgba(255,78,91,0.26)' },
+    haloSelected: { backgroundColor: 'rgba(47,82,224,0.32)' },
     markerTip: { position: 'absolute', bottom: 12, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: colors.white },
     clusterPin: {
-      minWidth: 52,
-      borderRadius: 15,
+      minWidth: mapUi.clusterMinWidth,
+      borderRadius: mapUi.clusterRadius,
       backgroundColor: isDark ? 'rgba(20,24,31,0.96)' : 'rgba(255,255,255,0.97)',
-      borderWidth: 1.5,
+      borderWidth: 2,
       borderColor: colors.brandDeep,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: 11,
-      paddingVertical: 5,
+      paddingHorizontal: mapUi.clusterPaddingX,
+      paddingVertical: mapUi.clusterPaddingY,
       ...shadow,
     },
     // Vue globe : les clusters deviennent de TRÈS PETITS points fins et
@@ -2001,7 +2075,20 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       borderColor: 'rgba(255,255,255,0.55)',
       backgroundColor: colors.brandDeep,
     },
-    clusterPinSub: { backgroundColor: colors.brand, borderColor: colors.brand },
+    // Sous-cluster : un DISQUE, pas une pilule. Il faisait 44 × 26 pour un
+    // seul nombre, et le rayon hérité (17) étant plafonné à la moitié de la
+    // hauteur, les bouts s'arrondissaient entièrement — d'où l'ovale.
+    clusterPinSub: {
+      width: mapUi.subclusterDiameter,
+      height: mapUi.subclusterDiameter,
+      minWidth: 0,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+      borderRadius: mapUi.subclusterDiameter / 2,
+      borderWidth: 1.5,
+      backgroundColor: colors.brand,
+      borderColor: colors.brand,
+    },
     clusterPinMain: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, lineHeight: 15 },
     clusterPinStats: {
       color: colors.muted,
@@ -2012,20 +2099,15 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     },
     popRing: {
       position: 'absolute',
-      top: -4,
-      left: -4,
-      right: -4,
-      bottom: -4,
-      borderRadius: 999,
       borderWidth: 2,
       opacity: 0.9,
     },
-    popRingSelected: { top: -8, left: -8, right: -8, bottom: -8, borderWidth: 3, opacity: 1 },
+    popRingSelected: { borderWidth: 3, opacity: 1 },
     pinName: {
       position: 'absolute',
-      top: -26,
-      left: 0,
-      right: 0,
+      top: -30,
+      left: -(mapUi.pinLabelWidth - mapUi.markerTouchWidth) / 2,
+      width: mapUi.pinLabelWidth,
       alignItems: 'center',
       backgroundColor: 'rgba(13,15,19,0.92)',
       color: '#fff',
@@ -2035,15 +2117,15 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       paddingVertical: 5,
       borderRadius: 999,
       overflow: 'hidden',
-      maxWidth: 140,
-      alignSelf: 'center',
+      textAlign: 'center',
+      zIndex: 1300,
     },
     pinNameSelected: {
       backgroundColor: colors.brand,
       color: '#0b1420',
       fontFamily: fonts.bold,
       fontSize: 12,
-      maxWidth: 160,
+      width: mapUi.pinLabelWidth,
     },
     appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 20 },
     rotateBtn: {

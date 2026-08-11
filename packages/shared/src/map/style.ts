@@ -8,7 +8,7 @@
  * la même densité selon la plateforme.
  *
  * Ce module ne dépend d'aucun moteur de rendu : il décrit quelles couches
- * garder, lesquelles masquer, et de quelle couleur peindre les frontières.
+ * garder, lesquelles masquer, et comment appliquer la palette bleu/lime.
  * Chaque plateforme applique la recette avec son API (`setPaintProperty` /
  * `setLayoutProperty` côté mapbox-gl, mutation du styleJSON côté @rnmapbox).
  */
@@ -31,6 +31,11 @@ export const KEEP_SYMBOL_RE =
 /** Frontières nationales à peindre aux couleurs de la marque. */
 export const BOUNDARY_RE = /^admin-0-boundary(-disputed)?$/i;
 
+/** Surfaces auxquelles appliquer les tokens sémantiques du globe. */
+export const LAND_RE = /^(land|land-structure-polygon)$/i;
+export const WATER_RE = /^water$/i;
+export const LAND_ACCENT_RE = /^(national-park|landuse)$/i;
+
 /** Zoom à partir duquel les lignes masquées (routes…) réapparaissent. */
 export const DETAIL_LINES_ZOOM = 12;
 
@@ -40,27 +45,35 @@ export const DETAIL_LINES_ZOOM = 12;
  */
 export function boundaryColor(theme: MapTheme): string {
   const palette = theme === 'dark' ? darkPalette : lightPalette;
-  return hexToRgba(palette.brandPrimary, theme === 'dark' ? 0.75 : 0.5);
+  return hexToRgba(palette.brandPrimary, theme === 'dark' ? 0.9 : 0.72);
 }
 
 /**
- * Halo atmosphérique du globe. Volontairement neutre (gris) : la carte reste
- * monochrome, seules les frontières portent l'identité.
+ * Halo atmosphérique du globe. Le bleu est dominant ; le lime reste réservé
+ * aux surfaces végétales, labels sombres et points forts.
  */
-export const FOG: Record<MapTheme, Record<string, string | number>> = {
+export interface FogStyle {
+  color: string;
+  'high-color': string;
+  'horizon-blend': number;
+  'space-color': string;
+  'star-intensity': number;
+}
+
+export const FOG: Record<MapTheme, FogStyle> = {
   light: {
-    color: 'rgb(228, 231, 235)',
-    'high-color': 'rgb(190, 197, 205)',
-    'horizon-blend': 0.08,
-    'space-color': 'rgb(240, 242, 245)',
+    color: lightPalette.mapFog,
+    'high-color': lightPalette.mapFogHigh,
+    'horizon-blend': 0.1,
+    'space-color': lightPalette.mapSpace,
     'star-intensity': 0,
   },
   dark: {
-    color: 'rgb(12, 14, 18)',
-    'high-color': 'rgb(28, 33, 40)',
-    'horizon-blend': 0.06,
-    'space-color': 'rgb(4, 5, 8)',
-    'star-intensity': 0.15,
+    color: darkPalette.mapFog,
+    'high-color': darkPalette.mapFogHigh,
+    'horizon-blend': 0.09,
+    'space-color': darkPalette.mapSpace,
+    'star-intensity': 0.22,
   },
 };
 
@@ -84,9 +97,24 @@ export interface StyleLayer {
   minzoom?: number;
 }
 
+/** Document de style minimal manipulé sans dépendre de Mapbox GL. */
+export interface MapStyleDocument {
+  layers?: StyleLayer[];
+  /** Le fog vit à la racine du style et fonctionne aussi dans Mapbox GL JS. */
+  fog?: FogStyle;
+}
+
+export type MapPaintProperty =
+  | 'background-color'
+  | 'fill-color'
+  | 'line-color'
+  | 'text-color'
+  | 'text-halo-color'
+  | 'text-halo-width';
+
 export type LayerAction =
   | { kind: 'hide'; id: string; /** true si la couche revient au zoom détail. */ detail: boolean }
-  | { kind: 'boundary'; id: string; color: string };
+  | { kind: 'paint'; id: string; property: MapPaintProperty; value: string | number };
 
 /**
  * Décide, pour chaque couche du style, ce qu'il faut en faire.
@@ -96,16 +124,30 @@ export type LayerAction =
  * avant de le passer à la MapView. Une seule règle, deux applications.
  */
 export function planStyleActions(layers: StyleLayer[], theme: MapTheme): LayerAction[] {
-  const color = boundaryColor(theme);
+  const palette = theme === 'dark' ? darkPalette : lightPalette;
   const actions: LayerAction[] = [];
   for (const layer of layers) {
+    if (layer.type === 'background' && LAND_RE.test(layer.id)) {
+      actions.push({ kind: 'paint', id: layer.id, property: 'background-color', value: palette.mapLand });
+    } else if (layer.type === 'fill' && WATER_RE.test(layer.id)) {
+      actions.push({ kind: 'paint', id: layer.id, property: 'fill-color', value: palette.mapWater });
+    } else if (layer.type === 'fill' && LAND_ACCENT_RE.test(layer.id)) {
+      actions.push({ kind: 'paint', id: layer.id, property: 'fill-color', value: palette.mapLandAccent });
+    } else if (layer.type === 'fill' && LAND_RE.test(layer.id)) {
+      actions.push({ kind: 'paint', id: layer.id, property: 'fill-color', value: palette.mapLand });
+    }
+
     if (layer.type === 'line' && !KEEP_LINE_RE.test(layer.id)) {
       actions.push({ kind: 'hide', id: layer.id, detail: true });
     } else if (layer.type === 'symbol' && !KEEP_SYMBOL_RE.test(layer.id)) {
       actions.push({ kind: 'hide', id: layer.id, detail: false });
+    } else if (layer.type === 'symbol' && KEEP_SYMBOL_RE.test(layer.id)) {
+      actions.push({ kind: 'paint', id: layer.id, property: 'text-color', value: palette.mapLabel });
+      actions.push({ kind: 'paint', id: layer.id, property: 'text-halo-color', value: palette.mapLabelHalo });
+      actions.push({ kind: 'paint', id: layer.id, property: 'text-halo-width', value: 1.25 });
     }
     if (layer.type === 'line' && BOUNDARY_RE.test(layer.id)) {
-      actions.push({ kind: 'boundary', id: layer.id, color });
+      actions.push({ kind: 'paint', id: layer.id, property: 'line-color', value: boundaryColor(theme) });
     }
   }
   return actions;
@@ -116,15 +158,18 @@ export function planStyleActions(layers: StyleLayer[], theme: MapTheme): LayerAc
  * Mute les couches et renvoie le style.
  */
 export function applyBrandStyle(
-  style: { layers?: StyleLayer[] },
+  style: MapStyleDocument,
   theme: MapTheme,
-): { layers?: StyleLayer[] } {
+): MapStyleDocument {
+  // L'adaptateur web de @rnmapbox/maps n'exporte pas <Atmosphere>. Mettre le
+  // fog dans le document garantit donc la même atmosphère sur web et natif.
+  style.fog = { ...FOG[theme] };
   const layers = style.layers ?? [];
   for (const action of planStyleActions(layers, theme)) {
     const layer = layers.find((l) => l.id === action.id);
     if (!layer) continue;
-    if (action.kind === 'boundary') {
-      layer.paint = { ...layer.paint, 'line-color': action.color };
+    if (action.kind === 'paint') {
+      layer.paint = { ...layer.paint, [action.property]: action.value };
     } else if (action.detail) {
       // Lignes de détail (routes, rails, cours d'eau) : elles réapparaissent
       // au zoom rue, exactement comme côté web. `visibility` n'accepte pas

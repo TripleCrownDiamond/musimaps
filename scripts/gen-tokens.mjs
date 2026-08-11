@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-import { lightPalette, darkPalette, typography } from '../packages/shared/src/design/tokens.ts';
+import { lightPalette, darkPalette, mapUi, typography } from '../packages/shared/src/design/tokens.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../apps/web/src/tokens.generated.css');
@@ -72,6 +72,15 @@ const lines = [
   `  --font-display: '${typography.display}', sans-serif;`,
   `  --font-body: '${typography.body}', sans-serif;`,
   ...THEME_KEYS.map(([css, key]) => `  ${css}: ${lightPalette[key]};`),
+  '}',
+  '',
+  ':root {',
+  `  --map-pin-diameter: ${mapUi.artistPinDiameter}px;`,
+  `  --map-cluster-min-width: ${mapUi.clusterMinWidth}px;`,
+  `  --map-cluster-radius: ${mapUi.clusterRadius}px;`,
+  `  --map-cluster-padding-x: ${mapUi.clusterPaddingX}px;`,
+  `  --map-cluster-padding-y: ${mapUi.clusterPaddingY}px;`,
+  `  --map-subcluster-diameter: ${mapUi.subclusterDiameter}px;`,
   '}',
   '',
   ':root[data-theme=\'dark\'] {',

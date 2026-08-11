@@ -80,7 +80,61 @@ const TARGET_SEPARATION_PX = 46;
  * on invente une localisation. Voir docs/DECISIONS-PRODUIT.md.
  */
 const MAX_OFFSET_KM = 1.5;
-const MAX_OFFSET_DEG = (MAX_OFFSET_KM * 1000) / 111_320;
+export const MAX_OFFSET_DEG = (MAX_OFFSET_KM * 1000) / 111_320;
+
+export interface RegionBounds {
+  east: number;
+  north: number;
+  west: number;
+  south: number;
+}
+
+/**
+ * Élargit le cadrage de la marge de dés-empilement avant de filtrer les
+ * artistes visibles.
+ *
+ * Le filtre travaille sur les coordonnées BRUTES, alors que le pin est
+ * dessiné à sa position dés-empilée — jusqu'à 1,5 km plus loin. Sans cette
+ * marge, un artiste au bord du cadrage se retrouve affiché HORS de la zone,
+ * et un artiste juste dehors n'apparaît jamais alors que son pin serait
+ * visible. C'est la cause des « artistes de la zone qui atterrissent
+ * ailleurs ».
+ */
+export function padRegion(region: RegionBounds): RegionBounds {
+  // À haute latitude un degré de longitude est plus court : on élargit
+  // davantage pour couvrir le même nombre de mètres.
+  const midLat = (region.north + region.south) / 2;
+  const lngPad = MAX_OFFSET_DEG / Math.max(0.25, Math.cos((midLat * Math.PI) / 180));
+  return {
+    north: Math.min(90, region.north + MAX_OFFSET_DEG),
+    south: Math.max(-90, region.south - MAX_OFFSET_DEG),
+    east: region.east + lngPad,
+    west: region.west - lngPad,
+  };
+}
+
+/** Un artiste est-il dans le cadrage (marge de dés-empilement incluse) ? */
+export function isInRegion(coordinates: [number, number], region: RegionBounds): boolean {
+  if (!isValidCoordinate(coordinates)) return false;
+  const { east, north, west, south } = padRegion(region);
+  const [lng, lat] = coordinates;
+  // Cadrage à cheval sur l'antiméridien.
+  const lngVisible = west > east ? lng >= west || lng <= east : lng >= west && lng <= east;
+  return lngVisible && lat >= south && lat <= north;
+}
+
+/**
+ * Un cadrage sur un sous-ensemble d'artistes (clic sur cluster, recherche)
+ * doit-il être relâché à ce zoom ?
+ *
+ * Sans cela, cliquer sur un cluster fige la carte sur ce seul groupe : en
+ * dézoomant, les autres clusters ne réapparaissaient jamais. Sous
+ * `SPREAD_ZOOM` on affiche des clusters, et l'utilisateur s'attend à les
+ * voir TOUS.
+ */
+export function shouldReleaseScope(zoom: number): boolean {
+  return zoom < SPREAD_ZOOM;
+}
 
 /**
  * Rayon de la spirale pour le i-ème artiste d'un groupe, en degrés.

@@ -7,7 +7,7 @@ import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
 import MapboxTokenNotice from '../components/MapboxTokenNotice'
 import RotateToggle from '../components/RotateToggle'
 import type { Artist } from '@musimaps/shared'
-import { CAMERA, countryByName, flagFor, geoCountryOf } from '@musimaps/shared'
+import { CAMERA, countryByName, flagFor, geoCountryOf, shouldReleaseScope } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -729,8 +729,11 @@ export default function GlobeExplore() {
           // monde : les noms d'artistes ne s'affichent qu'en zoom rapproché.
           // Pins STRICTEMENT limités à la cible : une recherche active sans
           // résultat affiche une carte vide ([]), jamais tous les artistes.
+          // Au dézoom, on relâche le cadrage posé par un clic sur cluster ou
+          // une recherche : sinon la carte reste figée sur ce seul groupe et
+          // les autres clusters ne réapparaissent jamais.
           visibleArtists={
-            visiblePins.length > 0
+            visiblePins.length > 0 && !shouldReleaseScope(mapZoom)
               ? visiblePins
               : searchOpen && query.trim()
                 ? []

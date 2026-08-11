@@ -299,8 +299,8 @@
   position: relative;
   /* Crée un stacking context : l'anneau (z-index -1) reste au-dessus de la carte. */
   z-index: 0;
-  width: 36px;
-  height: 36px;
+  width: var(--map-pin-diameter);
+  height: var(--map-pin-diameter);
   border-radius: 9999px;
   border: 2.5px solid rgba(255, 255, 255, 0.9);
   background: var(--pin-tier-color, var(--color-brand-deep));
@@ -434,10 +434,10 @@
    grossit et affiche ses stats au zoom (--pin-scale continu de 0.22 à 1.15). */
 .artist-pin--cluster {
   width: auto;
-  min-width: 68px;
+  min-width: var(--map-cluster-min-width);
   height: auto;
-  padding: 7px 13px;
-  border-radius: 17px;
+  padding: var(--map-cluster-padding-y) var(--map-cluster-padding-x);
+  border-radius: var(--map-cluster-radius);
   border-width: 2px;
   white-space: nowrap;
   /* Fond + encre colorés par densité (comme les pins individuels). */
@@ -500,9 +500,15 @@
 /* Sous-cluster (~2 km) : même pilule que les clusters ville/pays mais plus
    compacte et en accent lime — les artistes d'un même point géocodé sont
    regroupés jusqu'à ce que le zoom les sépare en pins individuels. */
+/* Sous-cluster : un DISQUE, pas une pilule. Il faisait 44 × 26 pour afficher
+   un seul nombre, et le rayon hérité (17px) étant plafonné à la moitié de la
+   hauteur, les bouts s'arrondissaient entièrement : un ovale. */
 .artist-pin--sub {
-  min-width: 44px;
-  padding: 6px 11px;
+  width: var(--map-subcluster-diameter);
+  height: var(--map-subcluster-diameter);
+  min-width: 0;
+  padding: 0;
+  border-radius: 9999px;
   border-width: 1.5px;
   border-color: rgba(0, 0, 0, 0.14);
   background: var(--pin-tier-color, var(--color-brand));

@@ -8,6 +8,24 @@
 
 ## Août 2026 — Session récente (résumé)
 
+### 11 août — Globe standardisé bleu/lime
+
+- Une seule recette de style dans `packages/shared/src/map/style.ts` pour le globe web principal,
+  la preview de la landing et la carte mobile.
+- Eau, atmosphère et frontières dérivées du bleu principal `#2F52E0` ; parcs et végétation dérivés
+  du lime `#A8FF35` ; terres volontairement sobres pour préserver la lecture des pins.
+- Les couleurs de carte sont des tokens sémantiques clair/sombre dans
+  `packages/shared/src/design/tokens.ts`, sans copie d'hex dans les applications.
+- Labels majeurs bleus en thème clair et lime en thème sombre, avec halo adapté au fond.
+- Parité géométrique web/mobile : pins artistes de 36 px, clusters de 68 px, sous-clusters de 44 px,
+  halos calculés selon la taille du disque et navigation pin-à-pin avec contrôles de 36 px.
+- Le pin sélectionné est rendu au premier plan et son nom dispose de 200 px indépendamment du disque,
+  afin de rester lisible dans les groupes denses.
+- Correction de la donnée Maher Zain : ses coordonnées Tripoli étaient associées au pays `SE` ; le pays
+  est désormais `LY`, donc la navigation en Suède reste dans le groupe Stockholm.
+- `scripts/fix-geo-country.mjs` écrit désormais par connexion Postgres vérifiée et expose `--check` pour
+  détecter en régression toute incohérence entre coordonnées et code pays.
+
 ### 10 août — District / quartier, frontières brand, pays géographique, pins lumineux
 
 **Quartier / district sur toute la chaîne**

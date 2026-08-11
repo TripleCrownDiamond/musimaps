@@ -2,10 +2,18 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "web-preview",
+      "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview", "--workspace", "@musimaps/web", "--", "--port", "4173"],
-      "port": 4173
+      "runtimeArgs": ["run", "dev", "--workspace", "@musimaps/web"],
+      "port": 5173,
+      "autoPort": true
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--web"],
+      "port": 8081,
+      "autoPort": true
     }
   ]
 }
