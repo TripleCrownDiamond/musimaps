@@ -30,20 +30,15 @@ export interface WaitlistProfile {
 }
 
 /** Condition d'un badge, exprimée en données (évaluée côté mobile). */
-export interface BadgeCondition {
-  metric: 'cities' | 'favorites' | 'profile'
-  min: number
-}
+/**
+ * Le modèle de badge vit dans `@musimaps/shared` : c'est le même catalogue
+ * qui pilote le web ET le mobile. On ne le redéfinit plus ici — cette copie
+ * n'avait que 3 métriques et ignorait le rôle.
+ */
+import type { BadgeDef, BadgeRule } from '@musimaps/shared'
 
-/** Définition éditable d'un badge (miroir sérialisable de la gamification mobile). */
-export interface BadgeDefinition {
-  id: string
-  icon: string
-  label: string
-  description: string
-  points: number
-  condition: BadgeCondition
-}
+export type BadgeCondition = BadgeRule
+export type BadgeDefinition = BadgeDef
 
 /** Lien de réseau social du footer (rendu en icône). */
 export interface SocialLinkItem {
@@ -380,7 +375,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'navigate',
       label: 'Premier pas',
       description: 'Visiter sa première ville',
-      points: 10,
+      points: 10,role: 'all',
       condition: { metric: 'cities', min: 1 },
     },
     {
@@ -388,7 +383,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'compass',
       label: 'Curieux',
       description: 'Visiter 3 villes',
-      points: 25,
+      points: 25,role: 'all',
       condition: { metric: 'cities', min: 3 },
     },
     {
@@ -396,7 +391,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'earth',
       label: 'Globe-trotter',
       description: 'Visiter 8 villes',
-      points: 60,
+      points: 60,role: 'all',
       condition: { metric: 'cities', min: 8 },
     },
     {
@@ -404,7 +399,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'planet',
       label: 'Explorateur',
       description: 'Visiter 15 villes',
-      points: 120,
+      points: 120,role: 'all',
       condition: { metric: 'cities', min: 15 },
     },
     {
@@ -412,15 +407,15 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'heart',
       label: 'Coup de cœur',
       description: 'Sauvegarder un artiste',
-      points: 10,
+      points: 10,role: 'all',
       condition: { metric: 'favorites', min: 1 },
     },
     {
       id: 'saves-5',
-      icon: 'musical-notes',
+      icon: 'music',
       label: 'Mélomane',
       description: 'Sauvegarder 5 artistes',
-      points: 30,
+      points: 30,role: 'all',
       condition: { metric: 'favorites', min: 5 },
     },
     {
@@ -428,7 +423,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'sparkles',
       label: 'Collectionneur',
       description: 'Sauvegarder 12 artistes',
-      points: 80,
+      points: 80,role: 'all',
       condition: { metric: 'favorites', min: 12 },
     },
     {
@@ -436,7 +431,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'person',
       label: 'Ambassadeur',
       description: 'Créer son profil',
-      points: 20,
+      points: 20,role: 'all',
       condition: { metric: 'profile', min: 1 },
     },
   ],

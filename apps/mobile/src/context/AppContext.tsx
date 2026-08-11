@@ -10,7 +10,7 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { DEFAULT_BADGES, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type EarnedBadge } from '../gamification';
+import { DEFAULT_BADGES, appliesToRole, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
 import { updateProfile } from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
@@ -243,16 +243,22 @@ export function AppProvider({ children }: PropsWithChildren) {
   // Gamification : calcule les badges à débloquer dès que l'état évolue.
   useEffect(() => {
     if (!loadedRef.current) return;
-    const conditions = {
-      visitedCitiesCount: visitedCities.length,
-      favoritesCount: favorites.length,
+    // Le rôle vient du compte quand il y en a un ; sinon on reste « mélomane ».
+    // Les métriques non mesurées sur mobile (streak, vues…) valent 0 : les
+    // badges correspondants ne se déclenchent simplement jamais ici.
+    const conditions: BadgeState = {
+      role: 'audience',
+      cities: visitedCities.length,
+      favorites: favorites.length,
       hasProfile: profile !== null,
     };
+    // Les badges d'un autre rôle sont écartés avant évaluation.
+    const applicable = badgeDefs.filter((badge) => appliesToRole(badge, conditions.role));
     const earnedIds = earnedBadges.map((badge) => badge.id);
-    const nextEarned = badgeDefs
+    const nextEarned = applicable
       .filter((badge) => satisfiesRule(badge.condition, conditions))
       .map((badge) => badge.id);
-    const newlyEarned = badgeDefs.filter(
+    const newlyEarned = applicable.filter(
       (badge) => satisfiesRule(badge.condition, conditions) && !earnedIds.includes(badge.id),
     );
     // Pas de toast rétroactif au chargement initial (badges déjà mérités).

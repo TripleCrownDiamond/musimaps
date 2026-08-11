@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { BadgeDefinition } from '@/lib/cms'
+import {
+  BADGE_ICON_KEYS,
+  BADGE_METRICS,
+  type BadgeMetric,
+  type BadgeRole,
+} from '@musimaps/shared'
 import { useSection } from '../useSection'
 import { LangSwitch } from '../components/LangSwitch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,13 +20,30 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const ICON_HINT =
-  'navigate, compass, earth, planet, heart, musical-notes, sparkles, person, trophy, star, flame, map, mic, music, headset…'
+const ICON_HINT = BADGE_ICON_KEYS.join(', ')
 
-const METRIC_LABELS: Record<BadgeDefinition['condition']['metric'], string> = {
+/**
+ * Toutes les métriques du catalogue partagé. Les trois premières venaient du
+ * mobile, les suivantes du web : le badge est désormais éditable sur les dix.
+ */
+const METRIC_LABELS: Record<BadgeMetric, string> = {
   cities: 'Villes visitées',
   favorites: 'Artistes sauvegardés',
   profile: 'Profil créé',
+  following: 'Artistes suivis',
+  streak: 'Jours d’affilée (streak)',
+  bookingsSent: 'Demandes de réservation envoyées',
+  claimed: 'Profil carte revendiqué',
+  profileViews: 'Vues du profil',
+  bookingsReceived: 'Demandes de réservation reçues',
+  events: 'Dates de concert annoncées',
+}
+
+/** À qui s'applique le badge. */
+const ROLE_LABELS: Record<BadgeRole, string> = {
+  all: 'Tout le monde',
+  audience: 'Mélomane',
+  artist: 'Artiste',
 }
 
 /** Catalogue des badges : éditable, ajoutable, réordonnable, brouillon → publié. */
@@ -89,10 +112,11 @@ export default function BadgesPage() {
             onChange={setBadges}
             createItem={(): BadgeDefinition => ({
               id: `badge-${Date.now()}`,
-              icon: 'trophy',
+              icon: 'star',
               label: '',
               description: '',
               points: 10,
+              role: 'all',
               condition: { metric: 'cities', min: 1 },
             })}
             renderItem={(item, update) => (
@@ -116,8 +140,25 @@ export default function BadgesPage() {
                     onChange={(e) => update({ points: Number(e.target.value) || 0 })}
                   />
                 </Field>
-                <Field label="Icône (Ionicons)" hint={ICON_HINT}>
-                  <TextInput value={item.icon} onChange={(v) => update({ icon: v })} />
+                <Field label="Icône" hint={ICON_HINT}>
+                  <TextInput value={item.icon} onChange={(v) => update({ icon: v as never })} />
+                </Field>
+                <Field label="S’applique à" hint="Un badge « artiste » n’apparaît que pour les comptes artistes.">
+                  <Select
+                    value={item.role ?? 'all'}
+                    onValueChange={(role) => update({ role: role as BadgeRole })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Rôle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROLE_LABELS) as BadgeRole[]).map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {ROLE_LABELS[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field label="Condition — métrique">
                   <Select
@@ -125,7 +166,7 @@ export default function BadgesPage() {
                     onValueChange={(metric) =>
                       update({
                         condition: {
-                          metric: metric as BadgeDefinition['condition']['metric'],
+                          metric: metric as BadgeMetric,
                           min: item.condition.min,
                         },
                       })
@@ -135,7 +176,7 @@ export default function BadgesPage() {
                       <SelectValue placeholder="Métrique" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(METRIC_LABELS) as BadgeDefinition['condition']['metric'][]).map(
+                      {BADGE_METRICS.map(
                         (metric) => (
                           <SelectItem key={metric} value={metric}>
                             {METRIC_LABELS[metric]}

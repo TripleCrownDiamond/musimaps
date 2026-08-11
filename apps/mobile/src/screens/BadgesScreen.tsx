@@ -1,3 +1,4 @@
+import { badgeIcon } from '../badgeIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { getLevelInfo } from '../gamification';
+import { getLevelInfo } from '@musimaps/shared';
 import { useI18n, type MessageKey } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
@@ -121,7 +122,7 @@ export function BadgesScreen({ navigation }: Props) {
           history.map((entry) => (
             <View key={entry.id} style={styles.reward}>
               <View style={styles.rewardMedal}>
-                <Ionicons name={entry.def!.icon} size={22} color={colors.black} />
+                <Ionicons name={badgeIcon(entry.def!.icon)} size={22} color={colors.black} />
               </View>
               <View style={styles.rewardCopy}>
                 <Text style={styles.rewardLabel}>{entry.def!.label}</Text>

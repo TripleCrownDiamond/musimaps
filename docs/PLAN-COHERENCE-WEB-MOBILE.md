@@ -28,7 +28,7 @@
 | `music` | ✅ | miroir exact, zéro écart de logique |
 | `auth` | ✅ | **`premium` écrasé côté web corrigé** — voir ci-dessous |
 | `stats` | ✅ | try/catch manquants côté web repris ; favoris non synchronisés (voir ci-dessous) |
-| `gamification` | 🔴 | **pas une duplication — deux systèmes différents.** Décision produit requise |
+| `gamification` | ✅ | **deux systèmes fusionnés en un seul, entièrement éditable en admin** |
 | `discovery` | ⬜ | **1710 / 1325 — en dernier, seul.** Voir ci-dessous |
 
 **`auth` — ce que la fusion a révélé :**
@@ -75,8 +75,38 @@ Donc pas d'écrasement mutuel, mais :
   `EarnedBadge[]` côté mobile) ;
 - le web écrit `visited_cities: 0, favorites: 0` en dur dans sa ligne.
 
-Fusionner sans trancher casserait les badges déjà acquis d'un des deux côtés.
-**Décision produit requise avant toute ligne de code.**
+**Résolution retenue : fusionner le meilleur des deux, tout rendre éditable en admin.**
+
+Le système unique (`packages/shared/src/lib/gamification.ts`) garde :
+
+| Repris du mobile | Repris du web |
+|---|---|
+| règles en **données**, éditables depuis le CMS | ciblage par **rôle** (`audience` / `artist` / `all`) |
+| niveaux **nommés** avec progression (`getLevelInfo`) | **progression** par badge (`current` / `target`) |
+| date d'obtention (`EarnedBadge.earnedAt`) | métriques riches (streak, suivis, réservations, vues, dates) |
+| validation du catalogue publié (`parseBadges`) | |
+
+Dix métriques désormais disponibles dans l'admin : `cities`, `favorites`,
+`profile`, `following`, `streak`, `bookingsSent`, `claimed`, `profileViews`,
+`bookingsReceived`, `events` — les trois premières venaient du mobile, les sept
+autres du web, et aucune n'était éditable avant.
+
+Les icônes passent par un **vocabulaire sémantique neutre** (`BadgeIconKey`),
+chaque plateforme fournissant sa table (`lib/badgeIcons.ts` côté web vers lucide,
+`src/badgeIcons.ts` côté mobile vers Ionicons). L'ancien module mobile importait
+`Ionicons` **dans la logique métier** — la dépendance de plateforme est désormais
+confinée à la couche de rendu.
+
+Deux défauts corrigés au passage dans la synchronisation :
+- le web écrivait `visited_cities: 0, favorites: 0` **en dur**, écrasant les
+  compteurs réels de sa propre ligne ;
+- le web écrivait `badges` en `string[]` alors que l'admin lit des objets
+  `{ id, earnedAt }` : ses lignes comptaient donc un badge d'identifiant
+  `undefined` dans le graphique de répartition.
+
+Reste ouvert : une même personne peut toujours apparaître deux fois au classement
+(ligne `deviceId` du mobile anonyme, ligne `userId` du compte). À traiter quand
+le mobile saura rattacher son appareil à un compte connecté.
 
 **`discovery` — points connus avant de commencer :**
 - 385 lignes d'écart, c'est le module qui alimente la carte.

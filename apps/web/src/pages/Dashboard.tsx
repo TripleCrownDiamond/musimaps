@@ -9,32 +9,24 @@ import {
   CalendarHeart,
   Camera,
   CheckCheck,
-  Compass,
-  Crown,
   ExternalLink,
   Eye,
   Flame,
-  FolderHeart,
   Globe2,
-  Guitar,
   Heart,
   ImagePlus,
-  Inbox,
   Mail,
   MapPin,
   Mic2,
   PenLine,
   Send,
   Sparkles,
-  Star,
-  Target,
   Trash2,
-  TrendingUp,
   Trophy,
   Users,
-  type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { fetchBookings, type BookingRecord } from '@musimaps/shared'
 import { setAccountType } from '@musimaps/shared'
@@ -64,14 +56,16 @@ import {
 } from '@musimaps/shared'
 import { fetchMyReferralRequest, type MyReferralRequest } from '../lib/waitlist'
 import {
-  computeRoleBadges,
+  DEFAULT_BADGES,
+  computeBadges,
   earnedCount,
   earnedPoints,
-  levelFromPoints,
-  syncUserGamification,
-  type BadgeIcon,
-  type RoleBadge,
-} from '../lib/gamification'
+  getLevelInfo,
+  parseBadges,
+  syncGamification,
+  type ComputedBadge,
+} from '@musimaps/shared'
+import { badgeIcon } from '../lib/badgeIcons'
 import {
   fetchNotifications,
   markAllNotificationsRead,
@@ -88,24 +82,8 @@ const DEEP = 'var(--color-brand-deep)'
 const LIME = 'var(--color-brand)'
 const SOFT = 'var(--color-brand-soft)'
 
-/** Icône par type de notification (même mapping que la cloche). */
-/** Icônes lucide des badges (au lieu d'emojis, cohérent avec le design system). */
-const BADGE_ICONS: Record<BadgeIcon, LucideIcon> = {
-  heart: Heart,
-  'folder-heart': FolderHeart,
-  compass: Compass,
-  star: Star,
-  flame: Flame,
-  target: Target,
-  crown: Crown,
-  mic: Mic2,
-  'badge-check': BadgeCheck,
-  eye: Eye,
-  'trending-up': TrendingUp,
-  inbox: Inbox,
-  'calendar-check': CalendarCheck,
-  guitar: Guitar,
-}
+// Les icônes de badges vivent dans lib/badgeIcons.ts : le catalogue partagé
+// n'expose qu'une clé sémantique, chaque plateforme choisit son rendu.
 
 /** Libellé court d'une date ISO (jour/mois) localisé. */
 function dayLabel(iso: string, lang: 'fr' | 'en'): string {
@@ -195,6 +173,7 @@ interface DashStats {
 export default function Dashboard() {
   const { user, loading, refresh, updateProfile } = useAuth()
   const { t, lang } = useLanguage()
+  const { content } = useCms()
   const localize = useLocalizedPath()
   const [bookings, setBookings] = useState<BookingRecord[] | null>(null)
   const [stats, setStats] = useState<DashStats>({
@@ -225,7 +204,7 @@ export default function Dashboard() {
   const [detailStats, setDetailStats] = useState<ArtistStatsDetail | null>(null)
   // Streak de connexion (pointage quotidien) + badges par rôle.
   const [streak, setStreak] = useState<StreakInfo | null>(null)
-  const [rewards, setRewards] = useState<RoleBadge[] | null>(null)
+  const [rewards, setRewards] = useState<ComputedBadge[] | null>(null)
 
   const switchAccountType = async () => {
     if (!user) return
@@ -334,7 +313,9 @@ export default function Dashboard() {
       const isArtistRole = user.role === 'artist'
       const claimedEvents =
         (claimedProfile as { events?: unknown[] } | null)?.events?.length ?? 0
-      const badges = computeRoleBadges({
+      // Catalogue publié dans l'admin (clé 'badges'), repli sur les défauts.
+      const catalog = parseBadges(content.badges) ?? DEFAULT_BADGES
+      const badges = computeBadges(catalog, {
         role: isArtistRole ? 'artist' : 'audience',
         streak: streakInfo?.current ?? 0,
         favorites: favIds.length,
@@ -347,10 +328,11 @@ export default function Dashboard() {
       })
       if (cancelled) return
       setRewards(badges)
-      void syncUserGamification({
+      void syncGamification({
+        userKey: user.id,
         displayName: user.displayName,
-        role: isArtistRole ? 'artist' : 'audience',
         badges,
+        favorites: favIds.length,
       })
     }
     void load()
@@ -986,7 +968,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <span className="rounded-full bg-brand px-3 py-1.5 font-bold text-black">
-                      {t('dash.rewardsLevel', { level: levelFromPoints(earnedPoints(rewards)) })}
+                      {t('dash.rewardsLevel', { level: getLevelInfo(earnedPoints(rewards)).level })}
                     </span>
                     <span className="rounded-full bg-secondary-bg px-3 py-1.5 font-bold">
                       {t('dash.rewardsEarned', {
@@ -998,7 +980,7 @@ export default function Dashboard() {
                 </div>
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {rewards.map((badge) => {
-                    const BadgeIcon = BADGE_ICONS[badge.icon]
+                    const BadgeIcon = badgeIcon(badge.icon)
                     return (
                       <li
                         key={badge.id}

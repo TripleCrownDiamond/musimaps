@@ -1,3 +1,4 @@
+import { badgeIcon } from '../badgeIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,7 +12,7 @@ import { AppBar } from '../components/AppBar';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { getLevelInfo } from '../gamification';
+import { getLevelInfo } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fetchUnreadCount } from '@musimaps/shared';
 import { checkin, type StreakInfo } from '@musimaps/shared';
@@ -158,7 +159,7 @@ export function ProfileScreen({ navigation }: Props) {
         <View style={styles.badgeRow}>
           {earnedBadgesList.map((badge) => (
             <View key={badge.id} style={styles.badgeItemEarned}>
-              <Ionicons name={badge.icon} size={17} color={colors.black} />
+              <Ionicons name={badgeIcon(badge.icon)} size={17} color={colors.black} />
             </View>
           ))}
           {lockedCount > 0 && (

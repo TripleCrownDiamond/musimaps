@@ -1,3 +1,4 @@
+import { badgeIcon } from '../badgeIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
@@ -50,7 +51,7 @@ export function AchievementToast() {
         ]}
       >
         <View style={styles.medal}>
-          <Ionicons name={lastEarnedBadge.icon} size={22} color={colors.black} />
+          <Ionicons name={badgeIcon(lastEarnedBadge.icon)} size={22} color={colors.black} />
         </View>
         <View style={styles.copy}>
           <Text style={styles.eyebrow}>Badge débloqué · +{lastEarnedBadge.points} pts</Text>
