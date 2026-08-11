@@ -61,7 +61,7 @@ import {
   type ArtistStatsDetail,
   type ArtistSummary,
   type StreakInfo,
-} from '../lib/stats'
+} from '@musimaps/shared'
 import { fetchMyReferralRequest, type MyReferralRequest } from '../lib/waitlist'
 import {
   computeRoleBadges,

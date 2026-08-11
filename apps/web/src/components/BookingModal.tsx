@@ -13,7 +13,7 @@ import type { Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { requestBooking, type BookingPref } from '@musimaps/shared'
-import { notifyArtistAction } from '../lib/stats'
+import { notifyArtistAction } from '@musimaps/shared'
 
 interface BookingModalProps {
   artist: Artist

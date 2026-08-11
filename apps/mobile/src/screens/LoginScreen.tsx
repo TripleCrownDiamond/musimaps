@@ -16,7 +16,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { checkin } from '../lib/stats';
+import { checkin } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 

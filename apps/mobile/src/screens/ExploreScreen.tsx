@@ -54,7 +54,7 @@ import {
   type NeighborhoodSuggestion,
 } from '../lib/discovery';
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
-import { fetchAllArtistPopularity, recordPinView } from '../lib/stats';
+import { fetchAllArtistPopularity, recordPinView } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { dockStyle, fonts, shadow, type AppColors } from '../theme';
 

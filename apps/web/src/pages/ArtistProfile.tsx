@@ -26,7 +26,7 @@ import {
   fetchFollowing,
   toggleFavorite,
   toggleFollow,
-} from '../lib/stats'
+} from '@musimaps/shared'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'sonner'

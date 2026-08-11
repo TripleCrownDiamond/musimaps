@@ -10,6 +10,7 @@ export * from './lib/brand'
 export * from './lib/booking'
 export * from './lib/music'
 export * from './lib/auth'
+export * from './lib/stats'
 
 
 export interface Track {

@@ -28,7 +28,7 @@ import {
   type MapArtistView,
   type NeighborhoodSuggestion,
 } from '../lib/discovery'
-import { fetchAllArtistPopularity, recordPinView } from '../lib/stats'
+import { fetchAllArtistPopularity, recordPinView } from '@musimaps/shared'
 import { toast } from 'sonner'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'

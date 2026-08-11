@@ -25,7 +25,7 @@ import {
   fetchFollowing,
   recordProfileView,
   toggleFollow,
-} from '../lib/stats';
+} from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
 import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared';
 import { requestClaim } from '../lib/discovery';

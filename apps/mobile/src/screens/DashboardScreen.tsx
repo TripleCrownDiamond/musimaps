@@ -12,7 +12,7 @@ import {
   fetchArtistStatsDetail,
   fetchFollowing,
   type ArtistStatsDetail,
-} from '../lib/stats';
+} from '@musimaps/shared';
 import { BarChart, ChartCard, HBarList, SegmentedBar } from '../components/Charts';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';

@@ -19,7 +19,7 @@ import { PasswordGauge } from '../components/PasswordGauge';
 import { SearchablePicker, type PickerItem } from '../components/SearchablePicker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { checkin } from '../lib/stats';
+import { checkin } from '@musimaps/shared';
 import { useAppTheme } from '../context/ThemeContext';
 import { suggestCities } from '../lib/discovery';
 import { useI18n } from '../i18n';

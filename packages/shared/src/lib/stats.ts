@@ -1,18 +1,32 @@
-import { supabase, hasSupabase } from './supabase'
+/**
+ * Statistiques, favoris, suivis et streak — partagé web + mobile.
+ *
+ * Base : la version web (surface la plus complète, 19 fonctions contre 11).
+ * Reprend du mobile le `fetchArtistIdByName` qui lui était propre et les
+ * try/catch dont le web manquait : `checkin` et `fetchAllArtistPopularity`
+ * laissaient remonter une erreur réseau côté web.
+ *
+ * ⚠️ Les favoris passent par la table Supabase `favorites` (liée au compte).
+ * Le mobile utilise encore un stockage LOCAL (AsyncStorage) et ne consomme
+ * donc pas `toggleFavorite`/`fetchFavorites` : les favoris ne se
+ * synchronisent pas entre les deux plateformes. Voir docs/PLAN-COHERENCE-WEB-MOBILE.md.
+ */
+import { getStorage, getSupabase } from '../runtime'
 
 /** Clé d'appareil anonyme et stable (localStorage) pour les vues non connectées. */
 const VIEWER_KEY_STORAGE = 'musimaps.viewer-key'
 
-export function getViewerKey(): string {
+export async function getViewerKey(): Promise<string> {
   try {
-    let key = localStorage.getItem(VIEWER_KEY_STORAGE)
+    const storage = getStorage()
+    let key = await storage.get(VIEWER_KEY_STORAGE)
     if (!key) {
-      key = `web-${crypto.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
-      localStorage.setItem(VIEWER_KEY_STORAGE, key)
+      key = `mm-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
+      await storage.set(VIEWER_KEY_STORAGE, key)
     }
     return key
   } catch {
-    return `web-${Math.random().toString(36).slice(2)}`
+    return `mm-${Math.random().toString(36).slice(2)}`
   }
 }
 
@@ -58,16 +72,20 @@ export interface ArtistStatsDetail {
 
 /** Stats détaillées (réservé à l'artiste propriétaire du profil ou à un admin). */
 export async function fetchArtistStatsDetail(artistId: string): Promise<ArtistStatsDetail | null> {
-  if (!hasSupabase() || !artistId) return null
-  const { data, error } = await supabase!.rpc('artist_stats_detail', { p_artist_id: artistId })
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return null
+  const { data, error } = await supabase.rpc('artist_stats_detail', { p_artist_id: artistId })
   if (error || !data) return null
   return data as unknown as ArtistStatsDetail
 }
 
 /** Remet les compteurs de vues à zéro (réservé aux admins). */
 export async function resetArtistStats(): Promise<{ ok: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
-  const { data, error } = await supabase!.rpc('reset_artist_stats')
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { data, error } = await supabase.rpc('reset_artist_stats')
   if (error) return { ok: false, error: error.message }
   return (data as { ok?: boolean } | null)?.ok
     ? { ok: true }
@@ -79,8 +97,10 @@ export async function resetArtistStats(): Promise<{ ok: boolean; error?: string 
  * Lecture publique via la fonction count_artist_followers.
  */
 export async function fetchArtistFollowers(artistId: string): Promise<number> {
-  if (!hasSupabase() || !artistId) return 0
-  const { data, error } = await supabase!.rpc('count_artist_followers', {
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return 0
+  const { data, error } = await supabase.rpc('count_artist_followers', {
     p_artist_id: artistId,
   })
   if (error) return 0
@@ -90,8 +110,10 @@ export async function fetchArtistFollowers(artistId: string): Promise<number> {
 /** Nombre de likes (favoris) d'un artiste sur Musimaps.
  * Lecture publique via la fonction count_artist_likes. */
 export async function fetchArtistLikes(artistId: string): Promise<number> {
-  if (!hasSupabase() || !artistId) return 0
-  const { data, error } = await supabase!.rpc('count_artist_likes', {
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return 0
+  const { data, error } = await supabase.rpc('count_artist_likes', {
     p_artist_id: artistId,
   })
   if (error) return 0
@@ -105,25 +127,35 @@ export async function fetchArtistLikes(artistId: string): Promise<number> {
  */
 export async function fetchAllArtistPopularity(): Promise<Map<string, number>> {
   const out = new Map<string, number>()
-  if (!hasSupabase()) return out
-  const { data, error } = await supabase!
-    .from('artist_stats')
-    .select('artist_id, profile_views, pin_views')
-  if (error || !data) return out
-  for (const row of data as Array<{
-    artist_id: string
-    profile_views?: number
-    pin_views?: number
-  }>) {
-    out.set(row.artist_id, (row.profile_views ?? 0) + (row.pin_views ?? 0))
+  const supabase = getSupabase()
+
+  if (!supabase) return out
+  // try/catch repris du mobile : lecture optionnelle, la carte reste
+  // fonctionnelle sans les scores de popularité.
+  try {
+    const { data, error } = await supabase
+      .from('artist_stats')
+      .select('artist_id, profile_views, pin_views')
+    if (error || !data) return out
+    for (const row of data as Array<{
+      artist_id: string
+      profile_views?: number
+      pin_views?: number
+    }>) {
+      out.set(row.artist_id, (row.profile_views ?? 0) + (row.pin_views ?? 0))
+    }
+  } catch {
+    /* silencieux */
   }
   return out
 }
 
 /** Compteurs de vues d'un artiste (lecture publique). */
 export async function fetchArtistStats(artistId: string): Promise<ArtistStats | null> {
-  if (!hasSupabase()) return null
-  const { data, error } = await supabase!
+  const supabase = getSupabase()
+
+  if (!supabase) return null
+  const { data, error } = await supabase
     .from('artist_stats')
     .select('artist_id, profile_views, pin_views')
     .eq('artist_id', artistId)
@@ -141,8 +173,9 @@ export async function fetchArtistStats(artistId: string): Promise<ArtistStats | 
 export async function fetchArtistStatsByName(
   name: string,
 ): Promise<{ artistId: string; profileViews: number; pinViews: number } | null> {
-  if (!hasSupabase() || !name.trim()) return null
-  const { data, error } = await supabase!
+  const supabase = getSupabase()
+  if (!supabase || !name.trim()) return null
+  const { data, error } = await supabase
     .from('map_artists')
     .select('id')
     .ilike('name', name.trim())
@@ -167,16 +200,23 @@ export interface StreakInfo {
 
 /** Pointage quotidien : appelé à chaque connexion / ouverture du dashboard. */
 export async function checkin(): Promise<StreakInfo | null> {
-  if (!hasSupabase()) return null
-  const { data, error } = await supabase!.rpc('checkin')
-  if (error || !data) return null
-  const raw = data as { ok?: boolean; current?: number; best?: number; total?: number; checked_today?: boolean }
-  if (!raw.ok) return null
-  return {
-    current: raw.current ?? 0,
-    best: raw.best ?? 0,
-    total: raw.total ?? 0,
-    checkedToday: raw.checked_today ?? false,
+  const supabase = getSupabase()
+
+  if (!supabase) return null
+  // try/catch repris du mobile : le web laissait remonter une erreur réseau.
+  try {
+    const { data, error } = await supabase.rpc('checkin')
+    if (error || !data) return null
+    const raw = data as { ok?: boolean; current?: number; best?: number; total?: number; checked_today?: boolean }
+    if (!raw.ok) return null
+    return {
+      current: raw.current ?? 0,
+      best: raw.best ?? 0,
+      total: raw.total ?? 0,
+      checkedToday: raw.checked_today ?? false,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -187,9 +227,11 @@ export async function notifyArtistAction(
   type: 'follow' | 'like' | 'booking' | 'achievement',
   message: string,
 ): Promise<void> {
-  if (!hasSupabase() || !artistId) return
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return
   try {
-    await supabase!.rpc('notify_artist_action', {
+    await supabase.rpc('notify_artist_action', {
       p_artist_id: artistId,
       p_type: type,
       p_message: message,
@@ -205,9 +247,11 @@ export async function notifyBookingStatus(
   status: string,
   message: string,
 ): Promise<void> {
-  if (!hasSupabase() || !bookingId) return
+  const supabase = getSupabase()
+
+  if (!supabase || !bookingId) return
   try {
-    await supabase!.rpc('notify_booking_status', {
+    await supabase.rpc('notify_booking_status', {
       p_booking_id: bookingId,
       p_status: status,
       p_message: message,
@@ -223,12 +267,14 @@ export async function recordProfileView(
   artistId: string,
   opts?: { viewerKey?: string; country?: string | null },
 ): Promise<void> {
-  if (!hasSupabase() || !artistId) return
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return
   try {
-    await supabase!.rpc('record_artist_view', {
+    await supabase.rpc('record_artist_view', {
       p_artist_id: artistId,
       p_kind: 'profile',
-      p_viewer_key: opts?.viewerKey ?? getViewerKey(),
+      p_viewer_key: opts?.viewerKey ?? (await getViewerKey()),
       p_country: opts?.country ?? null,
     })
   } catch {
@@ -241,12 +287,14 @@ export async function recordPinView(
   artistId: string,
   opts?: { viewerKey?: string; country?: string | null },
 ): Promise<void> {
-  if (!hasSupabase() || !artistId) return
+  const supabase = getSupabase()
+
+  if (!supabase || !artistId) return
   try {
-    await supabase!.rpc('record_artist_view', {
+    await supabase.rpc('record_artist_view', {
       p_artist_id: artistId,
       p_kind: 'pin',
-      p_viewer_key: opts?.viewerKey ?? getViewerKey(),
+      p_viewer_key: opts?.viewerKey ?? (await getViewerKey()),
       p_country: opts?.country ?? null,
     })
   } catch {
@@ -256,16 +304,20 @@ export async function recordPinView(
 
 /** Artistes favoris de l'utilisateur connecté. */
 export async function fetchFavorites(): Promise<string[]> {
-  if (!hasSupabase()) return []
-  const { data, error } = await supabase!.from('favorites').select('artist_id')
+  const supabase = getSupabase()
+
+  if (!supabase) return []
+  const { data, error } = await supabase.from('favorites').select('artist_id')
   if (error) return []
   return (data ?? []).map((row) => row.artist_id)
 }
 
 /** Détails des artistes de la carte pour une liste d'ids (favoris, suivis…). */
 export async function fetchArtistsByIds(ids: string[]): Promise<ArtistSummary[]> {
-  if (!hasSupabase() || ids.length === 0) return []
-  const { data, error } = await supabase!
+  const supabase = getSupabase()
+
+  if (!supabase || ids.length === 0) return []
+  const { data, error } = await supabase
     .from('map_artists')
     .select('id, name, genre, city, country, flag, image, verified')
     .in('id', ids)
@@ -284,14 +336,16 @@ export async function fetchArtistsByIds(ids: string[]): Promise<ArtistSummary[]>
 
 /** Bascule un artiste en favori (like). Retourne true si maintenant en favori. */
 export async function toggleFavorite(artistId: string): Promise<{ ok: boolean; liked: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, liked: false, error: 'Supabase non configuré' }
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, liked: false, error: 'Supabase non configuré' }
   const current = await fetchFavorites()
   const liked = current.includes(artistId)
   if (liked) {
-    const { error } = await supabase!.from('favorites').delete().eq('artist_id', artistId)
+    const { error } = await supabase.from('favorites').delete().eq('artist_id', artistId)
     return error ? { ok: false, liked: true, error: error.message } : { ok: true, liked: false }
   }
-  const { error } = await supabase!.from('favorites').insert({ artist_id: artistId })
+  const { error } = await supabase.from('favorites').insert({ artist_id: artistId })
   return error ? { ok: false, liked: false, error: error.message } : { ok: true, liked: true }
 }
 
@@ -303,8 +357,10 @@ export async function toggleFavorite(artistId: string): Promise<{ ok: boolean; l
 
 /** Artistes suivis par l'utilisateur connecté. */
 export async function fetchFollowing(): Promise<string[]> {
-  if (!hasSupabase()) return []
-  const { data, error } = await supabase!.from('follows').select('artist_id')
+  const supabase = getSupabase()
+
+  if (!supabase) return []
+  const { data, error } = await supabase.from('follows').select('artist_id')
   if (error) return []
   return (data ?? []).map((row) => row.artist_id)
 }
@@ -316,17 +372,36 @@ export async function toggleFollow(
   artistId: string,
   notifyMessage?: string,
 ): Promise<{ ok: boolean; following: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, following: false, error: 'Supabase non configuré' }
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, following: false, error: 'Supabase non configuré' }
   const current = await fetchFollowing()
   const following = current.includes(artistId)
   if (following) {
-    const { error } = await supabase!.from('follows').delete().eq('artist_id', artistId)
+    const { error } = await supabase.from('follows').delete().eq('artist_id', artistId)
     return error ? { ok: false, following: true, error: error.message } : { ok: true, following: false }
   }
-  const { error } = await supabase!.from('follows').insert({ artist_id: artistId })
+  const { error } = await supabase.from('follows').insert({ artist_id: artistId })
   if (!error) {
     // Notifie l'artiste revendiqué (message localisé de l'appelant).
     void notifyArtistAction(artistId, 'follow', notifyMessage ?? '')
   }
   return error ? { ok: false, following: false, error: error.message } : { ok: true, following: true }
+}
+
+/**
+ * Identifiant d'un artiste de la carte à partir de son nom (insensible à la
+ * casse). Était propre au mobile ; disponible aux deux plateformes.
+ */
+export async function fetchArtistIdByName(name: string): Promise<string | null> {
+  const supabase = getSupabase()
+  if (!supabase || !name.trim()) return null
+  const { data, error } = await supabase
+    .from('map_artists')
+    .select('id')
+    .ilike('name', name.trim())
+    .limit(1)
+    .maybeSingle()
+  if (error || !data) return null
+  return data.id as string
 }

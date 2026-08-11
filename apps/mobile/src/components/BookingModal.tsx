@@ -17,7 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n, type MessageKey } from '../i18n';
 import { requestBooking, type BookingPref } from '@musimaps/shared';
-import { notifyArtistAction } from '../lib/stats';
+import { notifyArtistAction } from '@musimaps/shared';
 import { fonts, type AppColors } from '../theme';
 
 interface BookingModalProps {
