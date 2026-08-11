@@ -41,6 +41,7 @@ import { dockStyle, fonts } from './src/theme';
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
 configureRuntime({
+  mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN,
   supabase,
   storage: nativeStorage,
   // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.

@@ -25,7 +25,7 @@ import {
   locateArtist,
   searchArtistOnline,
   type DiscoveredArtist,
-} from '../lib/discovery';
+} from '@musimaps/shared';
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, shadow, type AppColors } from '../theme';

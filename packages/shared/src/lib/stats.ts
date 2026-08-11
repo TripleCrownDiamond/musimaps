@@ -13,7 +13,7 @@
  */
 import { getStorage, getSupabase } from '../runtime'
 
-/** Clé d'appareil anonyme et stable (localStorage) pour les vues non connectées. */
+/** Clé d'appareil anonyme et stable (stockage injecté) pour les vues non connectées. */
 const VIEWER_KEY_STORAGE = 'musimaps.viewer-key'
 
 export async function getViewerKey(): Promise<string> {

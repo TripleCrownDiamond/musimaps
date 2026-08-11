@@ -21,7 +21,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { checkin } from '@musimaps/shared';
 import { useAppTheme } from '../context/ThemeContext';
-import { suggestCities } from '../lib/discovery';
+import { suggestCities } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import type { AccountRole } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';

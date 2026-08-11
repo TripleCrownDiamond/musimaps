@@ -9,7 +9,7 @@ import type { AccountRole } from '@musimaps/shared'
 import { countryByCode, countryByName } from '@musimaps/shared'
 import { LocationSelect, type LocationValue } from '../components/LocationSelect'
 import { PasswordGauge } from '../components/PasswordGauge'
-import { reverseGeocodeBrowser } from '../lib/discovery'
+import { reverseGeocodeBrowser } from '../lib/geolocate'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 

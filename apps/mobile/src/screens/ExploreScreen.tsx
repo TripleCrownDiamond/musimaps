@@ -52,7 +52,7 @@ import {
   toArtist,
   type DiscoveredArtist,
   type NeighborhoodSuggestion,
-} from '../lib/discovery';
+} from '@musimaps/shared';
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import { fetchAllArtistPopularity, recordPinView } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';

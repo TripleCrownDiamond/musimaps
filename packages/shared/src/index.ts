@@ -12,6 +12,7 @@ export * from './lib/music'
 export * from './lib/auth'
 export * from './lib/stats'
 export * from './lib/gamification'
+export * from './lib/discovery'
 
 
 export interface Track {

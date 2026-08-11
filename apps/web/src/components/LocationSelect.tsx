@@ -9,7 +9,7 @@ import {
   countryName,
   flagFor,
 } from '@musimaps/shared'
-import { suggestCities, type CitySuggestion } from '@/lib/discovery'
+import { suggestCities, type CitySuggestion } from '@musimaps/shared'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'

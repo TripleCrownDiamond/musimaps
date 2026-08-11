@@ -10,7 +10,7 @@
 | 0 — Sécuriser la base | ✅ fait — `.gitignore` nettoyé, fusion dans `main`, `npm run check` vert |
 | 1 — Tokens partagés | ✅ fait — `packages/shared/src/design/tokens.ts`, CSS web **identique au bit près** |
 | 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
-| 3 — Logique métier partagée | 🟡 **en cours** — socle + 5 modules faits, 4 restants (voir ci-dessous) |
+| 3 — Logique métier partagée | ✅ **fait** — socle + les 9 modules, zéro duplication restante |
 | 3bis — Corrections carte | ⬜ à faire — voir [AUDIT-CARTE.md](AUDIT-CARTE.md) §4 |
 | 4 — Écrans mobiles manquants | ⬜ à faire |
 | 5 — Dashboard mobile à parité | ⬜ à faire |
@@ -29,7 +29,7 @@
 | `auth` | ✅ | **`premium` écrasé côté web corrigé** — voir ci-dessous |
 | `stats` | ✅ | try/catch manquants côté web repris ; favoris non synchronisés (voir ci-dessous) |
 | `gamification` | ✅ | **deux systèmes fusionnés en un seul, entièrement éditable en admin** |
-| `discovery` | ⬜ | **1710 / 1325 — en dernier, seul.** Voir ci-dessous |
+| `discovery` | ✅ | l'écart de 385 lignes était surtout du **commentaire** — voir ci-dessous |
 
 **`auth` — ce que la fusion a révélé :**
 - Le type `accountType` du web s'était arrêté à `'personal' | 'business'` alors que
@@ -108,11 +108,36 @@ Reste ouvert : une même personne peut toujours apparaître deux fois au classem
 (ligne `deviceId` du mobile anonyme, ligne `userId` du compte). À traiter quand
 le mobile saura rattacher son appareil à un compte connecté.
 
-**`discovery` — points connus avant de commencer :**
-- 385 lignes d'écart, c'est le module qui alimente la carte.
-- Le web déclenche `triggerDiscoveryNotification` après ajout d'un artiste,
-  **le mobile ne le fait pas** : une découverte mobile ne notifie personne.
-  À trancher (très probablement : aligner le mobile sur le web).
+**`discovery` — ce que la comparaison fonction par fonction a montré.**
+
+L'écart de 385 lignes annoncé dans l'audit était **trompeur** : comparées hors
+commentaires et hors formatage, 11 fonctions sur 16 étaient communes et
+`searchArtistOnline` — la plus grosse, 73 lignes d'écart apparent — n'avait
+**aucune différence de logique**, seulement un retour à la ligne. Le web était
+simplement mieux commenté.
+
+Les vraies divergences, toutes tranchées par la base ou par le comportement :
+
+| Point | Web | Mobile | Retenu |
+|---|---|---|---|
+| `source` par défaut | `'web'` | `'musicbrainz'` | **mobile** — la base fait `COALESCE(…, 'musicbrainz')` |
+| `genre` par défaut | `''` | `'Unknown'` | **web** — `''` fait un aller-retour propre, `'Unknown'` finirait écrit comme un vrai genre |
+| lignes sans coordonnées | non filtrées | filtrées | **mobile** — une ligne sans lat/lng ne doit jamais devenir un pin |
+| `suggestCities` | avec `AbortSignal` | sans | **web** — le mobile ne pouvait pas annuler une recherche en vol |
+| `addOrUpdateMapArtist` | avec `opts.claimedBy` | sans | **web** |
+| messages d'erreur | texte lisible | codes (`'unknown'`…) | **web** — le mobile ne lisait jamais `result.error`, ses codes étaient morts |
+| `toArtist` | `MapArtistView` | `Artist` | **web** — sur-ensemble |
+
+Conséquence concrète du défaut `source` : sur le web, un artiste dont la colonne
+est NULL n'était pas reconnu comme découvert (`'web' !== 'musicbrainz'`), donc le
+bouton « revendiquer ce profil » **n'apparaissait jamais** pour lui. Sur mobile, si.
+
+`triggerDiscoveryNotification` est désormais déclenché des deux côtés : une
+découverte faite depuis le mobile ne notifiait personne.
+
+Seule `reverseGeocodeBrowser` est restée côté web (`apps/web/src/lib/geolocate.ts`) :
+elle dépend de `navigator.geolocation`, absent en React Native — le mobile passe
+par `expo-location`. Le jeton Mapbox rejoint le socle injecté, comme Supabase.
 
 ## Principe directeur
 

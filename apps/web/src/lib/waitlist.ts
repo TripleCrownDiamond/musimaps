@@ -4,7 +4,7 @@ import {
   geocodeArtistLocation,
   geocodeCityWithCountry,
   type DiscoveredArtist,
-} from './discovery'
+} from '@musimaps/shared'
 
 /** Drapeau emoji d'un code ISO 3166-1 alpha-2 (« BJ » → 🇧🇯). */
 function flagEmoji(countryCode: string | null | undefined): string {

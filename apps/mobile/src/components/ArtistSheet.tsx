@@ -28,7 +28,7 @@ import {
 } from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
 import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared';
-import { requestClaim } from '../lib/discovery';
+import { requestClaim } from '@musimaps/shared';
 import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
 import { BookingModal } from './BookingModal';

@@ -14,6 +14,7 @@ import { Toaster } from './components/ui/sonner'
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
 configureRuntime({
+  mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN as string | undefined,
   supabase,
   storage: webStorage,
   resetPasswordUrl: `${window.location.origin}/reset-password`,

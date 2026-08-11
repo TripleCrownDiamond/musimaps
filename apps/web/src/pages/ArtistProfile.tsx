@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import Footer from '../components/Footer'
 import { artists, compactCount, findArtist, type Artist } from '@musimaps/shared'
-import { fetchMapArtists, toArtist } from '../lib/discovery'
+import { fetchMapArtists, toArtist } from '@musimaps/shared'
 import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
 import {
   fetchArtistFollowers,

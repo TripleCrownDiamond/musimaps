@@ -1,6 +1,7 @@
-import { supabase, hasSupabase } from './supabase'
-import type { Artist, ArtistEvent } from '@musimaps/shared'
-import { countryByName } from '@musimaps/shared'
+import { getMapboxToken, getSupabase } from '../runtime'
+import { triggerDiscoveryNotification } from './notifications'
+import type { Artist, ArtistEvent } from '../index'
+import { countryByName } from '../geo'
 
 /**
  * MusicBrainz exige un User-Agent descriptif (identification du client) :
@@ -96,7 +97,7 @@ function normalizeCountryCode(raw: string | null | undefined): string | null {
 }
 
 /** Code pays du contexte d'un résultat Mapbox (short_code « bj », « fr-75 »…). */
-function countryCodeOfFeature(feature: { context?: Array<{ id?: string; short_code?: string }> }): string | null {
+export function countryCodeOfFeature(feature: { context?: Array<{ id?: string; short_code?: string }> }): string | null {
   const c = (feature.context ?? []).find((x) => (x.id ?? '').startsWith('country'))
   const sc = c?.short_code ?? ''
   const code = sc.replace(/^[a-z]{2}-/, '').toUpperCase()
@@ -904,11 +905,13 @@ const agentQueryCache = new Map<
 >()
 const AGENT_QUERY_TTL_MS = 10 * 60 * 1000
 async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> {
-  if (!hasSupabase()) return null
+  const supabase = getSupabase()
+
+  if (!supabase) return null
   const cacheKey = query.trim().toLowerCase()
   const cached = agentQueryCache.get(cacheKey)
   if (cached && Date.now() - cached.at <= AGENT_QUERY_TTL_MS) return cached.artist
-  const invoke = supabase!.functions.invoke('ai_artist_agent', {
+  const invoke = supabase.functions.invoke('ai_artist_agent', {
     body: { query, maxSteps: 8 },
   })
   const timeout = new Promise<'timeout'>((resolve) =>
@@ -987,8 +990,10 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
 async function aiVerifyCandidates(
   artists: DiscoveredArtist[],
 ): Promise<DiscoveredArtist[] | null> {
-  if (!hasSupabase() || artists.length === 0) return null
-  const invoke = supabase!.functions.invoke('ai_verify', {
+  const supabase = getSupabase()
+
+  if (!supabase || artists.length === 0) return null
+  const invoke = supabase.functions.invoke('ai_verify', {
     body: {
       artists: artists.map((a) => ({
         id: a.id,
@@ -1071,11 +1076,12 @@ export async function aiReviewArtists(
     bio: string
   }>,
 ): Promise<{ ok: boolean; results: AiReviewResult[]; error?: string }> {
-  if (!hasSupabase() || artists.length === 0) {
+  const supabase = getSupabase()
+  if (!supabase || artists.length === 0) {
     return { ok: false, error: 'Supabase non configuré', results: [] }
   }
   try {
-    const { data, error } = await supabase!.functions.invoke('ai_verify', {
+    const { data, error } = await supabase.functions.invoke('ai_verify', {
       body: {
         artists: artists.map((a) => ({
           id: a.id,
@@ -1117,7 +1123,7 @@ async function geocodePlace(
   place: string,
   expectedCountry?: string | null,
 ): Promise<GeocodeResult | null> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
+  const token = getMapboxToken()
   if (!token || !place.trim()) return null
   try {
     const countryCode = normalizeCountryCode(expectedCountry)
@@ -1167,7 +1173,7 @@ async function geocodePlace(
 export async function geocodeCityWithCountry(
   place: string,
 ): Promise<{ lng: number; lat: number; country: string; flag: string } | null> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
+  const token = getMapboxToken()
   if (!token || !place.trim()) return null
   try {
     const url =
@@ -1204,42 +1210,6 @@ export interface GeocodeReverseResult {
   denied?: boolean
 }
 
-export async function reverseGeocodeBrowser(): Promise<GeocodeReverseResult | null> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
-  type PosResult = GeolocationPosition | { denied: true } | null
-  const pos = await new Promise<PosResult>((resolve) => {
-    if (!('geolocation' in navigator)) return resolve(null)
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve(p),
-      (err) => resolve(err && err.code === 1 ? { denied: true } : null),
-      { enableHighAccuracy: true, timeout: 8000 },
-    )
-  })
-  if (!pos || !token) return null
-  if ('denied' in pos) return { city: '', countryCode: null, denied: true }
-  try {
-    const [lng, lat] = [pos.coords.longitude, pos.coords.latitude]
-    const res = await fetch(
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&limit=1&types=place,locality`,
-    )
-    if (!res.ok) return null
-    const data = (await res.json()) as {
-      features?: Array<{
-        text?: string
-        context?: Array<{ id?: string; short_code?: string }>
-      }>
-    }
-    const feature = (data.features ?? [])[0]
-    if (!feature?.text) return null
-    return {
-      city: feature.text,
-      countryCode: countryCodeOfFeature(feature),
-    }
-  } catch {
-    return null
-  }
-}
-
 export interface CitySuggestion {
   /** Nom de la ville (ex. « Cotonou »). */
   city: string
@@ -1260,7 +1230,7 @@ export async function suggestCities(
   countryCode?: string | null,
   signal?: AbortSignal,
 ): Promise<CitySuggestion[]> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
+  const token = getMapboxToken()
   const q = query.trim()
   if (!token || q.length < 2) return []
   try {
@@ -1328,7 +1298,7 @@ export async function searchNeighborhoods(
   query: string,
   signal?: AbortSignal,
 ): Promise<NeighborhoodSuggestion[]> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
+  const token = getMapboxToken()
   const q = query.trim()
   if (!token || q.length < 2) return []
   try {
@@ -1378,20 +1348,22 @@ export async function searchNeighborhoods(
 
 /** Artistes déjà ajoutés à la carte (table map_artists). */
 export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
-  if (!hasSupabase()) return []
+  const supabase = getSupabase()
+
+  if (!supabase) return []
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
     'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers'
   const BASE_SELECT = 'id, name, genre, city, district, country, flag, lat, lng, bio, image, source'
-  let { data, error } = await supabase!
+  let { data, error } = await supabase
     .from('map_artists')
     .select(RICH_SELECT)
     .order('created_at', { ascending: false })
     .limit(500)
   if (error || !data) {
     // Repli : colonnes sans la migration 00016.
-    const fallback = await supabase!
+    const fallback = await supabase
       .from('map_artists')
       .select(BASE_SELECT)
       .order('created_at', { ascending: false })
@@ -1399,7 +1371,12 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     data = (fallback.data ?? null) as unknown as typeof data
   }
   if (!data) return []
-  return data.map((row) => ({
+  // Filtre repris du mobile : une ligne sans coordonnées numériques valides
+  // ne doit jamais devenir un pin. Le web ne filtrait pas ici et s'en
+  // remettait entièrement à la garde de GlobeMap.
+  return data
+    .filter((row) => typeof row.lat === 'number' && typeof row.lng === 'number')
+    .map((row) => ({
     id: row.id,
     name: row.name,
     genre: row.genre ?? '',
@@ -1411,7 +1388,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     lng: row.lng,
     bio: row.bio ?? '',
     image: row.image ?? undefined,
-    source: row.source ?? 'web',
+    source: row.source ?? 'musicbrainz',
     platforms: (row.platforms ?? {}) as ArtistPlatforms,
     socials: (row.socials ?? {}) as ArtistSocials,
     verified: row.verified ?? false,
@@ -1426,7 +1403,9 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
   ok: boolean
   error?: string
 }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
   if (!artist.lat || !artist.lng) {
     return { ok: false, error: 'Localisation inconnue pour cet artiste.' }
   }
@@ -1445,7 +1424,7 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
     source: artist.source,
   }
   // Colonnes enrichies (migration 00016/00019) — avec repli si absent de la base.
-  let { error } = await supabase!
+  let { error } = await supabase
     .from('map_artists')
     .upsert(
       {
@@ -1458,7 +1437,7 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
       { onConflict: 'id' },
     )
   if (error && /platforms|socials|verified|claimed_by|image/i.test(error.message)) {
-    const retry = await supabase!.from('map_artists').upsert(payload, { onConflict: 'id' })
+    const retry = await supabase.from('map_artists').upsert(payload, { onConflict: 'id' })
     error = retry.error
   }
   return error ? { ok: false, error: error.message } : { ok: true }
@@ -1479,8 +1458,10 @@ export async function addOrUpdateMapArtist(
   id?: string
   updated?: boolean
 }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
-  const { data, error } = await supabase!.rpc('add_or_update_map_artist', {
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { data, error } = await supabase.rpc('add_or_update_map_artist', {
     p_artist: {
       id: artist.id,
       name: artist.name,
@@ -1504,24 +1485,27 @@ export async function addOrUpdateMapArtist(
   if (!result?.ok) return { ok: false, error: result?.error ?? 'Erreur inconnue' }
   // Nouvel artiste : on notifie les utilisateurs concernés (migration 00029,
   // repli silencieux si la fonction n'est pas encore en base).
+  //
+  // Ce déclenchement n'existait que côté web : une découverte faite depuis
+  // le mobile ne notifiait personne. Le partage du module le corrige.
   if (result.updated !== true) {
-    void import('@musimaps/shared').then(({ triggerDiscoveryNotification }) =>
-      triggerDiscoveryNotification({
-        id: artist.id,
-        name: artist.name,
-        genre: artist.genre,
-        city: artist.city,
-        country: artist.country,
-      }),
-    )
+    void triggerDiscoveryNotification({
+      id: artist.id,
+      name: artist.name,
+      genre: artist.genre,
+      city: artist.city,
+      country: artist.country,
+    })
   }
   return { ok: true, id: result.id, updated: result.updated }
 }
 
 /** Supprime un artiste découvert de la carte (admin). */
 export async function removeMapArtist(id: string): Promise<{ ok: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
-  const { error } = await supabase!.from('map_artists').delete().eq('id', id)
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { error } = await supabase.from('map_artists').delete().eq('id', id)
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
@@ -1546,17 +1530,19 @@ export async function updateMapArtist(
   }>,
   opts?: { skipGenreClean?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
   // Le genre est normalisé à l'enregistrement pour que l'admin et le site
   // public affichent la même valeur (évite le round-trip incohérent).
   // Exceptions : les corrections de l'assistant IA sont déjà normalisées
   // par Mistral (skipGenreClean) — on ne doit pas les ré-écraser.
   if (patch.genre !== undefined && !opts?.skipGenreClean) patch.genre = cleanGenre(patch.genre)
-  let { error } = await supabase!.from('map_artists').update(patch).eq('id', id)
+  let { error } = await supabase.from('map_artists').update(patch).eq('id', id)
   // Repli : colonnes enrichies absentes tant que les migrations 00016/00019/00031 ne sont pas appliquées.
   if (error && /platforms|socials|verified|claimed_by|image|cover/i.test(error.message)) {
     const { platforms: _p, socials: _s, image: _i, cover: _c, ...base } = patch
-    const retry = await supabase!.from('map_artists').update(base).eq('id', id)
+    const retry = await supabase.from('map_artists').update(base).eq('id', id)
     error = retry.error
   }
   return error ? { ok: false, error: error.message } : { ok: true }
@@ -1663,8 +1649,10 @@ export async function requestClaim(
   mapArtistId: string,
   note?: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
-  const { data, error } = await supabase!.rpc('request_claim', {
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { data, error } = await supabase.rpc('request_claim', {
     p_map_artist_id: mapArtistId,
     p_note: note ?? null,
   })
@@ -1686,8 +1674,10 @@ export interface ArtistClaim {
 
 /** Mes demandes de revendication (pour afficher l'état côté public). */
 export async function fetchMyClaims(): Promise<ArtistClaim[]> {
-  if (!hasSupabase()) return []
-  const { data, error } = await supabase!
+  const supabase = getSupabase()
+
+  if (!supabase) return []
+  const { data, error } = await supabase
     .from('artist_claims')
     .select('id, map_artist_id, user_id, user_email, status, note, created_at, reviewed_at')
     .order('created_at', { ascending: false })

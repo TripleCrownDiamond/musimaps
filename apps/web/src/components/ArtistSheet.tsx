@@ -19,7 +19,7 @@ import {
 import { compactCount, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { requestClaim } from '../lib/discovery'
+import { requestClaim } from '@musimaps/shared'
 import {
   fetchArtistFollowers,
   fetchArtistLikes,
