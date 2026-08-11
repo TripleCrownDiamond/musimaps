@@ -18,12 +18,24 @@ spirale de ~1 à 2 km. Zoomer au-delà du quartier afficherait :
 - une précision **réelle et non souhaitée** pour ceux dont la coordonnée serait
   fine : on exposerait leur domicile.
 
-**Conséquence dans le code** : `MAX_ZOOM = 15` dans
-`packages/shared/src/map/index.ts` (niveau quartier, granularité du champ
-`district`). Elle valait 18 — le niveau rue. Ne pas la remonter.
+**Conséquences dans le code**, toutes dans `packages/shared/src/map/index.ts` :
+
+1. `MAX_ZOOM = 15` — niveau quartier, granularité du champ `district`.
+   Valait 18, le niveau rue. Ne pas la remonter.
+2. `MAX_OFFSET_KM = 1.5` — borne de **véracité** du dés-empilement. Au-delà,
+   on n'écarte plus des pins, on invente une localisation.
+3. `SPREAD_ZOOM = 11` — en dessous, les artistes restent groupés.
+
+Le dés-empilement part de la séparation ÉCRAN voulue (46 px) et en déduit le
+rayon géographique. L'ancienne formule faisait l'inverse — le rayon croissait
+avec le zoom, alors que le zoom double déjà la séparation en pixels. Mesuré :
+9 px de séparation à z9 (pins empilés) et 995 px à z15, avec un pin posé à
+**2,4 km** de la vraie position. Désormais la séparation reste constante
+(46 → 122 px) et le décalage réel diminue quand on s'approche : 1,5 km à z11,
+291 m à z15.
 
 À vérifier lors de tout travail sur la carte : aucun chemin ne doit permettre
-de dépasser ce zoom, et aucune vue ne doit afficher une adresse.
+de dépasser `MAX_ZOOM`, et aucune vue ne doit afficher une adresse.
 
 ---
 

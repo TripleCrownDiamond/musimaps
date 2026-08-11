@@ -39,11 +39,22 @@ export function bucketKey(coordinates: [number, number]): string {
 
 export type ClusterLevel = 'country' | 'city' | 'sub' | 'spread';
 
+/**
+ * Zoom à partir duquel les pins individuels apparaissent.
+ *
+ * Valait 9. À ce niveau, deux artistes d'un même point n'étaient séparés que
+ * de **9 pixels** alors qu'un pin en fait 36 : ils s'empilaient malgré le
+ * dés-empilement. Le décalage géographique étant plafonné (voir
+ * `MAX_OFFSET_KM`), il faut atteindre z11 pour que deux pins tiennent côte
+ * à côte sans mentir sur la position.
+ */
+export const SPREAD_ZOOM = 11;
+
 /** Seuils de zoom : monde → pays → ville → sous-groupe → pins individuels. */
 export function levelFor(zoom: number): ClusterLevel {
   if (zoom < 3.2) return 'country';
   if (zoom < 6) return 'city';
-  if (zoom < 9) return 'sub';
+  if (zoom < SPREAD_ZOOM) return 'sub';
   return 'spread';
 }
 
@@ -53,6 +64,42 @@ export function levelFor(zoom: number): ClusterLevel {
 
 /** Angle d'or — répartition homogène et déterministe. */
 const GOLDEN_ANGLE = 2.399963229728653;
+
+/** Largeur du monde en pixels chez Mapbox GL (tuiles 512 px). */
+function pixelsPerDegree(zoom: number): number {
+  return (512 * 2 ** zoom) / 360;
+}
+
+/** Séparation visée entre deux pins voisins, en pixels écran. */
+const TARGET_SEPARATION_PX = 46;
+
+/**
+ * Décalage géographique maximal admis, en kilomètres.
+ *
+ * C'est une borne de **véracité** : au-delà, on n'écarte plus des pins,
+ * on invente une localisation. Voir docs/DECISIONS-PRODUIT.md.
+ */
+const MAX_OFFSET_KM = 1.5;
+const MAX_OFFSET_DEG = (MAX_OFFSET_KM * 1000) / 111_320;
+
+/**
+ * Rayon de la spirale pour le i-ème artiste d'un groupe, en degrés.
+ *
+ * L'ancienne formule faisait CROÎTRE le rayon avec le zoom
+ * (`(0.012 + 0.007·√i) × spreadFactor`), alors que le zoom double déjà la
+ * séparation en pixels à chaque niveau : les deux effets se multipliaient.
+ * Résultat mesuré : 9 px de séparation à z9 (pins empilés) et 995 px à z15
+ * (pins hors écran, posés à 2,4 km de la vraie position).
+ *
+ * On part désormais de la séparation ÉCRAN voulue et on en déduit le rayon
+ * géographique — donc l'inverse. La séparation reste constante et lisible à
+ * tous les zooms, et le décalage réel DIMINUE quand on s'approche : 1,5 km à
+ * z11, 291 m à z15. Plus lisible et plus honnête à la fois.
+ */
+function spiralRadius(index: number, zoom: number): number {
+  const wanted = (TARGET_SEPARATION_PX * (1 + 0.55 * Math.sqrt(index))) / pixelsPerDegree(zoom);
+  return Math.min(MAX_OFFSET_DEG, wanted);
+}
 
 /**
  * Écarte les pins empilés (même point géocodé) en spirale déterministe.
@@ -73,8 +120,6 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
     else groups.set(key, [artist]);
   }
   const out = new Map<string, [number, number]>();
-  // 1 à z9, ~1,9 à z16.
-  const spreadFactor = Math.min(1.9, Math.max(1, 1 + (zoom - 9) * 0.13));
   for (const group of groups.values()) {
     if (group.length === 1) {
       out.set(group[0].id, group[0].coordinates);
@@ -85,9 +130,13 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
     const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
     group.forEach((artist, i) => {
       const angle = i * GOLDEN_ANGLE;
-      const radius = (0.012 + 0.007 * Math.sqrt(i)) * spreadFactor;
+      const radius = spiralRadius(i, zoom);
+      // La longitude se resserre avec la latitude : sans cette correction,
+      // deux pins séparés de 46 px à l'équateur n'en font plus que 20 à
+      // Oslo. On divise par cos(lat) pour garder la séparation à l'écran.
+      const lngScale = Math.max(0.25, Math.cos((cLat * Math.PI) / 180));
       out.set(artist.id, [
-        cLng + Math.cos(angle) * radius,
+        cLng + (Math.cos(angle) * radius) / lngScale,
         Math.min(85, Math.max(-85, cLat + Math.sin(angle) * radius)),
       ]);
     });
