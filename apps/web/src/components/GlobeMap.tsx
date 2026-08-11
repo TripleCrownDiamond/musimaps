@@ -624,7 +624,7 @@ export default function GlobeMap({
             geo.flag,
             c.count,
             c.coordinates,
-            12,
+            CAMERA.country.zoom,
             undefined,
             members,
             {
@@ -663,7 +663,7 @@ export default function GlobeMap({
             flagByCity.get(code) ?? c.flag,
             c.count,
             c.coordinates,
-            13,
+            CAMERA.city.zoom,
             undefined,
             members,
             {
@@ -704,7 +704,7 @@ export default function GlobeMap({
             group[0].flag,
             group.length,
             [cLng, cLat],
-            13.5,
+            CAMERA.sub.zoom,
             'sub',
             group,
           )

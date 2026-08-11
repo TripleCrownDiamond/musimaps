@@ -862,7 +862,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           flag: geo.flag,
           count: c.count,
           coords: c.coordinates,
-          zoomTo: 12,
+          zoomTo: CAMERA.country.zoom,
           members,
           tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))) as PopularityTier,
           place: {
@@ -891,7 +891,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           flag: flagByCity.get(code) ?? c.flag,
           count: c.count,
           coords: c.coordinates,
-          zoomTo: 13,
+          zoomTo: CAMERA.city.zoom,
           members,
           tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))) as PopularityTier,
           place: {
@@ -918,7 +918,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         }
         const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length;
         const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
-        out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: [cLng, cLat], zoomTo: 13.5, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier });
+        out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: [cLng, cLat], zoomTo: CAMERA.sub.zoom, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier });
       }
     } else {
       const spread = declump(valid, mapZoom);

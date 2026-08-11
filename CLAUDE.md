@@ -69,6 +69,7 @@ Si le symbole existe des deux côtés, la modification concerne les deux.
 |---|---|
 | `docs/PLAN-COHERENCE-WEB-MOBILE.md` | état des lieux chiffré + plan de convergence en 6 phases |
 | `docs/AUDIT-CARTE.md` | audit carte/globe web↔mobile, corrections, 6 parcours de recette |
+| `docs/DECISIONS-PRODUIT.md` | vie privée des artistes, paliers de compte, ordre de travail |
 | `docs/REGLES-EVOLUTION.md` | règles complètes, checklist de parité, garde-fous |
 | `docs/PROJECT-STATE.md` · `docs/FEATURES-ROADMAP.md` | état produit et feuille de route |
 

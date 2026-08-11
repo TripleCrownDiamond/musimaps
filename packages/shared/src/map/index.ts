@@ -271,8 +271,22 @@ export const SEARCH_COLLAPSE_ZOOM = 3.2;
 /** Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile). */
 export const PIN_LABEL_ZOOM = 12.5;
 
-/** Zoom maximal autorisé (niveau rue). */
-export const MAX_ZOOM = 18;
+/**
+ * Zoom maximal autorisé — **contrainte de vie privée, pas un réglage d'UI**.
+ *
+ * Les coordonnées d'artistes sont des géocodages de VILLE, auxquels
+ * `declump` ajoute une spirale de ~1 à 2 km. Au-delà du niveau quartier, la
+ * carte afficherait donc :
+ *   - une précision FAUSSE pour la plupart des artistes (le pin ne
+ *     correspond à aucune adresse réelle) ;
+ *   - une précision RÉELLE et non souhaitée pour ceux dont la coordonnée
+ *     serait fine — on exposerait leur domicile.
+ *
+ * z15 correspond au quartier, la granularité du champ `district`. C'est le
+ * plus loin qu'on puisse aller sans prétendre situer quelqu'un à la rue.
+ * Ne pas remonter cette valeur sans décision produit explicite.
+ */
+export const MAX_ZOOM = 15;
 
 /** Centre et zoom de la vue globe au repos. */
 export const GLOBE_CENTER: [number, number] = [2.4, 8];
