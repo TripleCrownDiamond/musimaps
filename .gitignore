@@ -31,3 +31,7 @@ supabase/.temp/
 # Logs
 *.log
 npm-debug.*
+
+# Artefacts d outils (Playwright, captures de debug)
+.playwright-cli/
+/output/
