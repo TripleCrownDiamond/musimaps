@@ -12,6 +12,13 @@
  */
 import { darkPalette, lightPalette } from '@musimaps/shared';
 
+/**
+ * Échelles de rayons et d'espacements partagées avec le web.
+ * Les écrans existants emploient encore des valeurs hors grille : tout
+ * nouveau style passe par `radii` / `spacing`.
+ */
+export { radii, spacing } from '@musimaps/shared';
+
 function toAppColors(p: typeof lightPalette, blackTone: string) {
   return {
     background: p.warmWhite,

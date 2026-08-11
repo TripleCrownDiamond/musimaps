@@ -71,9 +71,14 @@ export interface ThemePalette {
   hairline: string;
   /** Filet marqué (bordures de cartes). */
   hairlineStrong: string;
-  /** Bouton principal : inverse de la page. */
+  /**
+   * Bouton principal : inverse de la page (noir sur clair, blanc sur sombre).
+   * ⚠️ MORT côté web : aucune classe `bg-ink`/`text-ink`, aucun `var(--color-ink)`.
+   * Tailwind l'élague donc du thème clair ; il ne survit que dans le bloc sombre.
+   * Le mobile l'utilise (`colors.ink`). À trancher : rebrancher ou supprimer.
+   */
   ink: string;
-  /** Texte posé sur `ink`. */
+  /** Texte posé sur `ink`. Même statut que `ink` — voir ci-dessus. */
   inkForeground: string;
   /** Texte très atténué (placeholders, métadonnées). */
   muted: string;
@@ -142,6 +147,47 @@ export const typography = {
   displayTracking: '-0.03em',
 } as const;
 
+/**
+ * Rayons de bordure, en pixels. Échelle de référence = celle du web
+ * (Tailwind), où elle est déjà respectée : `rounded-full` 224 usages,
+ * `2xl` 52, `3xl` 34, `xl` 26, `lg` 16, `md` 19, `sm` 5.
+ *
+ * ⚠️ Le mobile ne consomme pas encore cette échelle : il utilise sept
+ * valeurs arbitraires hors grille (18, 20, 22, 23, 26, 27, 28 px) à côté
+ * de celles qui correspondent (16 = 2xl, 24 = 3xl, 999 = full). Les
+ * aligner change des pixels sur ~100 sites d'appel : c'est une tâche
+ * d'alignement visuel à part, pas un partage de token.
+ */
+export const radii = {
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  '2xl': 16,
+  '3xl': 24,
+  full: 9999,
+} as const;
+
+/**
+ * Échelle d'espacement, en pixels — grille de 4, comme le web.
+ *
+ * ⚠️ Même remarque que pour `radii` : le mobile est hors grille (il emploie
+ * 5, 7, 9, 11, 13, 15 px aussi bien que 4, 8, 12, 16, 20). À aligner dans
+ * une passe visuelle dédiée.
+ */
+export const spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+  '4xl': 48,
+} as const;
+
 export const palettes = { light: lightPalette, dark: darkPalette } as const;
 
 export type ThemeName = keyof typeof palettes;
+export type RadiusToken = keyof typeof radii;
+export type SpacingToken = keyof typeof spacing;
