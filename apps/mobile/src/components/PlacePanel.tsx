@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mapUi, type Artist } from '@musimaps/shared';
+import { mapUi, nextIndexWithinPlace, type Artist } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fonts, shadow } from '../theme';
 
@@ -37,9 +37,13 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
   const count = artists.length;
   const current = artists[index] ?? artists[0];
 
-  const jump = (dir: number) => {
+  // SECONDE garde : la navigation ne peut pas sortir de la zone. Même si un
+  // artiste mal géolocalisé échappait au filtre du cluster, la flèche le saute
+  // au lieu d'y voler — l'utilisateur ne se retrouve jamais téléporté à
+  // 3 500 km au milieu d'un parcours dans un même lieu.
+  const jump = (dir: 1 | -1) => {
     if (count === 0) return;
-    onJump((index + dir + count) % count);
+    onJump(nextIndexWithinPlace(artists, index, dir));
   };
 
   return (

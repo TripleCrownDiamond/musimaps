@@ -10,15 +10,12 @@
  * `GlobeMap.tsx` (web) et `ExploreScreen.tsx` (mobile). Voir docs/AUDIT-CARTE.md.
  */
 import type { Artist } from '../index';
+import { isValidCoordinate } from './geo-consistency';
 import { parseFollowersCount, popularityTier, type PopularityTier } from '../index';
 
 /* ------------------------------------------------------------------ */
 /* Coordonnées                                                        */
 /* ------------------------------------------------------------------ */
-
-export function isValidCoordinate(c: unknown): c is [number, number] {
-  return Array.isArray(c) && c.length >= 2 && Number.isFinite(c[0]) && Number.isFinite(c[1]);
-}
 
 /**
  * Seuil de regroupement local : ~2,2 km (0,02°). Les coordonnées d'artistes
@@ -292,6 +289,11 @@ export function hexToRgba(hex: string, alpha: number): string {
 /* ------------------------------------------------------------------ */
 /* Regroupement par lieu                                              */
 /* ------------------------------------------------------------------ */
+
+// Cohérence géographique : la détection vit dans son propre fichier, sans
+// aucun import de valeur, pour que les scripts Node puissent la charger
+// telle quelle plutôt qu'en réécrire une copie.
+export * from './geo-consistency';
 
 export interface Cluster {
   key: string;

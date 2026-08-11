@@ -11,6 +11,7 @@ import {
   declump,
   firstRenderedPosition,
   flagFor,
+  geoConsistent,
   geoCountryOf,
   hexToRgba,
   isValidCoordinate,
@@ -617,7 +618,9 @@ export default function GlobeMap({
           // niveau de cluster se met à jour en continu (zoom tick) : les
           // clusters se scindent progressivement pays → villes → groupes →
           // pins. Le clic scope aussi les pins aux artistes de ce pays.
-          const members = located.filter((a) => clusterKey(a) === c.key)
+          // Garde 1 : on ecarte les artistes dont la coordonnee contredit le
+          // groupe (donnee fausse) — sinon la nav du panneau teleporte.
+          const members = geoConsistent(located.filter((a) => clusterKey(a) === c.key))
           const countryName =
             countryByCode(geo.code)?.fr ?? countryByCode(geo.code)?.en ?? geo.code
           addClusterPin(
@@ -658,7 +661,7 @@ export default function GlobeMap({
         }
         for (const c of clusterBy(located, cityKey)) {
           const code = c.key.split('|')[1] ?? ''
-          const members = located.filter((a) => cityKey(a) === c.key)
+          const members = geoConsistent(located.filter((a) => cityKey(a) === c.key), 'city')
           addClusterPin(
             c.label.split('|')[0],
             flagByCity.get(code) ?? c.flag,

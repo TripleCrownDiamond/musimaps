@@ -33,6 +33,7 @@ import {
   declump,
   firstRenderedPosition,
   flagFor,
+  geoConsistent,
   geoCountryOf,
   hexToRgba,
   parseFollowersCount,
@@ -860,7 +861,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         // 10 = niveau « pins individuels » : un clic suffit, les clusters se
         // scindent progressivement pendant le vol. Les pins sont scopés aux
         // artistes du cluster (pas de voisins au bord du viewport).
-        const members = located.filter((a) => geoKey(a) === c.key);
+        // Garde 1 : on ecarte les artistes dont la coordonnee contredit le groupe.
+        const members = geoConsistent(located.filter((a) => geoKey(a) === c.key));
         out.push({
           key: `c-${geo.code}`,
           kind: 'cluster',
@@ -889,7 +891,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       };
       for (const c of clusterBy(located, cityKey)) {
         const code = c.key.split('|')[1] ?? '';
-        const members = located.filter((a) => cityKey(a) === c.key);
+        const members = geoConsistent(located.filter((a) => cityKey(a) === c.key), 'city');
         out.push({
           key: `p-${c.key}`,
           kind: 'cluster',
