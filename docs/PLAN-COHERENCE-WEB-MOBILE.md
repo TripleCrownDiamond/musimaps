@@ -10,11 +10,32 @@
 | 0 — Sécuriser la base | ✅ fait — `.gitignore` nettoyé, fusion dans `main`, `npm run check` vert |
 | 1 — Tokens partagés | ✅ fait — `packages/shared/src/design/tokens.ts`, CSS web **identique au bit près** |
 | 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
-| 3 — Logique métier partagée | ⬜ à faire |
+| 3 — Logique métier partagée | 🟡 **en cours** — socle + 5 modules faits, 4 restants (voir ci-dessous) |
 | 3bis — Corrections carte | ⬜ à faire — voir [AUDIT-CARTE.md](AUDIT-CARTE.md) §4 |
 | 4 — Écrans mobiles manquants | ⬜ à faire |
 | 5 — Dashboard mobile à parité | ⬜ à faire |
 | 6 — Découpe du globe mobile | ⬜ à faire |
+
+### Détail de la phase 3
+
+| Module | État | Note |
+|---|---|---|
+| `runtime` + adaptateurs `Storage` | ✅ | socle injecté (`configureRuntime`) |
+| `searchHistory` | ✅ | logique identique, web passé en asynchrone |
+| `notifications` | ✅ | table d'icônes dédupliquée au passage |
+| `brand` | ✅ | modules complémentaires réunis |
+| `booking` | ✅ | **typage nullable faux côté web corrigé** |
+| `music` | ✅ | miroir exact, zéro écart de logique |
+| `auth` | ⬜ | 263 / 260 lignes — touche l'authentification, passe dédiée |
+| `stats` | ⬜ | 332 / 207 — 125 lignes d'écart à arbitrer |
+| `gamification` | ⬜ | 148 / 200 — le mobile a 52 lignes de plus |
+| `discovery` | ⬜ | **1710 / 1325 — en dernier, seul.** Voir ci-dessous |
+
+**`discovery` — points connus avant de commencer :**
+- 385 lignes d'écart, c'est le module qui alimente la carte.
+- Le web déclenche `triggerDiscoveryNotification` après ajout d'un artiste,
+  **le mobile ne le fait pas** : une découverte mobile ne notifie personne.
+  À trancher (très probablement : aligner le mobile sur le web).
 
 ## Principe directeur
 
