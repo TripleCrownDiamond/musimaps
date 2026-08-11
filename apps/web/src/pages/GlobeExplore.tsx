@@ -7,7 +7,7 @@ import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
 import MapboxTokenNotice from '../components/MapboxTokenNotice'
 import RotateToggle from '../components/RotateToggle'
 import type { Artist } from '@musimaps/shared'
-import { countryByName, flagFor, geoCountryOf } from '@musimaps/shared'
+import { CAMERA, countryByName, flagFor, geoCountryOf } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -359,7 +359,10 @@ export default function GlobeExplore() {
       setSearchOpen(false)
       setQuery('')
       setVisiblePins([artist])
-      mapRef.current?.flyTo(artist.coordinates, 13)
+      // Vol sur la position AFFICHEE du pin (des-empilement inclus), pas sur
+      // la coordonnee brute : a z13 la spirale peut le decaler de plusieurs
+      // centaines de px, et l'artiste cherche finissait en peripherie.
+      mapRef.current?.focusArtist(artist.id)
       // Statistiques : une ouverture de fiche depuis la carte = vue pin
       // (clé d'appareil incluse : vues uniques par user / par appareil).
       void recordPinView(artist.id)
@@ -399,11 +402,11 @@ export default function GlobeExplore() {
         const firstArtist = cityArtists[0]
         if (firstArtist) {
           setHighlightedId(firstArtist.id)
-          mapRef.current?.focusFirst(cityArtists, 13)
+          mapRef.current?.focusFirst(cityArtists, CAMERA.city.zoom)
           return
         }
       }
-      mapRef.current?.flyTo(c.coordinates, 13)
+      mapRef.current?.flyTo(c.coordinates, CAMERA.city.zoom)
     },
     [allArtists, rememberQuery],
   )
@@ -436,7 +439,7 @@ export default function GlobeExplore() {
       })
       setPlaceIndex(0)
       // 14 = niveau rue : les pins du quartier sont bien détachés.
-      mapRef.current?.flyTo([n.lng, n.lat], 14)
+      mapRef.current?.flyTo([n.lng, n.lat], CAMERA.place.zoom)
     },
     [allArtists, rememberQuery],
   )
@@ -476,7 +479,7 @@ export default function GlobeExplore() {
           : c.coordinates
       // 12 = niveau quartier : pendant le vol le clustering se met à jour
       // en continu et les pins apparaissent progressivement, détachés.
-      mapRef.current?.flyTo(center, 12)
+      mapRef.current?.flyTo(center, CAMERA.country.zoom)
     },
     [allArtists, rememberQuery],
   )
@@ -510,7 +513,7 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(genreArtists)
       if (genreArtists.length > 0) {
-        mapRef.current?.flyTo(genreArtists[0].coordinates, 11)
+        mapRef.current?.flyTo(genreArtists[0].coordinates, CAMERA.genre.zoom)
       }
     },
     [allArtists, rememberQuery],
@@ -660,7 +663,7 @@ export default function GlobeExplore() {
           setQuery('')
           setSelected(existing)
           setVisiblePins([existing])
-          mapRef.current?.flyTo(existing.coordinates, 13)
+          mapRef.current?.focusArtist(existing.id)
           return
         }
         // Fusion : le neuf enrichit, l'ancien conserve modération + vides.
@@ -703,7 +706,7 @@ export default function GlobeExplore() {
       setQuery('')
       setSelected(artist)
       setVisiblePins([artist])
-      mapRef.current?.flyTo(artist.coordinates, 13)
+      mapRef.current?.focusArtist(artist.id)
     },
     [mapArtists, t, openRefer],
   )

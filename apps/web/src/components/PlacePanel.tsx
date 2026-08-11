@@ -56,18 +56,22 @@ export default function PlacePanel({
           <ChevronLeft className="h-4 w-4" />
         </button>
 
-        {/* Texte du lieu + compteur — clic = ouvre la fiche de l'artiste courant */}
+        {/* Artiste COURANT en principal, lieu et position en secondaire.
+            Le panneau n'affichait que le lieu : on naviguait à l'aveugle
+            entre les artistes sans savoir sur lequel on était. */}
         <button
           type="button"
           onClick={() => current && onSelect(current)}
-          className="flex items-center gap-2 rounded-full px-3 py-1 text-left transition-colors hover:bg-white/5"
+          className="flex min-w-0 flex-col items-start gap-0.5 rounded-full px-3 py-1 text-left transition-colors hover:bg-white/5"
         >
-          <span className="text-sm">{place.flag}</span>
-          <span className="whitespace-nowrap text-sm font-semibold text-white">
-            {place.name}
+          <span className="max-w-[42vw] truncate text-sm font-bold leading-tight text-white sm:max-w-none">
+            {current?.name ?? place.name}
           </span>
-          <span className="whitespace-nowrap rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/85">
-            {t('place.count', { count, s: count > 1 ? 's' : '' })}
+          <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-white/70">
+            <span>{place.flag}</span>
+            <span className="max-w-[30vw] truncate sm:max-w-none">{place.name}</span>
+            <span aria-hidden>·</span>
+            <span>{t('place.position', { index: index + 1, count })}</span>
           </span>
         </button>
 

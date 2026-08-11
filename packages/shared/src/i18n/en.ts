@@ -576,6 +576,7 @@ export const en: Record<MessageKey, string> = {
   'pedit.subtitleDevice': 'This information stays on this device and personalizes your discoveries.',
   'place.close': 'Close place panel',
   'place.count': '{count} artist{s}',
+  'place.position': '{index}/{count}',
   'place.next': 'Next artist',
   'place.prev': 'Previous artist',
   'preview.backToDashboard': 'Back to dashboard',

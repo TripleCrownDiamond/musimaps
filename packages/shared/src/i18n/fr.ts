@@ -579,6 +579,7 @@ export const fr = {
   'pedit.subtitleDevice': 'Ces informations restent sur cet appareil et personnalisent vos découvertes.',
   'place.close': 'Fermer le panneau du lieu',
   'place.count': '{count} artiste{s}',
+  'place.position': '{index}/{count}',
   'place.next': 'Artiste suivant',
   'place.prev': 'Artiste précédent',
   'preview.backToDashboard': 'Retour au dashboard',

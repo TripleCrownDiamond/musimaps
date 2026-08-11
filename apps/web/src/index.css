@@ -315,7 +315,10 @@
      On utilise la propriété `scale` (indépendante) et non transform :
      Mapbox positionne le marker avec un transform inline qui écraserait
      un scale passé via transform. `scale` se combine avec lui. */
-  scale: var(--pin-scale, 1);
+  /* Deux facteurs multipliés : l'échelle de zoom (commune à tous les pins,
+     posée sur le conteneur) et le facteur de NOTORIÉTÉ (propre au pin).
+     Un artiste très suivi est un point plus large qu'un artiste discret. */
+  scale: calc(var(--pin-scale, 1) * var(--pin-tier-size, 1));
   opacity: var(--pin-opacity, 1);
   transition: scale 0.2s ease, opacity 0.35s ease, box-shadow 0.35s ease;
   /* Halo lumineux : la couleur du tier irradie autour du pin. */
@@ -345,7 +348,7 @@
 }
 
 .artist-pin:hover {
-  scale: calc(var(--pin-scale, 1) * 1.12);
+  scale: calc(var(--pin-scale, 1) * var(--pin-tier-size, 1) * 1.12);
   opacity: 1;
 }
 
@@ -381,7 +384,7 @@
    anneau lime plein et nom affiché en permanence — comme un survol forcé. */
 .artist-pin--selected {
   z-index: 1200;
-  scale: calc(var(--pin-scale, 1) * 1.28);
+  scale: calc(var(--pin-scale, 1) * var(--pin-tier-size, 1) * 1.28);
   opacity: 1;
   box-shadow: 0 0 0 3px var(--color-brand), 0 6px 16px rgba(0, 0, 0, 0.35);
   animation: artist-pin-pulse 1.6s ease-in-out infinite;

@@ -3,16 +3,32 @@ import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Artist } from '@musimaps/shared'
 import {
+  bucketKey,
+  CAMERA,
+  clusterBy,
   compactCount,
   countryByCode,
+  declump,
+  firstRenderedPosition,
   flagFor,
   geoCountryOf,
+  hexToRgba,
+  isValidCoordinate,
+  levelFor,
+  MAX_ZOOM,
   parseFollowersCount,
-  popularityTier,
+  pinGlowFor,
+  pinOpacityFor,
+  pinZoomScale,
   POPULARITY_RING_COLORS,
+  renderedPosition,
+  tierOf,
+  TIER_SIZE_FACTOR,
+  type ClusterLevel,
+  type PopularityMap,
+  type PopularityTier,
 } from '@musimaps/shared'
 import { GLOBE_VIEW, MAPBOX_TOKEN, MAP_STYLE_DARK, MAP_STYLE_LIGHT } from '../lib/mapbox'
-import { isValidCoordinate } from '../lib/coordinates'
 
 /** Artistes supplémentaires (découverts sur le web) à ajouter au globe. */
 const EMPTY: Artist[] = []
@@ -37,14 +53,12 @@ export interface GlobeMapHandle {
 }
 
 /** Zoom cible de `focusArtist` (niveau quartier, pins individuels). */
-const FOCUS_ZOOM = 13
 
 /**
  * Score de popularité réel (vues profil + pin + abonnés parsés). Fourni par
  * le parent (bulk `artist_stats`) sous forme de Map id → score ; les artistes
  * absents retombent sur les followers parsés de l'objet.
  */
-type PopularityMap = Map<string, number>
 
 /** Halo atmospherique : clair sur fond clair, spatial sur fond noir.
  *  Neutralisé (gris) pour rester cohérent avec la carte monochrome. */
@@ -115,130 +129,17 @@ interface GlobeMapProps {
 }
 
 /**
- * Seuil de regroupement local : ~2,2 km (0,02°). Les artistes dont les
- * coordonnées sont des géocodages de ville sont rarement précis à mieux que
- * ça : ceux qui tombent dans la même « case » sont considérés empilés.
- */
-const SPREAD_BUCKET_DEG = 0.02
-
-function bucketKey(coordinates: [number, number]): string {
-  return `${Math.round(coordinates[0] / SPREAD_BUCKET_DEG)}|${Math.round(
-    coordinates[1] / SPREAD_BUCKET_DEG,
-  )}`
-}
-
-/**
- * Écarte les pins empilés (même point géocodé) en spirale déterministe.
- * Tri par nom → le décalage est stable entre deux rendus (pas de saut), et
- * chaque pin reste dans un rayon honnête autour de la vraie position (les
- * localisations ne sont pas précises à la rue près).
+ * Couleurs du pin par notoriété : fond, halo et encre.
  *
- * Le rayon grandit AVEC le zoom : plus on zoome (quartier → rue), plus les
- * pins d'un même point se détachent visuellement — à z9 la spirale est
- * serrée (vue d'ensemble), à z14+ elle s'ouvre pour des pins parfaitement
- * séparés, sans jamais inventer de positions au-delà de ~1-2 km.
+ * La géométrie (spirale de dés-empilement, seuils de cluster, échelles) vit
+ * désormais dans `@musimaps/shared/map` — elle était copiée-collée à
+ * l'identique dans ExploreScreen.tsx côté mobile.
  */
-function declump(artists: Artist[], zoom: number): Map<string, [number, number]> {
-  const groups = new Map<string, Artist[]>()
-  for (const artist of artists) {
-    if (!isValidCoordinate(artist.coordinates)) continue
-    const key = bucketKey(artist.coordinates)
-    const group = groups.get(key)
-    if (group) group.push(artist)
-    else groups.set(key, [artist])
-  }
-  const out = new Map<string, [number, number]>()
-  const golden = 2.399963229728653 // angle d'or — répartition homogène
-  // Facteur d'écartement : 1 à z9, ~1,9 à z16 — les pins se détachent au
-  // zoom quartier sans déformer la vraie zone géographique en vue large.
-  const spreadFactor = Math.min(1.9, Math.max(1, 1 + (zoom - 9) * 0.13))
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      out.set(group[0].id, group[0].coordinates)
-      continue
-    }
-    group.sort((a, b) => a.name.localeCompare(b.name))
-    const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length
-    const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length
-    group.forEach((artist, i) => {
-      const angle = i * golden
-      // Rayon croissant avec la densité × facteur de zoom : la spirale
-      // « respire » selon le nombre de pins empilés ET l'échelle visible.
-      const radius = (0.012 + 0.007 * Math.sqrt(i)) * spreadFactor
-      out.set(artist.id, [
-        cLng + Math.cos(angle) * radius,
-        Math.min(85, Math.max(-85, cLat + Math.sin(angle) * radius)),
-      ])
-    })
-  }
-  return out
-}
-
-/** Convertit une couleur hex en rgba (halo lumineux des pins). */
-function hexToRgba(hex: string, alpha: number): string {
-  const h = hex.replace('#', '')
-  const n = Number.parseInt(h, 16)
-  const r = (n >> 16) & 255
-  const g = (n >> 8) & 255
-  const b = n & 255
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
-/** Couleurs du pin par densité (tier) : fond + halo lumineux + encre. */
-function pinTierVars(tier: number): {
-  bg: string
-  glow: string
-  ink: string
-} {
-  const color = POPULARITY_RING_COLORS[tier as 0 | 1 | 2 | 3]
+function pinTierVars(tier: PopularityTier, zoom: number) {
+  const color = POPULARITY_RING_COLORS[tier]
   // Le lime (tier 3) demande une encre sombre ; les autres, du blanc.
   const ink = tier === 3 ? '#0b1420' : '#ffffff'
-  return { bg: color, glow: hexToRgba(color, 0.55), ink }
-}
-
-/** Niveau de popularité d'un artiste (score réel sinon followers parsés). */
-function tierOf(artist: Artist, popularityById?: PopularityMap): number {
-  const real = popularityById?.get(artist.id)
-  const count =
-    real && real > 0 ? real : parseFollowersCount(artist.followers) ?? 0
-  return popularityTier(count)
-}
-
-/** Regroupe des artistes par clé (pays ou ville) et calcule le barycentre. */
-function clusterBy(
-  artists: Artist[],
-  keyOf: (a: Artist) => string,
-): Array<{ key: string; label: string; flag: string; count: number; coordinates: [number, number] }> {
-  const map = new Map<
-    string,
-    { label: string; flag: string; count: number; lng: number; lat: number }
-  >()
-  for (const artist of artists) {
-    const coords = artist.coordinates
-    if (!isValidCoordinate(coords)) continue
-    const key = keyOf(artist) || 'unknown'
-    const current = map.get(key)
-    if (current) {
-      current.count += 1
-      current.lng += coords[0]
-      current.lat += coords[1]
-    } else {
-      map.set(key, {
-        label: key === 'unknown' ? '' : key,
-        flag: artist.flag,
-        count: 1,
-        lng: coords[0],
-        lat: coords[1],
-      })
-    }
-  }
-  return [...map.entries()].map(([key, c]) => ({
-    key,
-    label: c.label,
-    flag: c.flag,
-    count: c.count,
-    coordinates: [c.lng / c.count, c.lat / c.count] as [number, number],
-  }))
+  return { bg: color, glow: hexToRgba(color, pinGlowFor(zoom, tier)), ink }
 }
 
 export interface ClusterPlace {
@@ -309,15 +210,7 @@ export default function GlobeMap({
    *   - sub     : sous-groupes ~2 km — les artistes géocodés au même point
    *               (ville-centre) se chevaucheraient → une pin compacte ×N.
    *   - spread  : pins individuels, décalés en spirale pour ne pas s'empiler.
-   */
-  type ClusterLevel = 'country' | 'city' | 'sub' | 'spread' | 'none'
-  const levelFor = (z: number): ClusterLevel => {
-    if (z < 3.2) return 'country'
-    if (z < 6) return 'city'
-    if (z < 9) return 'sub'
-    return 'spread'
-  }
-  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
+   */  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
   // Zoom vivant : mis à jour à chaque `zoom` (pas seulement aux seuils de
   // cluster). Sert à rouvrir la spirale de dés-empilement quand on zoome
   // profondément (quartier/rue) — sinon les pins resteraient figés au
@@ -336,7 +229,7 @@ export default function GlobeMap({
       // Zoom profond autorisé (niveau rue/quartier) : les tuiles vectorielles
       // restent nettes jusqu'à 18+, et les pins individuels se détachent au
       // fur et à mesure qu'on s'approche (spirale qui s'ouvre avec le zoom).
-      maxZoom: 18,
+      maxZoom: MAX_ZOOM,
       projection: 'globe',
       interactive,
       attributionControl: false,
@@ -418,42 +311,48 @@ export default function GlobeMap({
       el.classList.toggle('map-zoom-far', z < 3.5)
       el.classList.toggle('map-zoom-near', z >= 5)
       // Pins individuels : petits de loin (épurés), ils grossissent à
-      // l'approche. Les pins de cluster (pays/ville) gardent une taille
-      // minimale lisible via CSS (max() sur --pin-scale).
-      const scale = Math.min(1.15, Math.max(0.22, 0.22 + (z - 1) * 0.07))
-      const opacity = Math.min(1, Math.max(0.5, 0.5 + (z - 1) * 0.06))
-      el.style.setProperty('--pin-scale', scale.toFixed(3))
-      el.style.setProperty('--pin-opacity', opacity.toFixed(3))
+      // l'approche. Cette échelle est commune à tous les pins ; le facteur
+      // de NOTORIÉTÉ est posé pin par pin (`--pin-tier-size`) et multiplié
+      // en CSS — deux artistes au même endroit n'ont plus le même diamètre.
+      el.style.setProperty('--pin-scale', pinZoomScale(z).toFixed(3))
+      el.style.setProperty('--pin-opacity', pinOpacityFor(z).toFixed(3))
     }
     map.on('zoom', applyZoomClass)
     applyZoomClass()
 
     const handle: GlobeMapHandle = {
-      flyTo: (coordinates, zoom = 8) => {
+      flyTo: (coordinates, zoom = CAMERA.country.zoom, duration = CAMERA.city.duration) => {
         spinRef.current = false
         onRotateChangeRef.current?.(false)
-        map.flyTo({ center: coordinates, zoom, duration: 2600, essential: true, curve: 1.6 })
+        map.flyTo({ center: coordinates, zoom, duration, essential: true, curve: 1.6 })
       },
       focusArtist: (id) => {
-        const target = artistsRef.current.find((a) => a.id === id)
-        if (!target || !isValidCoordinate(target.coordinates)) return
-        // La spirale de dés-empilement est recalculée au zoom cible : on vole
-        // vers la position AFFICHÉE du pin pour qu'il arrive au centre de
-        // l'écran (le point brut peut être à des centaines de px du pin).
+        // Vole vers la position AFFICHÉE du pin, dés-empilement recalculé au
+        // zoom cible : le point brut peut être à des centaines de px du pin.
+        const rendered = renderedPosition(artistsRef.current, id, CAMERA.artist.zoom)
+        if (!rendered) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
-        const spread = declump(artistsRef.current, FOCUS_ZOOM)
-        const rendered = spread.get(id) ?? target.coordinates
-        map.flyTo({ center: rendered, zoom: FOCUS_ZOOM, duration: 1400, essential: true, curve: 1.4 })
+        map.flyTo({
+          center: rendered,
+          zoom: CAMERA.artist.zoom,
+          duration: CAMERA.artist.duration,
+          essential: true,
+          curve: 1.4,
+        })
       },
-      focusFirst: (artists, zoom = FOCUS_ZOOM) => {
+      focusFirst: (artists, zoom = CAMERA.artist.zoom) => {
+        const first = firstRenderedPosition(artists, zoom)
+        if (!first) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
-        const first = artists.find((a) => isValidCoordinate(a.coordinates))
-        if (!first) return
-        const spread = declump(artists, zoom)
-        const rendered = spread.get(first.id) ?? first.coordinates
-        map.flyTo({ center: rendered, zoom, duration: 1400, essential: true, curve: 1.4 })
+        map.flyTo({
+          center: first.coordinates,
+          zoom,
+          duration: CAMERA.artist.duration,
+          essential: true,
+          curve: 1.4,
+        })
       },
       resetView: () => {
         // Stoppe la rotation avant le vol : le jumpTo continu du spin
@@ -461,7 +360,7 @@ export default function GlobeMap({
         // revenir au niveau pays/monde).
         spinRef.current = false
         onRotateChangeRef.current?.(false)
-        map.flyTo({ ...GLOBE_VIEW, duration: 2000, essential: true })
+        map.flyTo({ ...GLOBE_VIEW, duration: CAMERA.globe.duration, essential: true })
       },
     }
     map.once('load', () => {
@@ -583,8 +482,10 @@ export default function GlobeMap({
       // Pin de cluster lumineux : couleur par DENSITÉ (tier le plus élevé de
       // ses membres) — fond + halo, comme les pins individuels.
       if (members && members.length > 0) {
-        const tier = Math.max(...members.map((a) => tierOf(a, popularityRef.current)))
-        const tierVars = pinTierVars(tier)
+        const tier = Math.max(
+          ...members.map((a) => tierOf(a, popularityRef.current)),
+        ) as PopularityTier
+        const tierVars = pinTierVars(tier, liveZoom)
         el.style.setProperty('--pin-tier-color', tierVars.bg)
         el.style.setProperty('--pin-tier-glow', tierVars.glow)
         el.style.setProperty('--pin-ink', tierVars.ink)
@@ -606,11 +507,11 @@ export default function GlobeMap({
         if (members && members.length > 0) {
           const firstMember = members[0]
           if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-            const spread = declump(members, FOCUS_ZOOM)
+            const spread = declump(members, CAMERA.artist.zoom)
             const rendered = spread.get(firstMember.id)
             if (rendered) {
               targetCoords = rendered
-              targetZoom = FOCUS_ZOOM
+              targetZoom = CAMERA.artist.zoom
             }
           }
         }
@@ -636,13 +537,16 @@ export default function GlobeMap({
       el.type = 'button'
       el.className = 'artist-pin'
       el.setAttribute('aria-label', `${artist.name} — ${artist.city}`)
-      // Pin lumineux coloré par DENSITÉ (tier de popularité) : fond + halo
-      // dans la couleur du tier, encre contrastée, nom au survol.
+      // Pin lumineux : couleur ET TAILLE selon la notoriété. Le facteur de
+      // taille est propre au pin (`--pin-tier-size`) et se multiplie à
+      // l'échelle de zoom commune — un artiste très suivi est un point plus
+      // large et plus rayonnant qu'un artiste discret, au même endroit.
       const tier = tierOf(artist, popularityRef.current)
-      const tierVars = pinTierVars(tier)
+      const tierVars = pinTierVars(tier, liveZoom)
       el.style.setProperty('--pin-tier-color', tierVars.bg)
       el.style.setProperty('--pin-tier-glow', tierVars.glow)
       el.style.setProperty('--pin-ink', tierVars.ink)
+      el.style.setProperty('--pin-tier-size', String(TIER_SIZE_FACTOR[tier]))
       const tip = document.createElement('span')
       tip.className = 'artist-pin__tooltip'
       tip.textContent = artist.name

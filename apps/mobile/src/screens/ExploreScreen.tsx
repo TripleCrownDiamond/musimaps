@@ -24,15 +24,33 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  bucketKey,
+  CAMERA,
   cities,
+  clusterBy,
   compactCount,
   countryByName,
+  declump,
+  firstRenderedPosition,
   flagFor,
   geoCountryOf,
+  hexToRgba,
   parseFollowersCount,
-  popularityTier,
+  pinGlowFor,
+  GLOBE_CENTER,
+  isValidCoordinate,
+  levelFor,
+  MAX_ZOOM,
+  PIN_LABEL_ZOOM,
+  pinOpacityFor,
+  pinScaleFor,
   POPULARITY_RING_COLORS,
+  renderedPosition,
+  SEARCH_COLLAPSE_ZOOM,
+  tierOf,
   type Artist,
+  type ClusterLevel,
+  type PopularityTier,
 } from '@musimaps/shared';
 import { Pause, Play } from 'lucide-react-native';
 import { AppBar } from '../components/AppBar';
@@ -65,15 +83,12 @@ type Props = CompositeScreenProps<
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 const HAS_MAPBOX = Boolean(MAPBOX_TOKEN?.startsWith('pk.'));
-const GLOBE_CENTER: [number, number] = [2.4, 8];
-const GLOBE_ZOOM = 0.75; // aligné sur le globe web
+const GLOBE_ZOOM = CAMERA.globe.zoom;
 // Hauteur de l'AppBar partagée + écart avant la search (offset sous la topbar).
 const APPBAR_HEIGHT = 56;
 const APPBAR_GAP = 12;
 /** Seuil de repli de la recherche en icône (comme le web : zoom ≥ 3.2). */
-const SEARCH_COLLAPSE_ZOOM = 3.2;
 /** Seuil de regroupement local : ~2,2 km (0,02°). */
-const SPREAD_BUCKET = 0.02;
 
 const norm = (value: string | null | undefined) =>
   (value ?? '')
@@ -94,114 +109,15 @@ function distanceKm([lng1, lat1]: [number, number], [lng2, lat2]: [number, numbe
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-const isValidCoordinate = (c: [number, number]) =>
-  Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1]);
 
-const bucketKey = (c: [number, number]) =>
-  `${Math.round(c[0] / SPREAD_BUCKET)}|${Math.round(c[1] / SPREAD_BUCKET)}`;
 
-/** Écarte les pins empilés (même point géocodé) en spirale déterministe. */
-function declump(items: Artist[], zoom: number): Map<string, [number, number]> {
-  const groups = new Map<string, Artist[]>();
-  for (const artist of items) {
-    if (!isValidCoordinate(artist.coordinates)) continue;
-    const key = bucketKey(artist.coordinates);
-    const group = groups.get(key);
-    if (group) group.push(artist);
-    else groups.set(key, [artist]);
-  }
-  const out = new Map<string, [number, number]>();
-  const golden = 2.399963229728653;
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      out.set(group[0].id, group[0].coordinates);
-      continue;
-    }
-    group.sort((a, b) => a.name.localeCompare(b.name));
-    const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length;
-    const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
-    // Facteur d'écartement : 1 à z9, ~1,9 à z16 — les pins se détachent au
-    // zoom quartier sans déformer la vraie zone géographique en vue large.
-    const spreadFactor = Math.min(1.9, Math.max(1, 1 + (zoom - 9) * 0.13));
-    group.forEach((artist, i) => {
-      const angle = i * golden;
-      const radius = (0.012 + 0.007 * Math.sqrt(i)) * spreadFactor;
-      out.set(artist.id, [
-        cLng + Math.cos(angle) * radius,
-        Math.min(85, Math.max(-85, cLat + Math.sin(angle) * radius)),
-      ]);
-    });
-  }
-  return out;
-}
-
-/** Niveau de popularité d'un artiste (score réel sinon followers parsés). */
-function tierOf(artist: Artist, popularityById?: Map<string, number>): number {
-  const real = popularityById?.get(artist.id);
-  const count = real && real > 0 ? real : parseFollowersCount(artist.followers) ?? 0;
-  return popularityTier(count);
-}
-
-/** Couleur hex → rgba (halo lumineux des pins, parité web). */
-function hexToRgba(hex: string, alpha: number): string {
-  const h = hex.replace('#', '');
-  const n = Number.parseInt(h, 16);
-  if (!Number.isFinite(n)) return hex;
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/** Couleur du pin par DENSITÉ (tier) : fond + halo, parité web. */
-function tierColor(tier: number): string {
-  return POPULARITY_RING_COLORS[tier as 0 | 1 | 2 | 3];
-}
-
-/** Regroupe des artistes par clé (pays ou ville) et calcule le barycentre. */
-function clusterBy(
-  artists: Artist[],
-  keyOf: (a: Artist) => string,
-): Array<{ key: string; label: string; flag: string; count: number; coordinates: [number, number] }> {
-  const map = new Map<string, { label: string; flag: string; count: number; lng: number; lat: number }>();
-  for (const artist of artists) {
-    if (!isValidCoordinate(artist.coordinates)) continue;
-    const key = keyOf(artist) || 'unknown';
-    const current = map.get(key);
-    if (current) {
-      current.count += 1;
-      current.lng += artist.coordinates[0];
-      current.lat += artist.coordinates[1];
-    } else {
-      map.set(key, {
-        label: key === 'unknown' ? '' : key,
-        flag: artist.flag,
-        count: 1,
-        lng: artist.coordinates[0],
-        lat: artist.coordinates[1],
-      });
-    }
-  }
-  return [...map.entries()].map(([key, c]) => ({
-    key,
-    label: c.label,
-    flag: c.flag,
-    count: c.count,
-    coordinates: [c.lng / c.count, c.lat / c.count] as [number, number],
-  }));
-}
-
-type ClusterLevel = 'country' | 'city' | 'sub' | 'spread';
-const levelFor = (z: number): ClusterLevel => {
-  if (z < 3.2) return 'country';
-  if (z < 6) return 'city';
-  if (z < 9) return 'sub';
-  return 'spread';
-};
+// Géométrie, clustering, échelles de pins et cibles de caméra vivent
+// désormais dans `@musimaps/shared/map` : ce fichier en avait une copie
+// mot pour mot, partagée avec GlobeMap.tsx côté web.
 
 type Pin =
-  | { key: string; kind: 'artist'; artist: Artist; coords: [number, number]; tier: number }
-  | { key: string; kind: 'cluster'; label: string; flag: string; count: number; coords: [number, number]; zoomTo: number; variant?: 'sub'; members: Artist[]; tier: number; place?: Omit<PlacePanelData, 'artists'> };
+  | { key: string; kind: 'artist'; artist: Artist; coords: [number, number]; tier: PopularityTier }
+  | { key: string; kind: 'cluster'; label: string; flag: string; count: number; coords: [number, number]; zoomTo: number; variant?: 'sub'; members: Artist[]; tier: PopularityTier; place?: Omit<PlacePanelData, 'artists'> };
 
 type VisibleRegion = {
   properties: {
@@ -258,7 +174,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   const isNative = Platform.OS !== 'web';
   // Web : un seul nom à la fois (celui du pin survolé). Natif : tous les noms
   // en zoom quartier (z ≥ 12.5, pins détachés), pas de survol tactile.
-  const showPinNameFor = (key: string) => (isNative ? mapZoom >= 12.5 : hoveredId === key);
+  const showPinNameFor = (key: string) => (isNative ? mapZoom >= PIN_LABEL_ZOOM : hoveredId === key);
 
   // --- Localisation : le premier écran demande l'autorisation si nécessaire ---
   const [locState, setLocState] = useState<'checking' | 'granted' | 'denied' | 'skipped'>('checking');
@@ -514,7 +430,11 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, []);
 
-  const flyTo = (coordinates: [number, number], zoomLevel: number, duration = 900) => {
+  const flyTo = (
+    coordinates: [number, number],
+    zoomLevel: number,
+    duration = CAMERA.artist.duration,
+  ) => {
     // Arrête la rotation immédiatement (clear synchrone de l'intervalle) :
     // sinon le prochain tick (120 ms) sauterait la caméra et annulerait le vol.
     stopSpinImmediate();
@@ -542,6 +462,22 @@ export function ExploreScreen({ navigation, route }: Props) {
     });
   };
 
+  /**
+   * Vol vers un artiste — équivalent de `focusArtist` côté web.
+   *
+   * Deux corrections par rapport à l'ancien `flyTo(artist.coordinates, 9, 800)` :
+   *  - le zoom passe de 9 à 13. z9 est exactement la frontière sub/spread :
+   *    on atterrissait avant que les pins d'un même point soient dés-empilés ;
+   *  - la cible est la position AFFICHÉE du pin, pas la coordonnée brute. À
+   *    z13 la spirale peut le décaler de plusieurs centaines de pixels, et
+   *    l'artiste cherché finissait en périphérie de l'écran.
+   */
+  const flyToArtist = (artist: Artist) => {
+    const rendered =
+      renderedPosition(allArtists, artist.id, CAMERA.artist.zoom) ?? artist.coordinates;
+    flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
+  };
+
   const resetView = () => {
     setSpinning(false);
     setSelected(null);
@@ -549,7 +485,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     setPlaceIndex(0);
     setHighlightedId(null);
     setVisiblePins([]);
-    flyTo(GLOBE_CENTER, GLOBE_ZOOM, 900);
+    flyTo(GLOBE_CENTER, GLOBE_ZOOM, CAMERA.globe.duration);
   };
 
   // Demande l'autorisation de localisation, puis révèle les artistes locaux.
@@ -600,7 +536,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setVisiblePins([artist]);
       recordCityVisit(`${artist.city}, ${artist.country}`).catch(() => {});
       void recordPinView(artist.id, { viewerKey: deviceId ?? undefined });
-      flyTo(artist.coordinates, 9, 800);
+      flyToArtist(artist);
     },
     [query, rememberQuery, deviceId, recordCityVisit],
   );
@@ -636,11 +572,11 @@ export function ExploreScreen({ navigation, route }: Props) {
           setHighlightedId(firstArtist.id);
           const spread = declump(cityArtists, 13);
           const rendered = spread.get(firstArtist.id);
-          flyTo(rendered ?? firstArtist.coordinates, 13, 950);
+          flyTo(rendered ?? firstArtist.coordinates, CAMERA.city.zoom, CAMERA.city.duration);
           return;
         }
       }
-      flyTo(c.coordinates, 13, 950);
+      flyTo(c.coordinates, CAMERA.city.zoom, CAMERA.city.duration);
     },
     [allArtists, rememberQuery, recordCityVisit],
   );
@@ -678,11 +614,11 @@ export function ExploreScreen({ navigation, route }: Props) {
           setHighlightedId(firstArtist.id);
           const spread = declump(nearArtists, 14);
           const rendered = spread.get(firstArtist.id);
-          flyTo(rendered ?? firstArtist.coordinates, 14, 950);
+          flyTo(rendered ?? firstArtist.coordinates, CAMERA.place.zoom, CAMERA.place.duration);
           return;
         }
       }
-      flyTo([n.lng, n.lat], 14, 950);
+      flyTo([n.lng, n.lat], CAMERA.place.zoom, CAMERA.place.duration);
     },
     [allArtists, rememberQuery, recordCityVisit],
   );
@@ -714,11 +650,11 @@ export function ExploreScreen({ navigation, route }: Props) {
           setHighlightedId(firstArtist.id);
           const spread = declump(countryArtists, 12);
           const rendered = spread.get(firstArtist.id);
-          flyTo(rendered ?? firstArtist.coordinates, 12);
+          flyTo(rendered ?? firstArtist.coordinates, CAMERA.country.zoom, CAMERA.country.duration);
           return;
         }
       }
-      flyTo(c.coordinates, 12);
+      flyTo(c.coordinates, CAMERA.country.zoom, CAMERA.country.duration);
     },
     [allArtists, rememberQuery],
   );
@@ -737,7 +673,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         // qu'il arrive au centre de l'écran — pas dans un coin au zoom.
         const spread = declump(selectedPlace.artists, 13);
         const rendered = spread.get(artist.id) ?? artist.coordinates;
-        flyTo(rendered, 13, 900);
+        flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
       }
     },
     [selectedPlace],
@@ -752,7 +688,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setSelected(null);
       setHighlightedId(null);
       setVisiblePins(genreArtists);
-      if (genreArtists.length > 0) flyTo(genreArtists[0].coordinates, 11);
+      if (genreArtists.length > 0) flyTo(genreArtists[0].coordinates, CAMERA.genre.zoom, CAMERA.genre.duration);
     },
     [allArtists, rememberQuery],
   );
@@ -817,7 +753,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           setQuery('');
           setSelected(existing);
           setVisiblePins([existing]);
-          flyTo(existing.coordinates, 9, 800);
+          flyToArtist(existing);
           return;
         }
         artist = {
@@ -853,7 +789,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setQuery('');
       setSelected(artist);
       setVisiblePins([artist]);
-      flyTo(artist.coordinates, 9, 800);
+      flyToArtist(artist);
     },
     [mapArtists, openRefer],
   );
@@ -923,7 +859,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           coords: c.coordinates,
           zoomTo: 12,
           members,
-          tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))),
+          tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))) as PopularityTier,
           place: {
             kind: 'country',
             name: geo.code,
@@ -952,7 +888,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           coords: c.coordinates,
           zoomTo: 13,
           members,
-          tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))),
+          tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))) as PopularityTier,
           place: {
             kind: 'city',
             name: c.label.split('|')[0],
@@ -977,7 +913,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         }
         const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length;
         const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
-        out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: [cLng, cLat], zoomTo: 13.5, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) });
+        out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: [cLng, cLat], zoomTo: 13.5, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier });
       }
     } else {
       const spread = declump(valid, mapZoom);
@@ -988,11 +924,17 @@ export function ExploreScreen({ navigation, route }: Props) {
     return out;
   }, [regionArtists, visiblePins, searchOpen, query, allArtists, mapZoom, popularityById]);
 
-  // Taille des pins individuels : petits de loin (carte épurée), ils
-  // grossissent à l'approche — même échelle que la page globe web (base 34px,
-  // facteur adouci pour des pins plus discrets par zoom).
-  const pinScale = Math.min(1.15, Math.max(0.22, 0.22 + (mapZoom - 1) * 0.07));
-  const pinSize = Math.max(11, Math.round(34 * pinScale));
+  /**
+   * Taille d'un pin : zoom ET notoriété — même formule que le web.
+   *
+   * Auparavant la taille ne dépendait que du zoom : deux artistes au même
+   * endroit, l'un à 3 M d'auditeurs et l'autre à 200, avaient exactement le
+   * même diamètre. En vue globe, tout était une pastille identique.
+   */
+  const pinSizeFor = (tier: PopularityTier) =>
+    Math.max(9, Math.round(34 * pinScaleFor(mapZoom, tier)));
+  /** Opacité selon le zoom — le mobile n'en avait pas, contrairement au web. */
+  const pinOpacity = pinOpacityFor(mapZoom);
 
   const loadRegion = ({ properties }: VisibleRegion) => {
     const [east, north] = properties.bounds.ne;
@@ -1102,7 +1044,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setSelected(artist);
       setVisiblePins([artist]);
       recordCityVisit(`${artist.city}, ${artist.country}`).catch(() => {});
-      flyTo(artist.coordinates, 9, 800);
+      flyToArtist(artist);
     }
   }, [route.params?.artistId, route.params?.searchKey, allArtists, recordCityVisit]);
 
@@ -1309,7 +1251,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           ref={cameraRef}
           defaultSettings={{ centerCoordinate: GLOBE_CENTER, zoomLevel: GLOBE_ZOOM, pitch: 0, heading: 0 }}
           minZoomLevel={0.45}
-          maxZoomLevel={18}
+          maxZoomLevel={MAX_ZOOM}
         />
         {/* Atmosphere n'est pas exporté par @rnmapbox/maps sur web (natif uniquement). */}
         {Mapbox.Atmosphere != null && (
@@ -1337,11 +1279,11 @@ export function ExploreScreen({ navigation, route }: Props) {
                   // comme sur le web — le halo lumineux suit la couleur.
                   !globeView && pin.variant !== 'sub'
                     ? {
-                        backgroundColor: tierColor(pin.tier),
-                        borderColor: tierColor(pin.tier),
+                        backgroundColor: POPULARITY_RING_COLORS[pin.tier],
+                        borderColor: POPULARITY_RING_COLORS[pin.tier],
                       }
                     : globeView
-                      ? { backgroundColor: tierColor(pin.tier) }
+                      ? { backgroundColor: POPULARITY_RING_COLORS[pin.tier] }
                       : null,
                   { transform: [{ scale: clusterScale }] },
                 ]}
@@ -1457,13 +1399,13 @@ export function ExploreScreen({ navigation, route }: Props) {
                     // irradie dans la couleur de son tier de popularité).
                     !pin.artist.trending &&
                       pin.artist.id !== highlightedId && {
-                        backgroundColor: hexToRgba(tierColor(pin.tier), 0.34),
+                        backgroundColor: hexToRgba(POPULARITY_RING_COLORS[pin.tier], pinGlowFor(mapZoom, pin.tier)),
                       },
                   ]}
                 />
                 <ArtistAvatar
                   artist={pin.artist}
-                  size={pin.artist.id === highlightedId ? Math.round(pinSize * 1.25) : pinSize}
+                  size={pin.artist.id === highlightedId ? Math.round(pinSizeFor(pin.tier) * 1.25) : pinSizeFor(pin.tier)}
                 />
                 <View style={styles.markerTip} />
                 {(showPinNameFor(pin.key) || pin.artist.id === highlightedId) && (

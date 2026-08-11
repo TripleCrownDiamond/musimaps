@@ -13,6 +13,7 @@ export * from './lib/auth'
 export * from './lib/stats'
 export * from './lib/gamification'
 export * from './lib/discovery'
+export * from './map'
 
 
 export interface Track {

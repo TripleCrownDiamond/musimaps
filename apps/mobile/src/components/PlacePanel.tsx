@@ -55,17 +55,22 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
           <Ionicons name="chevron-back" size={18} color="#ffffff" />
         </Pressable>
 
+        {/* Artiste COURANT en principal, lieu et position en secondaire —
+            même hiérarchie que le web. Le panneau n'affichait que le lieu :
+            on naviguait à l'aveugle sans savoir sur quel artiste on était. */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${place.name} — ${count} artistes`}
+          accessibilityLabel={`${current?.name ?? place.name} — ${place.name}, ${index + 1}/${count}`}
           onPress={() => current && onSelect(current)}
           style={({ pressed }) => [styles.copyBtn, pressed && { opacity: 0.7 }]}
         >
-          <Text style={styles.flag}>{place.flag}</Text>
-          <Text style={styles.name} numberOfLines={1}>{place.name}</Text>
-          <View style={styles.countBadge}>
-            <Text style={styles.countText}>
-              {t('place.count', { count, s: count > 1 ? 's' : '' })}
+          <Text style={styles.name} numberOfLines={1}>
+            {current?.name ?? place.name}
+          </Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.flag}>{place.flag}</Text>
+            <Text style={styles.meta} numberOfLines={1}>
+              {place.name} · {t('place.position', { index: index + 1, count })}
             </Text>
           </View>
         </Pressable>
@@ -124,29 +129,33 @@ function createStyles() {
       backgroundColor: 'rgba(255,255,255,0.12)',
     },
     copyBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 2,
+      minWidth: 0,
+      flexShrink: 1,
     },
-    flag: { fontSize: 16 },
+    flag: { fontSize: 12 },
     name: {
       fontFamily: fonts.bold,
       fontSize: 14,
+      lineHeight: 18,
       color: '#ffffff',
-      maxWidth: 140,
+      maxWidth: 170,
     },
-    countBadge: {
-      paddingHorizontal: 8,
-      paddingVertical: 3,
-      borderRadius: 999,
-      backgroundColor: 'rgba(255,255,255,0.12)',
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      maxWidth: 170,
     },
-    countText: {
+    meta: {
       fontFamily: fonts.medium,
       fontSize: 11,
-      color: 'rgba(255,255,255,0.88)',
+      color: 'rgba(255,255,255,0.70)',
+      flexShrink: 1,
     },
     closeBtn: {
       width: 30,
