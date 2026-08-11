@@ -8,6 +8,7 @@ export * from './lib/searchHistory'
 export * from './lib/notifications'
 export * from './lib/brand'
 export * from './lib/booking'
+export * from './lib/music'
 
 
 export interface Track {

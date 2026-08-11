@@ -18,7 +18,7 @@ import {
 import Footer from '../components/Footer'
 import { artists, compactCount, findArtist, type Artist } from '@musimaps/shared'
 import { fetchMapArtists, toArtist } from '../lib/discovery'
-import { fetchArtistTracks, type StreamedTrack } from '../lib/music'
+import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
 import {
   fetchArtistFollowers,
   fetchArtistLikes,

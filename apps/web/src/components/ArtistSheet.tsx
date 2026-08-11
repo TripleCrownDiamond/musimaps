@@ -30,7 +30,7 @@ import {
   toggleFollow,
   viewerCountryFromCity,
 } from '../lib/stats'
-import { fetchArtistTracks, type StreamedTrack } from '../lib/music'
+import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import BookingModal from './BookingModal'

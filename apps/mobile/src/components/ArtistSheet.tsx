@@ -27,7 +27,7 @@ import {
   toggleFollow,
 } from '../lib/stats';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
-import { fetchArtistTracks, type StreamedTrack } from '../lib/music';
+import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared';
 import { requestClaim } from '../lib/discovery';
 import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
