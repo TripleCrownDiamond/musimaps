@@ -17,7 +17,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { deleteAccount, setAccountType, updateEmail, updatePassword } from '../lib/auth';
+import { deleteAccount, setAccountType, updateEmail, updatePassword } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -84,7 +84,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
       return;
     }
     setAccountBusy('pass');
-    const err = await updatePassword(newPassword.trim());
+    const { error: err } = await updatePassword(newPassword.trim());
     setAccountBusy(null);
     setAccountMsg(err ? { ok: false, text: err.message } : { ok: true, text: t('account.passDone') });
     if (!err) setNewPassword('');
@@ -93,7 +93,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const changeEmail = async () => {
     if (!newEmail.trim()) return;
     setAccountBusy('email');
-    const err = await updateEmail(newEmail);
+    const { error: err } = await updateEmail(newEmail);
     setAccountBusy(null);
     setAccountMsg(err ? { ok: false, text: err.message } : { ok: true, text: t('account.emailDone') });
   };

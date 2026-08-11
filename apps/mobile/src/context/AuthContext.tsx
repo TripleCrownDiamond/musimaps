@@ -17,7 +17,7 @@ import {
   type AccountRole,
   type AuthError,
   type UserProfile,
-} from '../lib/auth';
+} from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
 interface AuthContextValue {
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   const resetPasswordForEmail = useCallback<AuthContextValue['resetPasswordForEmail']>(
-    async (email) => apiResetPasswordForEmail(email),
+    async (email) => (await apiResetPasswordForEmail(email)).error,
     [],
   );
 

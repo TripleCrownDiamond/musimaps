@@ -13,7 +13,11 @@ import { Toaster } from './components/ui/sonner'
 
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
-configureRuntime({ supabase, storage: webStorage })
+configureRuntime({
+  supabase,
+  storage: webStorage,
+  resetPasswordUrl: `${window.location.origin}/reset-password`,
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

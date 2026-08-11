@@ -45,19 +45,33 @@ function memoryStorage(): Storage {
 
 let client: SupabaseClient | null = null;
 let storage: Storage = memoryStorage();
+let resetPasswordUrl = '';
 let configured = false;
 
 export interface RuntimeConfig {
   /** Client Supabase, ou `null` si les clés ne sont pas fournies. */
   supabase: SupabaseClient | null;
   storage: Storage;
+  /**
+   * Cible du lien de réinitialisation de mot de passe. Réellement
+   * spécifique à la plateforme : une URL HTTP côté web
+   * (`https://…/reset-password`), un deep link côté mobile
+   * (`musimaps://reset-password`).
+   */
+  resetPasswordUrl?: string;
 }
 
 /** À appeler UNE fois au démarrage de chaque app, avant tout rendu. */
 export function configureRuntime(config: RuntimeConfig): void {
   client = config.supabase;
   storage = config.storage;
+  resetPasswordUrl = config.resetPasswordUrl ?? '';
   configured = true;
+}
+
+/** Cible du lien de réinitialisation, injectée par l'app. */
+export function getResetPasswordUrl(): string {
+  return resetPasswordUrl;
 }
 
 /** Le client Supabase, ou `null` si l'app n'est pas configurée. */

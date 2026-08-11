@@ -40,7 +40,12 @@ import { dockStyle, fonts } from './src/theme';
 
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
-configureRuntime({ supabase, storage: nativeStorage });
+configureRuntime({
+  supabase,
+  storage: nativeStorage,
+  // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.
+  resetPasswordUrl: 'musimaps://reset-password',
+});
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();

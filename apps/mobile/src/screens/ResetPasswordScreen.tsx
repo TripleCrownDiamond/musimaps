@@ -18,7 +18,7 @@ import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import { supabase } from '../lib/supabase';
-import { updatePassword } from '../lib/auth';
+import { updatePassword } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -138,7 +138,7 @@ export function ResetPasswordScreen({ navigation }: Props) {
     if (password.length < 8) return showToast(t('auth.passwordShort'), 'alert-circle', 'error');
     if (password !== confirm) return showToast(t('auth.passwordMismatch'), 'alert-circle', 'error');
     setBusy(true);
-    const err = await updatePassword(password);
+    const { error: err } = await updatePassword(password);
     setBusy(false);
     if (err) showToast(err.message, 'alert-circle', 'error');
     else setDone(true);

@@ -11,7 +11,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 import { DEFAULT_BADGES, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type EarnedBadge } from '../gamification';
-import { syncProfileToSupabase } from '../lib/auth';
+import { updateProfile } from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
 const FAVORITES_KEY = 'musimaps.mobile.favorites';
@@ -166,7 +166,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(normalized));
     // Sync vers le compte Supabase (mêmes données que le web) : le profil
     // persiste sur le compte, pas seulement sur l'appareil.
-    void syncProfileToSupabase({
+    void updateProfile({
       displayName: normalized.displayName,
       city: normalized.city,
       district: normalized.district,

@@ -1698,13 +1698,4 @@ export async function fetchMyClaims(): Promise<ArtistClaim[]> {
 // Compte business
 // ------------------------------------------------------------
 
-/** Bascule son compte en personal / business. */
-export async function setAccountType(
-  type: 'personal' | 'business',
-): Promise<{ ok: boolean; error?: string }> {
-  if (!hasSupabase()) return { ok: false, error: 'Supabase non configuré' }
-  const { data, error } = await supabase!.rpc('set_account_type', { p_type: type })
-  if (error) return { ok: false, error: error.message }
-  const result = data as { ok?: boolean; error?: string } | null
-  return result?.ok ? { ok: true } : { ok: false, error: result?.error ?? 'Erreur inconnue' }
-}
+

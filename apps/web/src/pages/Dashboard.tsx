@@ -37,7 +37,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { fetchBookings, type BookingRecord } from '@musimaps/shared'
-import { setAccountType } from '../lib/discovery'
+import { setAccountType } from '@musimaps/shared'
 import {
   fetchMyArtistProfile,
   updateArtistBooking,
@@ -229,6 +229,10 @@ export default function Dashboard() {
 
   const switchAccountType = async () => {
     if (!user) return
+    // Un compte premium n'est pas concerné par cette bascule : la faire jouer
+    // écrirait 'business' et détruirait le palier. Le web ignorait la valeur
+    // 'premium' (admise en base depuis la migration 00029) — voir AccountType.
+    if (user.accountType === 'premium') return
     setSwitching(true)
     const next = user.accountType === 'business' ? 'personal' : 'business'
     const result = await setAccountType(next)

@@ -26,10 +26,25 @@
 | `brand` | ✅ | modules complémentaires réunis |
 | `booking` | ✅ | **typage nullable faux côté web corrigé** |
 | `music` | ✅ | miroir exact, zéro écart de logique |
-| `auth` | ⬜ | 263 / 260 lignes — touche l'authentification, passe dédiée |
+| `auth` | ✅ | **`premium` écrasé côté web corrigé** — voir ci-dessous |
 | `stats` | ⬜ | 332 / 207 — 125 lignes d'écart à arbitrer |
 | `gamification` | ⬜ | 148 / 200 — le mobile a 52 lignes de plus |
 | `discovery` | ⬜ | **1710 / 1325 — en dernier, seul.** Voir ci-dessous |
+
+**`auth` — ce que la fusion a révélé :**
+- Le type `accountType` du web s'était arrêté à `'personal' | 'business'` alors que
+  la migration **00029** a étendu la contrainte à `('personal', 'business', 'premium')`.
+  Son `fetchProfile` écrasait `premium` en `personal`, et la bascule du dashboard
+  (`accountType === 'business' ? 'personal' : 'business'`) écrivait alors `'business'` :
+  **le palier premium était détruit en base**. Corrigé.
+- `setAccountType` vivait dans `discovery.ts` côté web et dans `auth.ts` côté mobile.
+- `resetPasswordForEmail` renvoyait `{ error }` sur web et `AuthError | null` sur mobile.
+  Unifié sur `{ error }`.
+- `updateProfile` (web) et `syncProfileToSupabase` (mobile) étaient la même fonction
+  sous deux noms. Fusionnées.
+- **Manque fonctionnel côté web** : ni suppression de compte ni changement d'email.
+  La logique est désormais partagée et les clés i18n existent — il ne manque que
+  l'interface. Tâche à part (enjeu RGPD).
 
 **`discovery` — points connus avant de commencer :**
 - 385 lignes d'écart, c'est le module qui alimente la carte.

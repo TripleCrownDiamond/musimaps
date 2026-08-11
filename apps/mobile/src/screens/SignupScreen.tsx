@@ -23,7 +23,7 @@ import { checkin } from '../lib/stats';
 import { useAppTheme } from '../context/ThemeContext';
 import { suggestCities } from '../lib/discovery';
 import { useI18n } from '../i18n';
-import type { AccountRole } from '../lib/auth';
+import type { AccountRole } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 

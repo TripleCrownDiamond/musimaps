@@ -13,7 +13,7 @@ import {
   type AccountRole,
   type AuthError,
   type UserProfile,
-} from '@/lib/auth'
+} from '@musimaps/shared'
 
 interface AuthContextValue {
   user: UserProfile | null
