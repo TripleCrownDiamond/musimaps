@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { getLevelInfo } from '../gamification';
 import { useI18n } from '../i18n';
-import { fetchUnreadCount } from '../lib/notifications';
+import { fetchUnreadCount } from '@musimaps/shared';
 import { checkin, type StreakInfo } from '../lib/stats';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';

@@ -73,8 +73,9 @@ import {
 import {
   fetchNotifications,
   markAllNotificationsRead,
+  notificationIcon,
   type AppNotification,
-} from '../lib/notifications'
+} from '@musimaps/shared'
 import { toast } from 'sonner'
 import { useRef } from 'react'
 import { BarChart, ChartCard, Donut, HBarList, TrendArea } from '../components/charts'
@@ -86,19 +87,6 @@ const LIME = 'var(--color-brand)'
 const SOFT = 'var(--color-brand-soft)'
 
 /** Icône par type de notification (même mapping que la cloche). */
-const NOTIF_ICONS: Record<string, string> = {
-  discovery: '✨',
-  followed_artist: '🔔',
-  preference: '🎯',
-  nearby: '📍',
-  follow: '➕',
-  like: '💚',
-  booking: '🎤',
-  booking_status: '📅',
-  streak: '🔥',
-  achievement: '🏆',
-}
-
 /** Icônes lucide des badges (au lieu d'emojis, cohérent avec le design system). */
 const BADGE_ICONS: Record<BadgeIcon, LucideIcon> = {
   heart: Heart,
@@ -1311,7 +1299,7 @@ export default function Dashboard() {
                     n.read ? '' : 'bg-brand-soft/50'
                   }`}
                 >
-                  <span className="mt-0.5 text-base">{NOTIF_ICONS[n.type] ?? '🔔'}</span>
+                  <span className="mt-0.5 text-base">{notificationIcon(n.type)}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block leading-snug">
                       {n.message ??

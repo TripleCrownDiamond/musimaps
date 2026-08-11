@@ -1,5 +1,5 @@
 import { createContext, useContext, type PropsWithChildren } from 'react';
-import { DEFAULT_BRAND, type BrandContent } from '../lib/brand';
+import { DEFAULT_BRAND, type BrandContent } from '@musimaps/shared';
 
 /**
  * Contexte de l'identité visuelle pilotée par le CMS. Le provider est un

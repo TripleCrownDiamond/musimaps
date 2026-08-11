@@ -1,5 +1,5 @@
 import type { BrandContent, SeoContent } from './cms'
-import { isLegacyBrandUrl } from './brand'
+import { isLegacyBrandUrl } from '@musimaps/shared'
 import { localizePath, type Lang } from '@/i18n/translations'
 
 function setMeta(attr: 'name' | 'property', key: string, value: string) {

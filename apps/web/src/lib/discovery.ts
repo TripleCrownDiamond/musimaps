@@ -1505,7 +1505,7 @@ export async function addOrUpdateMapArtist(
   // Nouvel artiste : on notifie les utilisateurs concernés (migration 00029,
   // repli silencieux si la fonction n'est pas encore en base).
   if (result.updated !== true) {
-    void import('./notifications').then(({ triggerDiscoveryNotification }) =>
+    void import('@musimaps/shared').then(({ triggerDiscoveryNotification }) =>
       triggerDiscoveryNotification({
         id: artist.id,
         name: artist.name,

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { fetchUnreadCount } from '../lib/notifications';
+import { fetchUnreadCount } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, shadow, type AppColors } from '../theme';
 import { BrandMark } from './Brand';

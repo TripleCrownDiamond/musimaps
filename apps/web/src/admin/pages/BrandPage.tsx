@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Info, Languages, Moon, Sun } from 'lucide-react'
 import type { BrandContent } from '@/lib/cms'
-import { isLegacyBrandUrl, resolveBrandLogo } from '@/lib/brand'
+import { isLegacyBrandUrl, resolveBrandLogo } from '@musimaps/shared'
 import logoBlack from '@/assets/brand/logo-black.png'
 import logoWhite from '@/assets/brand/logo-white.png'
 import { useSection } from '../useSection'

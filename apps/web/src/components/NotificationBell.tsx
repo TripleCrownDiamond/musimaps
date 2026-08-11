@@ -9,7 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   type AppNotification,
-} from '../lib/notifications'
+} from '@musimaps/shared'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './ui/dropdown-menu'
 
 /** Icône par type de notification. */

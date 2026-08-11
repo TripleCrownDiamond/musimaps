@@ -13,7 +13,7 @@ import { AppProvider } from './src/context/AppContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { BrandProvider } from './src/context/BrandContext';
 import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
-import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from './src/lib/brand';
+import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
 import { Toast } from './src/components/Toast';

@@ -5,6 +5,8 @@ export * from './design/tokens'
 export { MESSAGES, translate, type Lang, type MessageKey } from './i18n'
 export * from './runtime'
 export * from './lib/searchHistory'
+export * from './lib/notifications'
+export * from './lib/brand'
 
 
 export interface Track {

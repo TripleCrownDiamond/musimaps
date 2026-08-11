@@ -11,7 +11,7 @@ import {
   markNotificationRead,
   notificationIcon,
   type AppNotification,
-} from '../lib/notifications';
+} from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
