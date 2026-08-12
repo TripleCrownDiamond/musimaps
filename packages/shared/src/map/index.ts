@@ -10,7 +10,7 @@
  * `GlobeMap.tsx` (web) et `ExploreScreen.tsx` (mobile). Voir docs/AUDIT-CARTE.md.
  */
 import type { Artist } from '../index';
-import { isValidCoordinate } from './geo-consistency';
+import { distanceKm, geoConsistent, isValidCoordinate, medianCentre } from './geo-consistency';
 import { parseFollowersCount, popularityTier, type PopularityTier } from '../index';
 
 /* ------------------------------------------------------------------ */
@@ -319,36 +319,65 @@ export interface Cluster {
 
 /** Regroupe des artistes par clé (pays ou ville) et calcule le barycentre. */
 export function clusterBy(artists: Artist[], keyOf: (a: Artist) => string): Cluster[] {
-  const map = new Map<
-    string,
-    { label: string; flag: string; count: number; lng: number; lat: number }
-  >();
+  const map = new Map<string, { label: string; flag: string; members: Artist[] }>();
   for (const artist of artists) {
-    const coords = artist.coordinates;
-    if (!isValidCoordinate(coords)) continue;
+    if (!isValidCoordinate(artist.coordinates)) continue;
     const key = keyOf(artist) || 'unknown';
     const current = map.get(key);
-    if (current) {
-      current.count += 1;
-      current.lng += coords[0];
-      current.lat += coords[1];
-    } else {
+    if (current) current.members.push(artist);
+    else {
       map.set(key, {
         label: key === 'unknown' ? '' : key,
         flag: artist.flag,
-        count: 1,
-        lng: coords[0],
-        lat: coords[1],
+        members: [artist],
       });
     }
   }
-  return [...map.entries()].map(([key, c]) => ({
-    key,
-    label: c.label,
-    flag: c.flag,
-    count: c.count,
-    coordinates: [c.lng / c.count, c.lat / c.count] as [number, number],
-  }));
+  return [...map.entries()].map(([key, c]) => {
+    // Un membre mal géolocalisé ne doit entraver NI la position du pin NI
+    // son compteur : il est écarté avant les deux. Sans ça, un artiste
+    // déclaré ici mais situé à l'autre bout du monde comptait dans le total
+    // et tirait le groupe vers lui.
+    const sound = geoConsistent(c.members);
+    const kept = sound.length > 0 ? sound : c.members;
+    return {
+      key,
+      label: c.label,
+      flag: c.flag,
+      count: kept.length,
+      coordinates: clusterAnchor(kept),
+    };
+  });
+}
+
+/**
+ * Position d'un pin de cluster — **toujours sur un artiste réel**.
+ *
+ * C'était le BARYCENTRE (la moyenne des coordonnées). Un groupe éclaté le
+ * projette dans le vide : le cluster « France », qui contient des artistes
+ * déclarés FR mais localisés en Afrique (diaspora), tombait à 23,3 N / 10,8 E
+ * — en plein Sahara, au nord du Niger, à **1 504 km du premier artiste
+ * réel**. Cliquer ce pin téléportait donc en France depuis le désert.
+ * Le Canada tombait à 2 328 km de ses membres, le Royaume-Uni à 887 km.
+ *
+ * On prend la MÉDIANE (insensible aux membres lointains, contrairement à la
+ * moyenne) puis on s'accroche au membre le plus proche d'elle. Le pin est
+ * ainsi toujours posé là où quelqu'un se trouve vraiment, et le vol qui suit
+ * n'a plus rien d'une téléportation.
+ */
+function clusterAnchor(members: Artist[]): [number, number] {
+  if (members.length === 1) return members[0].coordinates;
+  const centre = medianCentre(members);
+  let best = members[0];
+  let bestDistance = Infinity;
+  for (const member of members) {
+    const d = distanceKm(member.coordinates, centre);
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = member;
+    }
+  }
+  return best.coordinates;
 }
 
 /* ------------------------------------------------------------------ */
