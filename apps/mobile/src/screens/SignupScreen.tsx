@@ -3,29 +3,27 @@ import { Headphones, MicVocal } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { COUNTRIES, continentName, countryName, flagFor } from '@musimaps/shared';
+  COUNTRIES,
+  checkin,
+  continentName,
+  countryName,
+  flagFor,
+  radii,
+  spacing,
+  suggestCities,
+} from '@musimaps/shared';
 import { PasswordGauge } from '../components/PasswordGauge';
 import { SearchablePicker, type PickerItem } from '../components/SearchablePicker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
-import { checkin } from '@musimaps/shared';
 import { useAppTheme } from '../context/ThemeContext';
-import { suggestCities } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import type { AccountRole } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { AuthLayout, Button, Field, Input, PasswordInput } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 
@@ -38,7 +36,7 @@ const ROLE_ICONS: Record<AccountRole, typeof MicVocal | typeof Headphones> = {
 };
 
 export function SignupScreen({ navigation }: Props) {
-  const { colors, theme } = useAppTheme();
+  const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
   const { signUp } = useAuth();
@@ -52,8 +50,6 @@ export function SignupScreen({ navigation }: Props) {
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
   const [countryQuery, setCountryQuery] = useState('');
@@ -166,53 +162,36 @@ export function SignupScreen({ navigation }: Props) {
 
   if (sent) {
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.root}
+      <AuthLayout
+        icon="mail-outline"
+        title={t('auth.checkEmail')}
+        subtitle={t('auth.checkEmailText')}
       >
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={styles.hero}>
-            <View style={[styles.heroIcon, { backgroundColor: colors.brand }]}>
-              <Ionicons name="mail-outline" size={30} color={colors.black} />
-            </View>
-            <Text style={styles.title}>{t('auth.checkEmail')}</Text>
-            <Text style={styles.subtitle}>{t('auth.checkEmailText')}</Text>
-            <Text style={[styles.subtitle, { marginTop: 4, fontFamily: fonts.bold, color: colors.ink }]}>{email.trim()}</Text>
-          </View>
-          <Pressable style={styles.submit} onPress={() => navigation.navigate('Login')}>
-            <Ionicons name="log-in-outline" size={20} color={colors.white} />
-            <Text style={styles.submitText}>{t('auth.login')}</Text>
-          </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <Text style={[styles.sentEmail, { color: colors.ink }]}>{email.trim()}</Text>
+        <Button
+          block
+          size="lg"
+          label={t('auth.login')}
+          onPress={() => navigation.navigate('Login')}
+          icon={<Ionicons name="log-in-outline" size={20} color={colors.white} />}
+        />
+      </AuthLayout>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.root}
+    <AuthLayout
+      icon="musical-notes"
+      title={t('auth.signupTitle')}
+      subtitle={t('auth.signupSubtitle')}
+      onBack={() => navigation.goBack()}
+      footer={{
+        text: t('auth.haveAccount'),
+        linkLabel: t('auth.loginLink'),
+        onPress: () => navigation.navigate('Login'),
+      }}
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={27} color={colors.ink} />
-        </Pressable>
-
-        <View style={styles.hero}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="musical-notes" size={28} color={colors.black} />
-          </View>
-          <View style={styles.heroCopy}>
-            <Text style={styles.title}>{t('auth.signupTitle')}</Text>
-            <Text style={styles.subtitle}>{t('auth.signupSubtitle')}</Text>
-          </View>
-        </View>
-
-        <Text style={styles.label}>{t('auth.role')}</Text>
+      <Field label={t('auth.role')}>
         <View style={styles.roles}>
           {roles.map(({ value, label, hint }) => {
             const active = role === value;
@@ -228,7 +207,7 @@ export function SignupScreen({ navigation }: Props) {
                     return (
                       <RoleIcon
                         size={22}
-                        color={active ? colors.black : theme === 'dark' ? colors.brand : colors.brandDeep}
+                        color={active ? colors.black : colors.brandPrimary}
                       />
                     );
                   })()}
@@ -241,42 +220,37 @@ export function SignupScreen({ navigation }: Props) {
                   <Ionicons
                     name="checkmark-circle"
                     size={22}
-                    color={theme === 'dark' ? colors.brand : colors.brandDeep}
+                    color={colors.brandPrimary}
                   />
                 )}
               </Pressable>
             );
           })}
         </View>
+      </Field>
 
-        <Text style={styles.label}>{t('auth.name')}</Text>
-        <TextInput
+      <Field label={t('auth.name')}>
+        <Input
           value={name}
           onChangeText={setName}
           placeholder="Jean Martin"
-          placeholderTextColor={colors.muted}
-          underlineColorAndroid="transparent"
-          style={styles.input}
         />
+      </Field>
 
+      <Field>
         <View style={styles.locationHeader}>
-          <Text style={styles.label}>{t('auth.location')} *</Text>
-          <Pressable
-            style={styles.geoButton}
+          <Text style={[styles.locationLabel, { color: colors.inkSoft }]}>
+            {t('auth.location')} *
+          </Text>
+          <Button
+            variant="link"
+            size="sm"
             disabled={locating}
+            loading={locating}
+            label={t('auth.geolocate')}
             onPress={() => void geolocate()}
-          >
-            {locating ? (
-              <ActivityIndicator size="small" color={theme === 'dark' ? colors.brand : colors.brandDeep} />
-            ) : (
-              <Ionicons name="locate" size={18} color={theme === 'dark' ? colors.brand : colors.brandDeep} />
-            )}
-            <Text
-              style={[styles.geoText, theme === 'dark' && { color: colors.brand }]}
-            >
-              {t('auth.geolocate')}
-            </Text>
-          </Pressable>
+            icon={<Ionicons name="locate" size={18} color={colors.brandPrimary} />}
+          />
         </View>
 
         <Pressable style={styles.pickerField} onPress={() => setCountryOpen(true)}>
@@ -306,7 +280,7 @@ export function SignupScreen({ navigation }: Props) {
           <View style={styles.pickerCopy}>
             {city ? (
               <>
-                <Ionicons name="location" size={18} color={colors.brandDeep} />
+                <Ionicons name="location" size={18} color={colors.brandPrimary} />
                 <Text numberOfLines={1} style={styles.pickerValue}>
                   {city}
                 </Text>
@@ -317,84 +291,48 @@ export function SignupScreen({ navigation }: Props) {
           </View>
           <Ionicons name="chevron-down" size={20} color={colors.inkSoft} />
         </Pressable>
+      </Field>
 
-        <Text style={styles.label}>{t('auth.email')}</Text>
-        <TextInput
+      <Field label={t('auth.email')}>
+        <Input
           value={email}
           onChangeText={setEmail}
           placeholder="vous@email.com"
-          placeholderTextColor={colors.muted}
           autoCapitalize="none"
           keyboardType="email-address"
           autoComplete="email"
-          underlineColorAndroid="transparent"
-          style={styles.input}
         />
+      </Field>
 
-        <Text style={styles.label}>{t('auth.password')}</Text>
-        <View style={styles.passwordWrap}>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="8 caractères min."
-            placeholderTextColor={colors.muted}
-            secureTextEntry={!showPassword}
-            autoComplete="new-password"
-            underlineColorAndroid="transparent"
-            style={styles.passwordInput}
-          />
-          <Pressable
-            accessibilityLabel={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((v) => !v)}
-          >
-            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={23} color={colors.inkSoft} />
-          </Pressable>
-        </View>
+      <Field label={t('auth.password')}>
+        <PasswordInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="8 caractères min."
+          autoComplete="new-password"
+        />
         {password.length > 0 && (
           <PasswordGauge password={password} />
         )}
+      </Field>
 
-        <Text style={styles.label}>{t('auth.passwordConfirm')}</Text>
-        <View style={[styles.passwordWrap, { marginBottom: 14 }]}>
-          <TextInput
-            value={confirm}
-            onChangeText={setConfirm}
-            placeholder="••••••••"
-            placeholderTextColor={colors.muted}
-            secureTextEntry={!showConfirm}
-            autoComplete="new-password"
-            underlineColorAndroid="transparent"
-            style={styles.passwordInput}
-          />
-          <Pressable
-            accessibilityLabel={showConfirm ? t('auth.hidePassword') : t('auth.showPassword')}
-            style={styles.eyeButton}
-            onPress={() => setShowConfirm((v) => !v)}
-          >
-            <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={23} color={colors.inkSoft} />
-          </Pressable>
-        </View>
+      <Field label={t('auth.passwordConfirm')}>
+        <PasswordInput
+          value={confirm}
+          onChangeText={setConfirm}
+          placeholder="••••••••"
+          autoComplete="new-password"
+        />
+      </Field>
 
-        <Pressable
-          style={[styles.submit, busy && styles.submitDisabled]}
-          disabled={busy}
-          onPress={() => void submit()}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Ionicons name="person-add-outline" size={20} color={colors.white} />
-          )}
-          <Text style={styles.submitText}>{t('auth.signup')}</Text>
-        </Pressable>
-
-        <Pressable style={styles.switchLink} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.switchText}>
-            {t('auth.haveAccount')} <Text style={styles.switchLinkText}>{t('auth.loginLink')}</Text>
-          </Text>
-        </Pressable>
-      </ScrollView>
+      <Button
+        block
+        size="lg"
+        loading={busy}
+        label={t('auth.signup')}
+        onPress={() => void submit()}
+        icon={<Ionicons name="person-add-outline" size={20} color={colors.white} />}
+      />
 
       <SearchablePicker
         visible={countryOpen}
@@ -429,133 +367,71 @@ export function SignupScreen({ navigation }: Props) {
           setCityQuery('');
         }}
       />
-    </KeyboardAvoidingView>
+    </AuthLayout>
   );
 }
 
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background },
-    content: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 48 },
-    back: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    hero: { alignItems: 'center', marginTop: 16, marginBottom: 24 },
-    heroIcon: {
-      width: 68,
-      height: 68,
-      borderRadius: 34,
-      backgroundColor: colors.brand,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    heroCopy: { alignItems: 'center', marginTop: 18 },
-    title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 30, letterSpacing: -1, textAlign: 'center' },
-    subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-    label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginBottom: 7, marginTop: 6 },
+    sentEmail: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
     locationHeader: {
       flexDirection: 'row',
-      alignItems: 'flex-end',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: 6,
     },
-    geoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 8 },
-    geoText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 13 },
+    locationLabel: {
+      fontFamily: fonts.bold,
+      fontSize: 12,
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
     pickerField: {
       minHeight: 52,
-      borderRadius: 16,
-      borderWidth: 1,
+      borderRadius: radii['2xl'],
+      borderWidth: 1.5,
       borderColor: colors.line,
       backgroundColor: colors.surface,
-      paddingHorizontal: 16,
+      paddingHorizontal: spacing.lg,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: 14,
     },
-    pickerCopy: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+    pickerCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
     pickerEmoji: { fontSize: 20 },
     pickerValue: { color: colors.ink, fontFamily: fonts.medium, fontSize: 15 },
     pickerPlaceholder: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15 },
-    passwordWrap: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      borderRadius: 16,
-      marginBottom: 8,
-      backgroundColor: colors.surface,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    passwordInput: {
-      flex: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: colors.ink,
-      fontFamily: fonts.body,
-      fontSize: 15,
-      borderWidth: 0,
-      outlineWidth: 0,
-    },
-    eyeButton: { paddingHorizontal: 14, paddingVertical: 12 },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: colors.ink,
-      fontFamily: fonts.body,
-      fontSize: 15,
-      marginBottom: 14,
-      backgroundColor: colors.surface,
-      outlineWidth: 0,
-    },
-    roles: { gap: 10, marginBottom: 6 },
+    roles: { gap: spacing.md },
     roleCard: {
       minHeight: 74,
-      borderRadius: 20,
+      borderRadius: radii['3xl'],
       borderWidth: 1.5,
       borderColor: colors.line,
       backgroundColor: colors.surface,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      padding: 13,
+      gap: spacing.md,
+      padding: spacing.md,
     },
-    roleCardActive: { borderColor: colors.brandDeep, backgroundColor: colors.brandSoft },
+    roleCardActive: { borderColor: colors.brandPrimary, backgroundColor: colors.brandSoft },
     roleIcon: {
       width: 46,
       height: 46,
-      borderRadius: 23,
+      borderRadius: radii.full,
       backgroundColor: colors.brandSoft,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    roleIconActive: { backgroundColor: colors.brand },
+    roleIconActive: { backgroundColor: colors.brandSecondary },
     roleCopy: { flex: 1 },
     roleLabel: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15 },
     // Actif : en clair le fond est lime pâle (texte sombre), en sombre le
     // fond est bleu nuit (texte clair) — ink s'adapte aux deux.
     roleLabelActive: { color: colors.ink },
-    roleHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 2, lineHeight: 15 },
-    submit: {
-      minHeight: 56,
-      borderRadius: 28,
-      backgroundColor: colors.brandDeep,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 6,
+    roleHint: {
+      color: colors.inkSoft,
+      fontFamily: fonts.body,
+      fontSize: 11,
+      marginTop: spacing.xs,
+      lineHeight: 16,
     },
-    submitDisabled: { opacity: 0.6 },
-    submitText: { color: colors.white, fontFamily: fonts.bold, fontSize: 17 },
-    switchLink: { alignItems: 'center', marginTop: 20 },
-    switchText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
-    switchLinkText: { color: colors.brandDeep, fontFamily: fonts.bold },
   });

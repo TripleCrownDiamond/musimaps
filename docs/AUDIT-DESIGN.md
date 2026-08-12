@@ -13,7 +13,7 @@ migration du catalogue d'écrans reste partielle.
 | Primitives d'UI | 17 (`components/ui/`, shadcn) | 6 (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`, index) |
 | Composants métier | ~20 | 11 |
 
-`Login`, `ForgotPassword`, `ResetPassword` et la vue Discover consomment déjà ce socle. Les écrans
+`Login`, `Signup`, `ForgotPassword`, `ResetPassword` et la vue Discover consomment déjà ce socle. Les écrans
 non migrés réinventent encore leurs boutons et leurs champs en `StyleSheet` ; c'est désormais la
 source principale de dérive.
 
@@ -65,7 +65,7 @@ dashboard et les deux écrans absents.
 
 **En cours.** `Button`, `Input`, `Card`, `AuthLayout` et `PasswordInput` existent dans
 `apps/mobile/src/ui/` et lisent les tokens partagés. Il reste à compléter les primitives métier
-(`Badge`, `Section`) au fil des migrations.
+(`Badge`) au fil des migrations ; `Section` est déjà exposée par le socle.
 
 C'est la fondation : sans elle, chaque écran repris réintroduit des valeurs en
 dur. **À faire en premier**, tout le reste en dépend.
