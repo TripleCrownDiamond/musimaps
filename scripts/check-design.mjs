@@ -28,8 +28,8 @@ const MOBILE = path.join(ROOT, 'apps/mobile/src');
  */
 const BUDGET = {
   hardcodedColors: 68,
-  radiusValues: 36,
-  spacingValues: 36,
+  radiusValues: 35,
+  spacingValues: 35,
 };
 
 /**
