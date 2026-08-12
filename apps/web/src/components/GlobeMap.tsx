@@ -535,6 +535,10 @@ export default function GlobeMap({
       if (artist.id === highlightedRef.current) {
         el.classList.add('artist-pin--selected')
         tip.classList.add('artist-pin__tooltip--visible')
+        // Le décalage du libellé se calcule sur le WRAPPER : le pin est
+        // agrandi par `scale`, qui ne change pas sa boîte, donc son anneau
+        // recouvrirait le nom sans cette compensation.
+        wrapper.classList.add('artist-pin__wrapper--selected')
       }
       const initials = artist.name
         .split(' ')

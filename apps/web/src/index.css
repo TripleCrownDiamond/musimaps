@@ -404,6 +404,21 @@
   color: #0b1420;
   font-weight: 700;
 }
+
+/* Le nom d'un pin SÉLECTIONNÉ doit passer au-dessus de son anneau.
+   `scale` est une transformation visuelle : elle n'agrandit pas la boîte de
+   mise en page. Un pin sélectionné est mis à l'échelle 1,28 × notoriété ×
+   zoom — jusqu'à 68 px pour une boîte de 36 — et son anneau déborde encore
+   de 9 px plus 3 px d'ombre. Les 10 px d'écart d'origine étaient donc
+   entièrement recouverts, et le nom illisible.
+   On décale d'autant que le pin a grossi, en lisant les mêmes variables. */
+.artist-pin__wrapper--selected .artist-pin__tooltip {
+  bottom: calc(100% + 10px + 26px * var(--pin-scale, 1) * var(--pin-tier-size, 1));
+  z-index: 1300;
+}
+.artist-pin__wrapper--selected {
+  z-index: 1300;
+}
 @keyframes artist-pin-pulse {
   0%,
   100% {
