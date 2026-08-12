@@ -17,6 +17,9 @@
   dans son pays déclaré ; les cas ambigus sont refusés.
 - Cinq tests de régression couvrent notamment Kano/Not Zany, Cairo/Dalida et Brussels/Apashe, et
   font désormais partie de `npm run check`.
+- Suppression du zoom fantôme mobile : retrait de l'intervalle qui simulait le vol et du callback
+  Mapbox obsolète `onRegionIsChanging`. `mapZoom` provient uniquement des événements caméra v10 ;
+  une régression structurelle fait désormais partie de `npm run check`.
 - Premier socle UI mobile (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`) ; écrans Login,
   Signup, mot de passe oublié/réinitialisé et vue Discover migrés vers les tokens partagés.
 

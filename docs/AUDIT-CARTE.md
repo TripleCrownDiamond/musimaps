@@ -73,14 +73,14 @@ recherche**. Mobile ne l'a pas du tout : il inline `declump` à certains endroit
 Le web déroule un mouvement de caméra posé (`curve: 1.6`) ; le mobile coupe court. Les clusters
 n'ont pas le temps de se scinder progressivement — d'où l'impression de saut.
 
-### 2.4 🟠 Le zoom mobile a deux sources de vérité
+### 2.4 ✅ Le zoom mobile a une source de vérité
 
-`ExploreScreen.tsx:521` lance un `setInterval` à 60 ms qui **interpole `mapZoom` en parallèle** de
-l'animation native de la caméra, pour que le clustering se mette à jour pendant le vol. Mais
-`loadRegion` (`:1006`) écrit *aussi* `mapZoom` depuis les événements réels de la carte. Deux
-écrivains concurrents sur le même état, avec un seuil anti-rebond de `0.02` de chaque côté.
+L'ancien `setInterval` à 60 ms interpolait `mapZoom` en parallèle de l'animation native et pouvait
+donc diverger de la position réellement affichée. Il est supprimé : une seule fonction écrit
+désormais `mapZoom`, exclusivement depuis `onCameraChanged` et `onMapIdle` de Mapbox v10.
 
-Le web n'a pas ce problème : il lit le zoom réel via `map.on('zoom')` (`:499`).
+Le callback obsolète `onRegionIsChanging`, incompatible avec `onCameraChanged` selon le contrat
+`@rnmapbox/maps`, est également retiré. Le web et le mobile lisent maintenant tous deux le zoom réel.
 
 ### 2.5 🟡 Divergences mineures
 
@@ -190,9 +190,9 @@ Chaque plateforme garde son moteur d'animation (`map.flyTo` Mapbox GL vs `camera
 À insérer comme **phase 3bis** du [plan de cohérence](PLAN-COHERENCE-WEB-MOBILE.md), après le
 partage de la logique métier et avant la découpe du globe (phase 6).
 
-> **Avancement au 12 août 2026 : 8 actions sur 9 terminées.** Les actions 1 à 7 et 9 sont en place
-> sur le web et le mobile. Seule l'action 8 reste ouverte : supprimer l'interpolation parallèle de
-> `mapZoom` et conserver les événements réels de la carte comme source unique.
+> **Avancement au 12 août 2026 : 9 actions sur 9 terminées.** La régression
+> `npm run test:map-state` garantit que l'interpolation parallèle et l'ancien callback Mapbox ne
+> reviennent pas.
 
 | # | Action | Fichiers | Risque |
 |---|---|---|---|
@@ -203,7 +203,7 @@ partage de la logique métier et avant la découpe du globe (phase 6).
 | 5 ✅ | Faire voler `goToArtist` sur la position dés-empilée (§2.2), les deux plateformes | 2 écrans | faible |
 | 6 ✅ | Aligner les durées de vol sur la table `CAMERA` (§2.3) | 2 écrans | faible |
 | 7 ✅ | Afficher le nom de l'artiste courant dans `PlacePanel` (§3.2) | 2 `PlacePanel` + i18n | faible |
-| 8 ⬜ | Supprimer le zoom fantôme mobile, dériver du `setCamera` réel (§2.4) | `ExploreScreen.tsx:521-547` | **moyen** |
+| 8 ✅ | Supprimer le zoom fantôme mobile, dériver des événements caméra réels (§2.4) | `ExploreScreen` | **moyen** |
 | 9 ✅ | Ajouter l'opacité par zoom sur mobile, aligner le seuil d'affichage du nom (§2.5) | `ExploreScreen` | faible |
 
 **Estimation : 3 à 4 jours.** Les étapes 3 et 8 sont les seules à surveiller — elles touchent la

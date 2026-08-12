@@ -427,21 +427,6 @@ export function ExploreScreen({ navigation, route }: Props) {
     void addSearchHistory(q).then(setHistory);
   }, []);
 
-  // Zoom courant dans une ref (le tick d'animation en dépend).
-  const mapZoomRef = useRef(mapZoom);
-  mapZoomRef.current = mapZoom;
-  // Intervalle d'animation du zoom pendant un vol : il pilote mapZoom à
-  // travers les seuils de cluster (pays → villes → groupes → pins) pour que
-  // les clusters se scindent PROGRESSIVEMENT pendant l'animation. Fonctionne
-  // sur toutes les plateformes (le preview web ne transmet pas les events
-  // caméra du composant natif, mais l'animation locale si).
-  const flyAnimRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    return () => {
-      if (flyAnimRef.current) clearInterval(flyAnimRef.current);
-    };
-  }, []);
-
   const flyTo = (
     coordinates: [number, number],
     zoomLevel: number,
@@ -450,22 +435,6 @@ export function ExploreScreen({ navigation, route }: Props) {
     // Arrête la rotation immédiatement (clear synchrone de l'intervalle) :
     // sinon le prochain tick (120 ms) sauterait la caméra et annulerait le vol.
     stopSpinImmediate();
-    // Interpole mapZoom de sa valeur courante vers la cible pendant la
-    // durée du vol (easeOutCubic) : à chaque seuil franchi, le clustering
-    // se met à jour et les clusters se scindent avec l'animation.
-    if (flyAnimRef.current) clearInterval(flyAnimRef.current);
-    const startZoom = mapZoomRef.current;
-    const startTime = Date.now();
-    flyAnimRef.current = setInterval(() => {
-      const t = Math.min(1, (Date.now() - startTime) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const z = startZoom + (zoomLevel - startZoom) * eased;
-      setMapZoom((prev) => (Math.abs(prev - z) < 0.02 ? prev : z));
-      if (t >= 1 && flyAnimRef.current) {
-        clearInterval(flyAnimRef.current);
-        flyAnimRef.current = null;
-      }
-    }, 60);
     cameraRef.current?.setCamera({
       centerCoordinate: coordinates,
       zoomLevel,
@@ -959,12 +928,23 @@ export function ExploreScreen({ navigation, route }: Props) {
     });
   }, [pins, highlightedId]);
 
+  // Source unique de vérité du zoom : les événements Mapbox v10. Pendant le
+  // mouvement, un rendu n'est déclenché qu'au changement de niveau de cluster ;
+  // au repos, on conserve la valeur exacte pour la taille/opacité des pins.
+  const syncMapZoom = useCallback((zoom: number, exact = false) => {
+    setMapZoom((previous) => {
+      if (!Number.isFinite(zoom)) return previous;
+      if (!exact && levelFor(previous) === levelFor(zoom)) return previous;
+      return Math.abs(previous - zoom) < 0.02 ? previous : zoom;
+    });
+  }, []);
+
   const loadRegion = ({ properties }: VisibleRegion) => {
     const [east, north] = properties.bounds.ne;
     const [west, south] = properties.bounds.sw;
     const z = properties.zoom;
     centerRef.current = [(west + east) / 2, (south + north) / 2];
-    setMapZoom((prev) => (Math.abs(prev - z) < 0.02 ? prev : z));
+    syncMapZoom(z, true);
     setRegion((prev) =>
       prev && Math.abs(prev.east - east) < 1 && Math.abs(prev.north - north) < 1
         ? prev
@@ -976,15 +956,9 @@ export function ExploreScreen({ navigation, route }: Props) {
   // dès qu'on vole vers une cible, qu'on tape la carte, ou qu'un geste de
   // l'utilisateur est détecté.
   //
-  // Détection déterministe des gestes : chaque tick de rotation « réserve »
-  // l'événement caméra qui en découle (pendingSpinMoveRef). Tout changement de
-  // caméra qui n'est pas notre tick = manipulation du globe → arrêt immédiat.
-  // (L'ancienne fenêtre temporelle de 160 ms était inefficace : les ticks
-  // étant espacés de 120 ms, tous les événements tombaient dans la fenêtre et
-  // la rotation ne s'arrêtait jamais au contact.)
+  // Les gestes remontent par `onCameraChanged` (API Mapbox v10) et par le
+  // responder parent ; aucun ancien événement de région n'est nécessaire.
   const spinRef = useRef(spinning);
-  const spinSetIdRef = useRef(0);
-  const pendingSpinMoveRef = useRef(0);
   /** Intervalle de rotation stocké dans une ref : sur le moindre contact
    *  utilisateur on le clear SYNCHRONEMENT (sans attendre un re-render), pour
    *  que le prochain tick ne saute pas la caméra pendant un drag. */
@@ -1003,8 +977,6 @@ export function ExploreScreen({ navigation, route }: Props) {
       const now = Date.now();
       const delta = spinDeltaFor(now - last);
       last = now;
-      spinSetIdRef.current += 1;
-      pendingSpinMoveRef.current = spinSetIdRef.current;
       centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
       cameraRef.current?.setCamera({
         centerCoordinate: centerRef.current,
@@ -1015,15 +987,6 @@ export function ExploreScreen({ navigation, route }: Props) {
         // l'utilisateur — le globe semble figé au toucher pendant la rotation.
         animationMode: 'moveTo',
       });
-      // Filet de sécurité : si aucun événement caméra ne suit ce tick, le
-      // marquage ne doit pas masquer les gestes utilisateur ultérieurs.
-      // 110 ms < intervalle de 120 ms : on laisse l'événement du tick arriver
-      // sans laisser le marquage masquer les gestes suivants.
-      setTimeout(() => {
-        if (pendingSpinMoveRef.current === spinSetIdRef.current) {
-          pendingSpinMoveRef.current = 0;
-        }
-      }, Math.max(8, GLOBE_SPIN_TICK_MS - 8));
     }, GLOBE_SPIN_TICK_MS);
     spinIntervalRef.current = interval;
     return () => {
@@ -1040,18 +1003,6 @@ export function ExploreScreen({ navigation, route }: Props) {
     }
     setSpinning(false);
   }, []);
-
-  // Gestes utilisateur (drag) : la rotation s'arrête comme sur le web.
-  const stopSpinOnGesture = useCallback(() => {
-    if (!spinRef.current) return;
-    // L'événement correspond à notre tick de rotation → on l'ignore.
-    if (pendingSpinMoveRef.current !== 0) {
-      pendingSpinMoveRef.current = 0;
-      return;
-    }
-    // Sinon c'est un geste utilisateur → on coupe la rotation immédiatement.
-    stopSpinImmediate();
-  }, [stopSpinImmediate]);
 
   /** Toucher : arrête la rotation immédiatement (clear interval synchrone). */
   const handleTouchStart = useCallback(() => {
@@ -1285,7 +1236,6 @@ export function ExploreScreen({ navigation, route }: Props) {
           setSpinning(false);
           setSelected(null);
         }}
-        onRegionIsChanging={stopSpinOnGesture}
         onMapIdle={loadRegion}
         // Pendant un vol, le zoom évolue en continu : on met à jour le niveau
         // de cluster dès qu'un seuil est franchi (pays → villes → groupes →
@@ -1294,16 +1244,11 @@ export function ExploreScreen({ navigation, route }: Props) {
         // niveau discret pour éviter un re-render par frame.
         onCameraChanged={({ properties, gestures }) => {
           // Natif : un geste actif (drag/pinch) arrête la rotation
-          // immédiatement (clear synchrone de l'intervalle), même si
-          // onRegionIsChanging a attribué le premier mouvement à notre tick.
+          // immédiatement (clear synchrone de l'intervalle).
           if (gestures?.isGestureActive && spinRef.current) {
             stopSpinImmediate();
           }
-          const z = properties.zoom
-          setMapZoom((prev) => {
-            if (levelFor(prev) === levelFor(z)) return prev
-            return z
-          })
+          syncMapZoom(properties.zoom)
         }}
       >
         <Mapbox.Camera

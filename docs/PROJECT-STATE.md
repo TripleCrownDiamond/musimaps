@@ -226,6 +226,8 @@ curl -s https://musimaps.com/artistes | grep -oE 'assets/[A-Za-z0-9_-]+\.js' | s
   Not Zany a été supprimé de production avec ses dépendances vérifiées.
 - ✅ Réparateur géographique sécurisé et couvert par cinq régressions (`npm run test:geo-repair`) :
   Not Zany/Kano, Dalida/Cairo, Apashe/Brussels et deux cas ambigus.
+- ✅ Phase carte 3bis terminée (9/9) : le zoom mobile ne simule plus la caméra ; Mapbox v10 est la
+  source unique, protégée par `npm run test:map-state`.
 - ✅ Pins lumineux par densité (web `GlobeMap.tsx`/`index.css`, mobile `ExploreScreen.tsx`) : lint + tsc OK, web déployé.
 - ⚠️ APK mobile : code prêt, build bloqué par le quota EAS (voir §6).
 
