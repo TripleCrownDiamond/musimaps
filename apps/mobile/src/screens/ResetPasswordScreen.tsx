@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,7 +20,7 @@ import { useI18n } from '../i18n';
 import { supabase } from '../lib/supabase';
 import { updatePassword } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
-import { fonts, type AppColors } from '../theme';
+import { AuthLayout, Button, Field, PasswordInput } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
@@ -65,7 +65,6 @@ function parseRecoveryUrl(raw: string): RecoveryParams | null {
  */
 export function ResetPasswordScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { showToast } = useApp();
   const [ready, setReady] = useState<'checking' | 'ok' | 'invalid'>('checking');
@@ -144,200 +143,78 @@ export function ResetPasswordScreen({ navigation }: Props) {
     else setDone(true);
   };
 
+  // Icône, titre et sous-titre dérivent de l'état : l'écran en a quatre
+  // (vérification, lien invalide, saisie, succès) et chacun redéfinissait
+  // son propre bloc « hero » identique.
+  const hero =
+    ready === 'invalid'
+      ? { icon: 'key-outline' as const, title: t('auth.resetTitle'), subtitle: t('auth.resetInvalidLink') }
+      : done
+        ? { icon: 'checkmark-circle-outline' as const, title: t('auth.resetDone'), subtitle: t('auth.resetDoneText') }
+        : { icon: 'lock-closed-outline' as const, title: t('auth.resetTitle'), subtitle: t('auth.resetSubtitle') };
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.root}
+    <AuthLayout
+      icon={hero.icon}
+      title={hero.title}
+      subtitle={hero.subtitle}
+      onBack={() => navigation.goBack()}
     >
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={27} color={colors.ink} />
-        </Pressable>
+      {ready === 'checking' && (
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
+      )}
 
-        {ready === 'checking' && (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.brandDeep} />
-          </View>
-        )}
+      {ready === 'invalid' && (
+        <Button
+          block
+          size="lg"
+          label={t('auth.forgotTitle')}
+          onPress={() => navigation.navigate('ForgotPassword')}
+          icon={<Ionicons name="mail-outline" size={20} color={colors.white} />}
+        />
+      )}
 
-        {ready === 'invalid' && (
-          <>
-            <View style={styles.hero}>
-              <View style={styles.heroIcon}>
-                <Ionicons name="key-outline" size={30} color={colors.black} />
-              </View>
-              <View style={styles.heroCopy}>
-                <Text style={styles.title}>{t('auth.resetTitle')}</Text>
-                <Text style={styles.subtitle}>{t('auth.resetInvalidLink')}</Text>
-              </View>
-            </View>
-            <Pressable style={styles.submit} onPress={() => navigation.navigate('ForgotPassword')}>
-              <Ionicons name="mail-outline" size={20} color={colors.white} />
-              <Text style={styles.submitText}>{t('auth.forgotTitle')}</Text>
-            </Pressable>
-          </>
-        )}
+      {ready === 'ok' && !done && (
+        <>
+          <Field label={t('auth.password')}>
+            <PasswordInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="8 caractères min."
+              autoComplete="new-password"
+            />
+          </Field>
+          <PasswordGauge password={password} />
 
-        {ready === 'ok' && !done && (
-          <>
-            <View style={styles.hero}>
-              <View style={styles.heroIcon}>
-                <Ionicons name="lock-closed-outline" size={30} color={colors.black} />
-              </View>
-              <View style={styles.heroCopy}>
-                <Text style={styles.title}>{t('auth.resetTitle')}</Text>
-                <Text style={styles.subtitle}>{t('auth.resetSubtitle')}</Text>
-              </View>
-            </View>
+          <Field label={t('auth.passwordConfirm')}>
+            <PasswordInput
+              value={confirm}
+              onChangeText={setConfirm}
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+          </Field>
 
-            <Text style={styles.label}>{t('auth.password')}</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="8 caractères min."
-                placeholderTextColor={colors.muted}
-                secureTextEntry={!showPassword}
-                autoComplete="new-password"
-                underlineColorAndroid="transparent"
-                style={styles.passwordInput}
-              />
-              <Pressable
-                accessibilityLabel={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                style={styles.eyeButton}
-                onPress={() => setShowPassword((v) => !v)}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={23}
-                  color={colors.inkSoft}
-                />
-              </Pressable>
-            </View>
-            <PasswordGauge password={password} />
+          <Button
+            block
+            size="lg"
+            loading={busy}
+            label={t('auth.resetSubmit')}
+            onPress={() => void submit()}
+            icon={<Ionicons name="lock-closed-outline" size={20} color={colors.white} />}
+          />
+        </>
+      )}
 
-            <Text style={styles.label}>{t('auth.passwordConfirm')}</Text>
-            <View style={[styles.passwordWrap, { marginBottom: 14 }]}>
-              <TextInput
-                value={confirm}
-                onChangeText={setConfirm}
-                placeholder="••••••••"
-                placeholderTextColor={colors.muted}
-                secureTextEntry={!showConfirm}
-                autoComplete="new-password"
-                underlineColorAndroid="transparent"
-                style={styles.passwordInput}
-              />
-              <Pressable
-                accessibilityLabel={showConfirm ? t('auth.hidePassword') : t('auth.showPassword')}
-                style={styles.eyeButton}
-                onPress={() => setShowConfirm((v) => !v)}
-              >
-                <Ionicons
-                  name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
-                  size={23}
-                  color={colors.inkSoft}
-                />
-              </Pressable>
-            </View>
-
-            <Pressable
-              style={[styles.submit, busy && styles.submitDisabled]}
-              disabled={busy}
-              onPress={() => void submit()}
-            >
-              {busy ? (
-                <ActivityIndicator color={colors.white} />
-              ) : (
-                <Ionicons name="lock-closed-outline" size={20} color={colors.white} />
-              )}
-              <Text style={styles.submitText}>{t('auth.resetSubmit')}</Text>
-            </Pressable>
-          </>
-        )}
-
-        {done && (
-          <>
-            <View style={styles.hero}>
-              <View style={styles.heroIcon}>
-                <Ionicons name="checkmark-circle-outline" size={30} color={colors.black} />
-              </View>
-              <View style={styles.heroCopy}>
-                <Text style={styles.title}>{t('auth.resetDone')}</Text>
-                <Text style={styles.subtitle}>{t('auth.resetDoneText')}</Text>
-              </View>
-            </View>
-            <Pressable style={styles.submit} onPress={() => navigation.navigate('Login')}>
-              <Ionicons name="log-in-outline" size={20} color={colors.white} />
-              <Text style={styles.submitText}>{t('auth.resetGoLogin')}</Text>
-            </Pressable>
-          </>
-        )}
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {done && (
+        <Button
+          block
+          size="lg"
+          label={t('auth.resetGoLogin')}
+          onPress={() => navigation.navigate('Login')}
+          icon={<Ionicons name="log-in-outline" size={20} color={colors.white} />}
+        />
+      )}
+    </AuthLayout>
   );
 }
-
-const createStyles = (colors: AppColors) =>
-  StyleSheet.create({
-    root: { flex: 1, backgroundColor: colors.background },
-    content: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 48 },
-    back: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    center: { alignItems: 'center', justifyContent: 'center', paddingVertical: 90 },
-    hero: { alignItems: 'center', marginTop: 18, marginBottom: 30 },
-    heroIcon: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
-      backgroundColor: colors.brand,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    heroCopy: { alignItems: 'center', marginTop: 18 },
-    title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 30, letterSpacing: -1, textAlign: 'center' },
-    subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-    label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginBottom: 7, marginTop: 6 },
-    passwordWrap: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      borderRadius: 16,
-      marginBottom: 8,
-      backgroundColor: colors.surface,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    passwordInput: {
-      flex: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: colors.ink,
-      fontFamily: fonts.body,
-      fontSize: 15,
-      borderWidth: 0,
-      outlineWidth: 0,
-    },
-    eyeButton: { paddingHorizontal: 14, paddingVertical: 12 },
-    submit: {
-      minHeight: 56,
-      borderRadius: 28,
-      backgroundColor: colors.brandDeep,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 6,
-    },
-    submitDisabled: { opacity: 0.6 },
-    submitText: { color: colors.white, fontFamily: fonts.bold, fontSize: 17 },
-  });

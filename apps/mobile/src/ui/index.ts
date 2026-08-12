@@ -13,3 +13,5 @@
 export { Button, type ButtonSize, type ButtonVariant } from './Button';
 export { Input, type InputProps } from './Input';
 export { Card, Field, Section } from './Card';
+export { AuthLayout } from './AuthLayout';
+export { PasswordInput } from './PasswordInput';
