@@ -135,7 +135,8 @@ musimaps/
 - `deploy-hostinger.mjs` — FTP/FTPS vers Hostinger (84 fichiers, nettoyage des obsolètes).
 - `db-migrate.mjs` — pousse les migrations vers la base distante.
 - `populate-map.mjs` — peuplement artistes (Musibrainz + IA), `--dry` pour tester.
-- `fix-geo-country.mjs` — **corrige le pays géographique** des pins (reverse-géocodage Mapbox ; `--dry`, `--id <id>`).
+- `fix-geo-country.mjs` — réparateur géographique audit-first : lecture seule par défaut ; `--apply`
+  obligatoire ; ne déplace que les coordonnées aberrantes et refuse les preuves ambiguës.
 - `waitlist-to-map.mjs` — conversion waitlist → carte.
 - `audit-artists.mjs` / `audit-map-data.py` — audits de qualité des données.
 - `backfill-images.mjs` — récupération d'images manquantes.
@@ -217,11 +218,14 @@ curl -s https://musimaps.com/artistes | grep -oE 'assets/[A-Za-z0-9_-]+\.js' | s
 
 ---
 
-## 9. État actuel du travail (10 août 2026)
+## 9. État actuel du travail (12 août 2026)
 
 - ✅ Web déployé en production (dernier build : district + frontières brand + pays géo).
 - ✅ Base migrée jusqu'à `00056_artist_district.sql`.
-- ✅ Pays géographiques corrigés (46 artistes — `scripts/fix-geo-country.mjs`).
+- ✅ Audit géographique propre : 121 artistes analysés, aucune incohérence ; l'artiste aberrant
+  Not Zany a été supprimé de production avec ses dépendances vérifiées.
+- ✅ Réparateur géographique sécurisé et couvert par cinq régressions (`npm run test:geo-repair`) :
+  Not Zany/Kano, Dalida/Cairo, Apashe/Brussels et deux cas ambigus.
 - ✅ Pins lumineux par densité (web `GlobeMap.tsx`/`index.css`, mobile `ExploreScreen.tsx`) : lint + tsc OK, web déployé.
 - ⚠️ APK mobile : code prêt, build bloqué par le quota EAS (voir §6).
 
@@ -230,9 +234,10 @@ curl -s https://musimaps.com/artistes | grep -oE 'assets/[A-Za-z0-9_-]+\.js' | s
 ## 10. Dettes techniques & pistes connues
 
 - Quota EAS mensuel (build APK) — passer en plan payant ou build local.
-- `CITY_TO_COUNTRY` limité (~15 villes) : la fiabilité du clustering pays repose sur le pays
-  géographique stocké (corrigé par `fix-geo-country.mjs`) ; étendre la table au besoin.
-- Quelques coordonnées héritées fausses (homonymies, ex. Kano→Japon) : le script les détecte mais ne
-  corrige que les pays ; un re-géocodage ciblé par l'admin reste possible.
+- `CITY_TO_COUNTRY` reste volontairement limité : les villes absentes utilisent le pays stocké et
+  `npm run audit:geo` détecte les artistes éloignés de leur groupe.
+- Le réparateur ne confond plus pays et coordonnées : un aberrant conserve son pays déclaré et peut
+  seulement être re-géocodé dans celui-ci ; hors aberrant, le pays n'est réaligné que si le reverse
+  Mapbox et le forward « ville, pays du pin » concordent. Sans `--apply`, aucune écriture.
 - Recherche Musibrainz limitée à ~60 artistes auto-importés : l'agent IA compense, mais le peuplement
   populaire est en cours d'amélioration.

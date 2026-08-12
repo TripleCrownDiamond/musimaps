@@ -12,26 +12,30 @@
  *     villes (« Kano » → Kano, Japon au lieu de Kano, Nigéria).
  *
  * Algorithme par artiste :
- *   - reverse-géocodage des coordonnées → pays réel `real`.
- *   - si `real` == pays déclaré → OK (rien à faire).
- *   - sinon, on re-tente un forward « ville, pays déclaré » (filtre pays) :
- *       * s'il résout DANS le pays déclaré → les COORDONNÉES étaient fausses
- *         (homonymie) → on corrige les coordonnées, on garde le pays déclaré ;
- *       * sinon → le PAYS déclaré est faux → on corrige pays + drapeau avec
- *         le pays réel.
+ *   - l'audit partagé détecte d'abord les coordonnées aberrantes ;
+ *   - un aberrant peut seulement être REPLACÉ dans le pays attendu ; son pays
+ *     n'est jamais réécrit d'après la mauvaise coordonnée ;
+ *   - hors aberrant, le pays n'est réaligné que si le reverse-géocodage et le
+ *     pays déduit de la ville concordent ;
+ *   - tout cas ambigu est refusé et laissé intact.
  *
  * Aucune donnée n'est inventée : un échec de géocodage laisse la ligne intacte.
  *
  * Usage :
- *   node scripts/fix-geo-country.mjs            # corrige tout
- *   node scripts/fix-geo-country.mjs --dry      # affiche seulement les changements
+ *   node scripts/fix-geo-country.mjs            # audit à blanc (aucune écriture)
+ *   node scripts/fix-geo-country.mjs --apply    # applique les corrections sûres
+ *   node scripts/fix-geo-country.mjs --dry      # explicite : affiche seulement
  *   node scripts/fix-geo-country.mjs --check    # audit seul, code 1 si incohérence
- *   node scripts/fix-geo-country.mjs --id mb-…  # corrige un seul artiste
+ *   node scripts/fix-geo-country.mjs --apply --id mb-…  # applique sur un artiste
  */
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
+
+import { geoCountryOf } from '../packages/shared/src/geo.ts'
+import { splitGeoOutliers } from '../packages/shared/src/map/geo-consistency.ts'
+import { planGeoRepair } from './lib/geo-repair.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -96,7 +100,8 @@ async function patchArtist(id, patch) {
 }
 
 const check = process.argv.includes('--check')
-const dry = process.argv.includes('--dry') || check
+const apply = process.argv.includes('--apply')
+const dry = !apply || process.argv.includes('--dry') || check
 const onlyId = (() => {
   const i = process.argv.indexOf('--id')
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : null
@@ -155,25 +160,53 @@ async function forwardCity(city, declared) {
   return { coords: [center[0], center[1]], country: countryCodeOfFeature(feature) ?? declared }
 }
 
-const query = onlyId
-  ? `id=eq.${encodeURIComponent(onlyId)}`
-  : 'order=created_at.asc&limit=1000'
-
-const rows = await fetch(`${api}/map_artists?select=id,name,city,country,lat,lng,flag&${query}`, {
+// Toujours charger le catalogue complet : la preuve d'aberration dépend de
+// la position de l'artiste par rapport à son groupe, même avec `--id`.
+const allRows = await fetch(`${api}/map_artists?select=id,name,city,country,lat,lng,flag&order=created_at.asc&limit=1000`, {
   headers,
 })
   .then((r) => r.json())
   .catch(() => [])
 
-if (!Array.isArray(rows) || rows.length === 0) {
+if (!Array.isArray(allRows) || allRows.length === 0) {
   console.log('Aucun artiste à traiter.')
   process.exit(0)
+}
+
+const rows = onlyId ? allRows.filter((row) => row.id === onlyId) : allRows
+if (rows.length === 0) {
+  console.log(`Artiste introuvable : ${onlyId}`)
+  process.exit(1)
+}
+
+function groupBy(list, keyOf) {
+  const groups = new Map()
+  for (const item of list) {
+    const key = keyOf(item) || 'unknown'
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(item)
+    else groups.set(key, [item])
+  }
+  return groups
+}
+
+const locatable = allRows
+  .filter((row) => Number.isFinite(Number(row.lng)) && Number.isFinite(Number(row.lat)))
+  .map((row) => ({
+    ...row,
+    coordinates: [Number(row.lng), Number(row.lat)],
+    expectedCountry: geoCountryOf(row.city ?? '', row.country ?? ''),
+  }))
+const outlierIds = new Set()
+for (const members of groupBy(locatable, (row) => row.expectedCountry).values()) {
+  for (const outlier of splitGeoOutliers(members).outliers) outlierIds.add(outlier.id)
 }
 
 let fixedCountry = 0
 let fixedCoords = 0
 let skipped = 0
 let failed = 0
+let refused = 0
 let issues = 0
 console.log(`Géocodage de ${rows.length} artiste(s)…`)
 
@@ -187,40 +220,26 @@ for (const row of rows) {
   }
   const real = await reverseCountry(lng, lat)
   await sleep(60)
-  if (!real) {
-    failed += 1
-    continue
-  }
-  if (real === declared) continue
+  const expected = geoCountryOf(row.city ?? '', row.country ?? '')
+  const isOutlier = outlierIds.has(row.id)
+  const forwardDeclared = isOutlier ? await forwardCity(row.city, declared) : null
+  const forwardReverse = !isOutlier && real && real !== declared
+    ? await forwardCity(row.city, real)
+    : null
+  if (forwardDeclared || forwardReverse) await sleep(60)
+  const plan = planGeoRepair({
+    declaredCountry: declared,
+    reverseCountry: real,
+    isOutlier,
+    forwardDeclared,
+    forwardReverse,
+  })
 
-  // La ville existe-t-elle dans le pays GÉOGRAPHIQUE ? « Johannesburg, ZA »
-  // résout → le pin est bien posé dans le pays géo → le pays déclaré était
-  // l'origine (diaspora), on corrige le pays. « Kano, JP » ne résout pas
-  // (homonymie) → on tente alors la ville dans le pays déclaré pour corriger
-  // les coordonnées fausses (Kano, Nigéria).
-  const fwdGeo = await forwardCity(row.city, real)
-  await sleep(60)
-
-  if (fwdGeo && fwdGeo.country === real) {
-    // Pin correctement posé dans le pays géographique → pays déclaré = origine.
-    const action = dry ? '[DRY] corrigerait' : 'corrige'
-    console.log(`  ${action} ${row.name}: ${declared || '∅'} → ${real} (${row.city ?? ''})`)
-    issues += 1
-    if (!dry) {
-      await patchArtist(row.id, { country: real, flag: flagEmoji(real) })
-      fixedCountry += 1
-    }
-    continue
-  }
-
-  // La ville n'existe pas dans le pays géo : tentative « ville, pays déclaré »
-  // — corrige les homonymies (« Kano » → Japon au lieu du Nigéria).
-  const fwdDecl = await forwardCity(row.city, declared)
-  await sleep(60)
-  if (fwdDecl && fwdDecl.country === declared) {
-    const [fLng, fLat] = fwdDecl.coords
+  if (plan.kind === 'none') continue
+  if (plan.kind === 'coordinates') {
+    const [fLng, fLat] = plan.coords
     const action = dry ? '[DRY] déplacerait' : 'déplace'
-    console.log(`  ${action} ${row.name}: coords → ${fLat.toFixed(3)},${fLng.toFixed(3)} (${row.city}, ${declared})`)
+    console.log(`  ${action} ${row.name}: coords → ${fLat.toFixed(3)},${fLng.toFixed(3)} (${row.city}, ${expected})`)
     issues += 1
     if (!dry) {
       await patchArtist(row.id, { lat: fLat, lng: fLng })
@@ -229,20 +248,26 @@ for (const row of rows) {
     continue
   }
 
-  // Ni l'un ni l'autre : on garde les coordonnées, on aligne le pays sur le
-  // pays géographique réel (cohérence pin ↔ libellé).
-  const action = dry ? '[DRY] corrigerait' : 'corrige'
-  console.log(`  ${action} ${row.name}: ${declared || '∅'} → ${real} (${row.city ?? ''})`)
-  issues += 1
-  if (!dry) {
-    await patchArtist(row.id, { country: real, flag: flagEmoji(real) })
-    fixedCountry += 1
+  if (plan.kind === 'country') {
+    const action = dry ? '[DRY] corrigerait' : 'corrige'
+    console.log(`  ${action} ${row.name}: ${declared || '∅'} → ${plan.country} (${row.city ?? ''})`)
+    issues += 1
+    if (!dry) {
+      await patchArtist(row.id, { country: plan.country, flag: flagEmoji(plan.country) })
+      fixedCountry += 1
+    }
+    continue
   }
+
+  issues += 1
+  refused += 1
+  if (!real) failed += 1
+  console.warn(`  [REFUS] ${row.name}: ${plan.reason} (${row.city ?? ''}, ${declared || '∅'}; pin=${real || '∅'}; attendu=${expected || '∅'})`)
 }
 
 if (dbClient) await dbClient.end()
 
-console.log(`\nTerminé. ${fixedCountry} pays corrigé(s), ${fixedCoords} coordonnées corrigée(s), ${skipped} sans coordonnées, ${failed} sans résolution.`)
+console.log(`\nTerminé. ${fixedCountry} pays corrigé(s), ${fixedCoords} coordonnées corrigée(s), ${refused} cas refusé(s), ${skipped} sans coordonnées, ${failed} sans résolution.`)
 
 if (check && issues > 0) {
   console.error(`${issues} incohérence(s) géographique(s) détectée(s).`)

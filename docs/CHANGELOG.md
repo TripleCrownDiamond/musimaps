@@ -8,6 +8,18 @@
 
 ## Août 2026 — Session récente (résumé)
 
+### 12 août — Réparation géographique sûre et socle UI mobile
+
+- Suppression ciblée en production de Not Zany, seul artiste encore signalé comme aberrant ; audit
+  final : 121 artistes géolocalisés, aucune incohérence.
+- `fix-geo-country.mjs` devient strictement en lecture seule par défaut ; toute écriture exige
+  `--apply`. Les coordonnées ne peuvent être modifiées que pour un aberrant confirmé par l'audit,
+  dans son pays déclaré ; les cas ambigus sont refusés.
+- Cinq tests de régression couvrent notamment Kano/Not Zany, Cairo/Dalida et Brussels/Apashe, et
+  font désormais partie de `npm run check`.
+- Premier socle UI mobile (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`) ; écrans Login,
+  mot de passe oublié/réinitialisé et vue Discover migrés vers les tokens partagés.
+
 ### 11 août — Globe standardisé bleu/lime
 
 - Une seule recette de style dans `packages/shared/src/map/style.ts` pour le globe web principal,

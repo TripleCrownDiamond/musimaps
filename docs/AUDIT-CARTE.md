@@ -190,17 +190,21 @@ Chaque plateforme garde son moteur d'animation (`map.flyTo` Mapbox GL vs `camera
 À insérer comme **phase 3bis** du [plan de cohérence](PLAN-COHERENCE-WEB-MOBILE.md), après le
 partage de la logique métier et avant la découpe du globe (phase 6).
 
+> **Avancement au 12 août 2026 : 8 actions sur 9 terminées.** Les actions 1 à 7 et 9 sont en place
+> sur le web et le mobile. Seule l'action 8 reste ouverte : supprimer l'interpolation parallèle de
+> `mapZoom` et conserver les événements réels de la carte comme source unique.
+
 | # | Action | Fichiers | Risque |
 |---|---|---|---|
-| 1 | Extraire `packages/shared/src/map/` : `declump`, `bucketKey`, `clusterBy`, `tierOf`, `levelFor`, `isValidCoordinate` | shared + 2 appels | faible |
-| 2 | Ajouter `pinScaleFor` / `pinGlowFor` — **taille par notoriété** (§3.1) | shared + `index.css` + `ExploreScreen` | faible |
-| 3 | Ajouter la table `CAMERA` et `renderedPosition`, remplacer **tous** les `flyTo` littéraux | shared + 2 écrans | **moyen** |
-| 4 | Aligner le zoom mobile de `goToArtist` sur 13 (§2.1) | `ExploreScreen.tsx:607,824,1109` | faible |
-| 5 | Faire voler `goToArtist` sur la position dés-empilée (§2.2), les deux plateformes | 2 écrans | faible |
-| 6 | Aligner les durées de vol sur la table `CAMERA` (§2.3) | 2 écrans | faible |
-| 7 | Afficher le nom de l'artiste courant dans `PlacePanel` (§3.2) | 2 `PlacePanel` + i18n | faible |
-| 8 | Supprimer le zoom fantôme mobile, dériver du `setCamera` réel (§2.4) | `ExploreScreen.tsx:521-547` | **moyen** |
-| 9 | Ajouter l'opacité par zoom sur mobile, aligner le seuil d'affichage du nom (§2.5) | `ExploreScreen` | faible |
+| 1 ✅ | Extraire `packages/shared/src/map/` : `declump`, `bucketKey`, `clusterBy`, `tierOf`, `levelFor`, `isValidCoordinate` | shared + 2 appels | faible |
+| 2 ✅ | Ajouter `pinScaleFor` / `pinGlowFor` — **taille par notoriété** (§3.1) | shared + `index.css` + `ExploreScreen` | faible |
+| 3 ✅ | Ajouter la table `CAMERA` et `renderedPosition`, remplacer **tous** les `flyTo` littéraux | shared + 2 écrans | **moyen** |
+| 4 ✅ | Aligner le zoom mobile de `goToArtist` sur 13 (§2.1) | `ExploreScreen.tsx:607,824,1109` | faible |
+| 5 ✅ | Faire voler `goToArtist` sur la position dés-empilée (§2.2), les deux plateformes | 2 écrans | faible |
+| 6 ✅ | Aligner les durées de vol sur la table `CAMERA` (§2.3) | 2 écrans | faible |
+| 7 ✅ | Afficher le nom de l'artiste courant dans `PlacePanel` (§3.2) | 2 `PlacePanel` + i18n | faible |
+| 8 ⬜ | Supprimer le zoom fantôme mobile, dériver du `setCamera` réel (§2.4) | `ExploreScreen.tsx:521-547` | **moyen** |
+| 9 ✅ | Ajouter l'opacité par zoom sur mobile, aligner le seuil d'affichage du nom (§2.5) | `ExploreScreen` | faible |
 
 **Estimation : 3 à 4 jours.** Les étapes 3 et 8 sont les seules à surveiller — elles touchent la
 caméra, donc tout le ressenti de navigation. À faire chacune dans son propre commit, avec test

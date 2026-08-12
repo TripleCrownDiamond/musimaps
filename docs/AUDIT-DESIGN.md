@@ -3,19 +3,19 @@
 > Mesuré le 2026-08-12 sur le code réel, après le partage des tokens, de l'i18n
 > et de la logique métier (phases 1 à 3 du plan de cohérence).
 
-## La cause structurelle
+## État du socle
 
-**Le web a un système de composants, le mobile n'en a pas.**
+Le web possède son système shadcn. Le mobile dispose désormais d'un premier socle partagé, mais la
+migration du catalogue d'écrans reste partielle.
 
 | | Web | Mobile |
 |---|---|---|
-| Primitives d'UI | 17 (`components/ui/`, shadcn) | 0 |
+| Primitives d'UI | 17 (`components/ui/`, shadcn) | 6 (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`, index) |
 | Composants métier | ~20 | 11 |
 
-Sur le web, un bouton s'écrit `<Button variant="…">` et lit les tokens par ses
-classes Tailwind. Sur mobile, **chaque écran réinvente son bouton** en
-`StyleSheet`, avec ses couleurs et ses rayons écrits à la main. Tout le reste
-de cet audit découle de là.
+`Login`, `ForgotPassword`, `ResetPassword` et la vue Discover consomment déjà ce socle. Les écrans
+non migrés réinventent encore leurs boutons et leurs champs en `StyleSheet` ; c'est désormais la
+source principale de dérive.
 
 ## Ce que ça produit
 
@@ -24,11 +24,11 @@ de cet audit découle de là.
 | | Occurrences |
 |---|---|
 | Web (pages publiques) | ~3 |
-| **Mobile** | **91** |
+| **Mobile** | **68** |
 
 Le web est propre parce que Tailwind résout les classes vers les variables CSS
 générées depuis `tokens.ts`. Le mobile écrit `'rgba(255,255,255,0.55)'` en
-clair, 91 fois, dans 8 fichiers — `ExploreScreen` en concentre 17.
+clair, encore 68 fois dans les écrans historiques.
 
 Conséquence : changer une couleur dans `tokens.ts` met à jour le web
 intégralement et le mobile **partiellement**. La dérive de palette que la
@@ -38,12 +38,11 @@ phase 1 devait supprimer peut donc revenir par cette porte.
 
 | Propriété | Occurrences | Valeurs distinctes |
 |---|---|---|
-| `borderRadius` | 180 | **38** |
+| `borderRadius` hors tokens | — | **36 occurrences** |
 | `padding*` | 238 | **37** |
 
-Les échelles existent pourtant dans les tokens partagés (`radii`, `spacing`,
-ajoutées en phase 1) — **elles ne sont utilisées nulle part**. Trente-huit
-rayons différents, ce n'est pas une intention de design, c'est du bruit.
+Les nouvelles primitives lisent les tokens partagés (`radii`, `spacing`). Les 36 occurrences encore
+signalées appartiennent au code historique à migrer.
 
 ## Écarts d'écran
 
@@ -64,9 +63,9 @@ dashboard et les deux écrans absents.
 
 ### A. Socle de primitives mobile
 
-Créer `apps/mobile/src/ui/` : `Button`, `Input`, `Card`, `Field`, `Badge`,
-`Section`. Chacun lit `colors`, `radii` et `spacing` des tokens partagés, et
-expose les mêmes variantes que son équivalent web.
+**En cours.** `Button`, `Input`, `Card`, `AuthLayout` et `PasswordInput` existent dans
+`apps/mobile/src/ui/` et lisent les tokens partagés. Il reste à compléter les primitives métier
+(`Badge`, `Section`) au fil des migrations.
 
 C'est la fondation : sans elle, chaque écran repris réintroduit des valeurs en
 dur. **À faire en premier**, tout le reste en dépend.

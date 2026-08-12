@@ -11,8 +11,8 @@
 | 1 — Tokens partagés | ✅ fait — `packages/shared/src/design/tokens.ts`, CSS web **identique au bit près** |
 | 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
 | 3 — Logique métier partagée | ✅ **fait** — socle + les 9 modules, zéro duplication restante |
-| 3bis — Corrections carte | ⬜ à faire — voir [AUDIT-CARTE.md](AUDIT-CARTE.md) §4 |
-| 4 — Écrans mobiles manquants | ⬜ à faire |
+| 3bis — Corrections carte | 🟠 8/9 — reste le zoom mobile à deux sources de vérité |
+| 4 — Écrans mobiles manquants | 🟠 socle UI engagé ; écrans `ArtistProfile` et `Confirmation` à créer |
 | 5 — Dashboard mobile à parité | ⬜ à faire |
 | 6 — Découpe du globe mobile | ⬜ à faire |
 
