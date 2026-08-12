@@ -102,12 +102,12 @@ export function ProfileScreen({ navigation }: Props) {
           <Text style={styles.statLabel}>{t('profile.statSaved')}</Text>
         </Pressable>
         <View style={styles.statDivider} />
-        <Pressable style={styles.stat} onPress={() => navigation.navigate('Search')}>
+        <Pressable style={styles.stat} onPress={() => navigation.navigate('Discover')}>
           <Text style={styles.statValue}>{visitedCities.length}</Text>
           <Text style={styles.statLabel}>{t('profile.statCities')}</Text>
         </Pressable>
         <View style={styles.statDivider} />
-        <Pressable style={styles.stat} onPress={() => navigation.navigate('Search')}>
+        <Pressable style={styles.stat} onPress={() => navigation.navigate('Discover')}>
           <Text style={styles.statValue}>{profile?.favoriteGenres.length ?? 0}</Text>
           <Text style={styles.statLabel}>{t('profile.statGenres')}</Text>
         </Pressable>

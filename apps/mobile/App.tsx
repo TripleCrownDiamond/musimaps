@@ -30,7 +30,7 @@ import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { ProfileEditScreen } from './src/screens/ProfileEditScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SavedScreen } from './src/screens/SavedScreen';
-import { SearchScreen } from './src/screens/SearchScreen';
+import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
@@ -103,7 +103,7 @@ function MainTabs() {
         tabBarIcon: ({ color, focused, size }) => {
           const icons: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
             Explore: focused ? 'map' : 'map-outline',
-            Search: focused ? 'search' : 'search-outline',
+            Discover: focused ? 'compass' : 'compass-outline',
             Saved: focused ? 'heart' : 'heart-outline',
             Profile: focused ? 'person' : 'person-outline',
           };
@@ -116,7 +116,7 @@ function MainTabs() {
       })}
     >
       <Tabs.Screen name="Explore" component={ExploreScreen} options={{ title: t('tab.explore') }} />
-      <Tabs.Screen name="Search" component={SearchScreen} options={{ title: t('tab.search') }} />
+      <Tabs.Screen name="Discover" component={DiscoverScreen} options={{ title: t('tab.discover') }} />
       <Tabs.Screen name="Saved" component={SavedScreen} options={{ title: t('tab.saved') }} />
       <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tab.profile') }} />
     </Tabs.Navigator>

@@ -5,7 +5,7 @@
  *   EXPO_PUBLIC_MAPBOX_TOKEN=pk.xxxxx
  *
  * ⚠️ Ne pas relire `process.env.EXPO_PUBLIC_MAPBOX_TOKEN` ailleurs. La valeur
- * était lue dans `ExploreScreen` et `SearchScreen` séparément ; le jour où
+ * était lue dans plusieurs écrans séparément ; le jour où
  * l'une change, l'autre ne suit pas et on obtient une carte qui s'affiche
  * avec une recherche de lieux muette.
  *

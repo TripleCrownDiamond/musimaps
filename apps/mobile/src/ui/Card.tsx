@@ -61,7 +61,8 @@ export function Field({ label, error, hint, children, style }: FieldProps) {
 interface SectionProps {
   title?: string;
   subtitle?: string;
-  children: ReactNode;
+  /** Optionnel : une Section peut ne porter qu'un titre et un sous-titre. */
+  children?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 

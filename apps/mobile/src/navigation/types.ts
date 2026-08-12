@@ -9,7 +9,7 @@ export type MainTabParamList = {
     /** La localisation a déjà été tranchée (écran Welcome) : ne pas re-demander. */
     skipLocation?: boolean;
   } | undefined;
-  Search: undefined;
+  Discover: undefined;
   Saved: undefined;
   Profile: undefined;
 };
