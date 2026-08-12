@@ -22,6 +22,9 @@
   une régression structurelle fait désormais partie de `npm run check`.
 - Premier socle UI mobile (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`) ; écrans Login,
   Signup, mot de passe oublié/réinitialisé et vue Discover migrés vers les tokens partagés.
+- Nouvel écran mobile `ConfirmationScreen` après une demande `ArtistJoin` : rôle, email, position
+  waitlist identique au web, prochaines étapes et partage natif. Le succès d'un compte Signup reste
+  distinct pour ne jamais afficher une fausse position d'attente.
 
 ### 11 août — Globe standardisé bleu/lime
 

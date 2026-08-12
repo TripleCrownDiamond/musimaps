@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { AccountRole } from '@musimaps/shared';
 
 export type MainTabParamList = {
   Explore: {
@@ -28,7 +29,8 @@ export type RootStackParamList = {
   } | undefined;
   Badges: undefined;
   Login: undefined;
-  Signup: undefined;
+  Signup: { role?: AccountRole; email?: string } | undefined;
+  Confirmation: { email: string; profile: 'artiste' | 'amateur'; artistName?: string };
   ForgotPassword: undefined;
   ResetPassword: undefined;
   Dashboard: undefined;

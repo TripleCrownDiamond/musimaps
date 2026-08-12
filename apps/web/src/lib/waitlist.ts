@@ -137,13 +137,6 @@ export function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
 }
 
-export function positionFor(email: string) {
-  const base = 1247
-  let hash = 0
-  for (const char of email) hash = (hash * 31 + char.charCodeAt(0)) % 500
-  return base + hash
-}
-
 // ------------------------------------------------------------
 // Conversion waitlist → carte (après lancement)
 // ------------------------------------------------------------

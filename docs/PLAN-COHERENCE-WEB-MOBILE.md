@@ -12,7 +12,7 @@
 | 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
 | 3 — Logique métier partagée | ✅ **fait** — socle + les 9 modules, zéro duplication restante |
 | 3bis — Corrections carte | ✅ 9/9 — caméra, pins, styles et navigation standardisés |
-| 4 — Écrans mobiles manquants | 🟠 socle UI engagé ; écrans `ArtistProfile` et `Confirmation` à créer |
+| 4 — Écrans mobiles manquants | 🟠 `Confirmation` fait ; reste `ArtistProfile` |
 | 5 — Dashboard mobile à parité | ⬜ à faire |
 | 6 — Découpe du globe mobile | ⬜ à faire |
 
@@ -311,9 +311,9 @@ C'est ici que le mobile cesse d'être « bizarre ». Rendu possible par la phase
    plateformes, stats, bouton booking, artistes liés. `ArtistSheet` reste, mais devient
    ce qu'il aurait dû être : un aperçu rapide depuis la carte, avec un « Voir le profil »
    qui pousse le nouvel écran.
-2. **`ConfirmationScreen`** — remplace le `navigate('Dashboard')` sec de
-   `SignupScreen.tsx:158`. Reprend les 30 clés `confirm.*` déjà écrites côté web : badge
-   de rôle, position waitlist, cartes « et maintenant », partage natif via `Share` RN.
+2. ✅ **`ConfirmationScreen`** — branché sur le succès waitlist d'`ArtistJoin` (et non sur le
+   succès compte de `Signup`, qui n'implique pas une place waitlist). Reprend les clés `confirm.*` :
+   badge de rôle, position stable partagée web/mobile, cartes « et maintenant » et partage natif.
 3. **`ArtistJoinScreen`** — compléter les champs manquants par rapport à
    `ArtistSignup.tsx` (489 l. vs 224).
 

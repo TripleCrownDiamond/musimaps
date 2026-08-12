@@ -5,7 +5,8 @@ import Footer from '../components/Footer'
 import Countdown from '../components/Countdown'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { positionFor, type Profile } from '../lib/waitlist'
+import { waitlistPositionFor } from '@musimaps/shared'
+import type { Profile } from '../lib/waitlist'
 
 interface ConfirmationState {
   email?: string
@@ -70,7 +71,7 @@ export default function Confirmation() {
               <p className="break-all text-xl font-medium">{state.email}</p>
               <p className="text-sm text-secondary-text">
                 {t('confirm.positionPrefix')}{' '}
-                <span className="font-bold text-primary-text">n° {positionFor(state.email)}</span>{' '}
+                <span className="font-bold text-primary-text">{waitlistPositionFor(state.email)}</span>{' '}
                 {t('confirm.positionSuffix')}
               </p>
               {isArtist && (

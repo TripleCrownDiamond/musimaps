@@ -49,7 +49,6 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
   }));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
 
   const update = (key: keyof typeof initialForm, value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -70,44 +69,14 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
     });
     setLoading(false);
     if (message) setError(message);
-    else setSent(true);
+    else {
+      navigation.replace('Confirmation', {
+        email: form.email.trim(),
+        profile: 'artiste',
+        artistName: form.artistName.trim(),
+      });
+    }
   };
-
-  if (sent) {
-    return (
-      <View style={styles.successRoot}>
-        <View style={styles.successIcon}>
-          <Ionicons name="checkmark" size={48} color={colors.black} />
-        </View>
-        <Text style={styles.successTitle}>Ta ville a entendu ton signal.</Text>
-        <Text style={styles.successText}>
-          {user && !authLoading
-            ? `La demande de ${form.artistName} est enregistrée et rattachée à ton compte. Retrouve-la dans ton profil.`
-            : `La demande de ${form.artistName} est enregistrée dans la même liste Supabase que l’application web.`}
-        </Text>
-        {user && !authLoading ? (
-          <Pressable style={styles.submit} onPress={() => navigation.navigate('Dashboard' as never)}>
-            <Ionicons name="person-circle-outline" size={20} color={colors.white} />
-            <Text style={styles.submitText}>Voir mon profil</Text>
-          </Pressable>
-        ) : authLoading ? null : (
-          <Pressable
-            style={styles.submit}
-            onPress={() => navigation.navigate('Signup' as never)}
-          >
-            <Ionicons name="person-add-outline" size={20} color={colors.white} />
-            <Text style={styles.submitText}>Créer mon compte artiste</Text>
-          </Pressable>
-        )}
-        <Pressable
-          style={[styles.submit, styles.submitGhost]}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.submitGhostText}>Plus tard</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView
@@ -211,14 +180,8 @@ const styles = StyleSheet.create({
   label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginLeft: 4 },
   input: { height: 59, borderRadius: 20, backgroundColor: colors.white, color: colors.ink, fontFamily: fonts.body, fontSize: 16, paddingHorizontal: 17, borderWidth: 0, outlineWidth: 0 },
   inputMultiline: { height: 110, paddingTop: 15, textAlignVertical: 'top' },
-  submitGhost: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: colors.line, marginTop: 0 },
-  submitGhostText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 16 },
   error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, backgroundColor: '#FFE8EB', borderRadius: 16, padding: 12 },
   submit: { minHeight: 62, borderRadius: 31, backgroundColor: colors.brandDeep, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 6, paddingHorizontal: 20 },
   submitText: { color: colors.white, fontFamily: fonts.bold, fontSize: 16 },
   privacy: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, lineHeight: 16, textAlign: 'center', paddingHorizontal: 22 },
-  successRoot: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  successIcon: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' },
-  successTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 31, lineHeight: 36, letterSpacing: -1.2, textAlign: 'center', marginTop: 26 },
-  successText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
-});
+  });

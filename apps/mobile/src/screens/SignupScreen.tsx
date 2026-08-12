@@ -35,17 +35,17 @@ const ROLE_ICONS: Record<AccountRole, typeof MicVocal | typeof Headphones> = {
   melomane: Headphones,
 };
 
-export function SignupScreen({ navigation }: Props) {
+export function SignupScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
   const { signUp } = useAuth();
   const { showToast } = useApp();
-  const [role, setRole] = useState<AccountRole | null>(null);
+  const [role, setRole] = useState<AccountRole | null>(route.params?.role ?? null);
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(route.params?.email ?? '');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);

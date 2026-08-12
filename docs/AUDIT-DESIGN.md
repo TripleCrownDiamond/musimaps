@@ -50,7 +50,7 @@ signalées appartiennent au code historique à migrer.
 |---|---|---|---|
 | `Dashboard` | **112** clés i18n | **25** | 87 manquantes |
 | `ArtistProfile` | 408 lignes | **absent** | à créer |
-| `Confirmation` | 202 lignes | **absent** | à créer |
+| `Confirmation` | 202 lignes | ✅ créé | parité waitlist, rôle, CTA, partage natif |
 | `ProfileEdit` | 17 clés | **41** | **inversé** — le web n'a ni suppression de compte ni changement d'email |
 | `Login` · `Signup` · `ResetPassword` | 13 / 41 / 14 | 14 / 41 / 15 | à parité |
 | `ArtistSignup` | 489 lignes | 224 | contenu CMS côté web, formulaire simple côté mobile |
@@ -79,8 +79,8 @@ l'échelle `radii`.
 
 ### C. Écrans manquants
 
-`ArtistProfileScreen` et `ConfirmationScreen`, construits directement sur le
-socle. Les clés i18n existent déjà des deux côtés depuis la phase 2.
+`ConfirmationScreen` est construit sur le socle et branché au parcours `ArtistJoin`. Il reste
+`ArtistProfileScreen` ; ses clés i18n existent déjà depuis la phase 2.
 
 ### D. Dashboard à parité
 
