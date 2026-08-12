@@ -6,15 +6,18 @@ import './index.css'
 import App from './App'
 import { supabase } from './lib/supabase'
 import { webStorage } from './lib/storage'
+import { MAPBOX_TOKEN } from './lib/mapbox'
 import { CmsProvider } from './context/CmsContext'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './i18n/LanguageContext'
 import { Toaster } from './components/ui/sonner'
 
-// Injecte le client Supabase et le stockage dans le socle partagé, AVANT
-// tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
+// Injecte le client Supabase, le stockage et le token Mapbox dans le socle
+// partagé, AVANT tout rendu : les modules de `@musimaps/shared` les lisent à
+// l'exécution. Le token vient de `lib/mapbox` — seul lecteur de
+// l'environnement côté web.
 configureRuntime({
-  mapboxToken: import.meta.env.VITE_MAPBOX_TOKEN as string | undefined,
+  mapboxToken: MAPBOX_TOKEN,
   supabase,
   storage: webStorage,
   resetPasswordUrl: `${window.location.origin}/reset-password`,

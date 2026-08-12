@@ -87,6 +87,7 @@ import {
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import { fetchAllArtistPopularity, recordPinView } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
+import { HAS_MAPBOX, MAPBOX_TOKEN } from '../lib/mapbox';
 import { dockStyle, fonts, shadow, type AppColors } from '../theme';
 
 type Props = CompositeScreenProps<
@@ -94,8 +95,6 @@ type Props = CompositeScreenProps<
   NativeStackScreenProps<RootStackParamList>
 >;
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
-const HAS_MAPBOX = Boolean(MAPBOX_TOKEN?.startsWith('pk.'));
 const GLOBE_ZOOM = CAMERA.globe.zoom;
 // Hauteur de l'AppBar partagée + écart avant la search (offset sous la topbar).
 const APPBAR_HEIGHT = 56;

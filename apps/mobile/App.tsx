@@ -36,12 +36,13 @@ import { StartScreen } from './src/screens/StartScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { supabase } from './src/lib/supabase';
 import { nativeStorage } from './src/lib/storage';
+import { MAPBOX_TOKEN } from './src/lib/mapbox';
 import { dockStyle, fonts } from './src/theme';
 
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
 configureRuntime({
-  mapboxToken: process.env.EXPO_PUBLIC_MAPBOX_TOKEN,
+  mapboxToken: MAPBOX_TOKEN,
   supabase,
   storage: nativeStorage,
   // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.

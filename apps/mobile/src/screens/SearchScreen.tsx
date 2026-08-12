@@ -28,6 +28,7 @@ import {
 } from '@musimaps/shared';
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
+import { MAPBOX_TOKEN } from '../lib/mapbox';
 import { fonts, shadow, type AppColors } from '../theme';
 
 type Props = CompositeScreenProps<
@@ -41,7 +42,6 @@ type GeocodedPlace = {
   coordinates: [number, number];
 };
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN;
 
 export function SearchScreen({ navigation }: Props) {
   const { colors, theme } = useAppTheme();

@@ -5,11 +5,12 @@
  * `expo-location`. C'est la seule partie de `discovery` qui ne pouvait pas
  * remonter dans `@musimaps/shared`.
  */
-import { countryCodeOfFeature, type GeocodeReverseResult } from '@musimaps/shared'
+import { countryCodeOfFeature, getMapboxToken, type GeocodeReverseResult } from '@musimaps/shared'
 
 
 export async function reverseGeocodeBrowser(): Promise<GeocodeReverseResult | null> {
-  const token = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
+  // Token pris dans le socle partagé, pas relu depuis l'environnement.
+  const token = getMapboxToken()
   type PosResult = GeolocationPosition | { denied: true } | null
   const pos = await new Promise<PosResult>((resolve) => {
     if (!('geolocation' in navigator)) return resolve(null)
