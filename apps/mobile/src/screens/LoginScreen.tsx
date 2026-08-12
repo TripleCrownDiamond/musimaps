@@ -2,14 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
@@ -18,6 +16,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import { checkin } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
+import { Button, Field, Input } from '../ui';
 import { fonts, type AppColors } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -73,63 +72,59 @@ export function LoginScreen({ navigation }: Props) {
           </View>
         </View>
 
-        <Text style={styles.label}>{t('auth.email')}</Text>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="vous@email.com"
-          placeholderTextColor={colors.muted}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          underlineColorAndroid="transparent"
-          style={styles.input}
-        />
+        <Field label={t('auth.email')}>
+          <Input
+            value={email}
+            onChangeText={setEmail}
+            placeholder="vous@email.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+          />
+        </Field>
 
-        <Text style={styles.label}>{t('auth.password')}</Text>
-        <View style={styles.passwordWrap}>
-          <TextInput
+        <Field label={t('auth.password')}>
+          <Input
             value={password}
             onChangeText={setPassword}
             placeholder="••••••••"
-            placeholderTextColor={colors.muted}
             secureTextEntry={!showPassword}
             autoComplete="current-password"
-            underlineColorAndroid="transparent"
-            style={styles.passwordInput}
+            trailing={
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  showPassword ? t('auth.hidePassword') : t('auth.showPassword')
+                }
+                hitSlop={8}
+                onPress={() => setShowPassword((v) => !v)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={23}
+                  color={colors.inkSoft}
+                />
+              </Pressable>
+            }
           />
-          <Pressable
-            accessibilityLabel={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-            style={styles.eyeButton}
-            onPress={() => setShowPassword((v) => !v)}
-          >
-            <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={23}
-              color={colors.inkSoft}
-            />
-          </Pressable>
-        </View>
+        </Field>
 
-        <Pressable
-          style={styles.forgotRow}
+        <Button
+          variant="link"
+          size="sm"
+          label={t('auth.forgotPassword')}
           onPress={() => navigation.navigate('ForgotPassword')}
-        >
-          <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
-        </Pressable>
+          style={styles.forgotRow}
+        />
 
-        <Pressable
-          style={[styles.submit, busy && styles.submitDisabled]}
-          disabled={busy}
+        <Button
+          block
+          size="lg"
+          loading={busy}
+          label={t('auth.login')}
           onPress={() => void submit()}
-        >
-          {busy ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Ionicons name="log-in-outline" size={20} color={colors.white} />
-          )}
-          <Text style={styles.submitText}>{t('auth.login')}</Text>
-        </Pressable>
+          icon={<Ionicons name="log-in-outline" size={20} color={colors.white} />}
+        />
 
         <Pressable style={styles.switchLink} onPress={() => navigation.navigate('Signup')}>
           <Text style={styles.switchText}>
@@ -165,54 +160,7 @@ const createStyles = (colors: AppColors) =>
     heroCopy: { alignItems: 'center', marginTop: 18 },
     title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 30, letterSpacing: -1, textAlign: 'center' },
     subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, textAlign: 'center', marginTop: 6, lineHeight: 20 },
-    label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginBottom: 7, marginTop: 6 },
-    input: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: colors.ink,
-      fontFamily: fonts.body,
-      fontSize: 15,
-      marginBottom: 14,
-      backgroundColor: colors.surface,
-      outlineWidth: 0,
-    },
-    passwordWrap: {
-      borderWidth: 1,
-      borderColor: colors.line,
-      borderRadius: 16,
-      marginBottom: 14,
-      backgroundColor: colors.surface,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    passwordInput: {
-      flex: 1,
-      paddingHorizontal: 16,
-      paddingVertical: 13,
-      color: colors.ink,
-      fontFamily: fonts.body,
-      fontSize: 15,
-      borderWidth: 0,
-      outlineWidth: 0,
-    },
-    eyeButton: { paddingHorizontal: 14, paddingVertical: 12 },
-    submit: {
-      minHeight: 56,
-      borderRadius: 28,
-      backgroundColor: colors.brandDeep,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      marginTop: 6,
-    },
-    submitDisabled: { opacity: 0.6 },
-    submitText: { color: colors.white, fontFamily: fonts.bold, fontSize: 17 },
     forgotRow: { alignSelf: 'flex-start', marginTop: -6, marginBottom: 18 },
-    forgotLink: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 13 },
     switchLink: { alignItems: 'center', marginTop: 20 },
     switchText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
     switchLinkText: { color: colors.brandDeep, fontFamily: fonts.bold },

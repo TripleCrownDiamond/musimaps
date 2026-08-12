@@ -25,8 +25,9 @@
     "tokens": "node scripts/gen-tokens.mjs",
     "tokens:check": "node scripts/gen-tokens.mjs --check",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "check": "npm run tokens:check && npm run i18n:check && npm run build:web && npm run typecheck",
-    "audit:geo": "node scripts/audit-geo.mjs"
+    "check": "npm run tokens:check && npm run i18n:check && npm run design:check && npm run build:web && npm run typecheck",
+    "audit:geo": "node scripts/audit-geo.mjs",
+    "design:check": "node scripts/check-design.mjs"
   },
   "devDependencies": {
     "basic-ftp": "^6.2.0",
