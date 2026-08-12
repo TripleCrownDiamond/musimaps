@@ -134,6 +134,20 @@ export function shouldReleaseScope(zoom: number): boolean {
 }
 
 /**
+ * Le cadrage est-il ARMÉ, c'est-à-dire la caméra a-t-elle atteint le niveau
+ * de détail depuis qu'il a été posé ?
+ *
+ * Sans cette étape, `shouldReleaseScope` relâchait le cadrage **avant** que
+ * le vol ait commencé : une recherche pose `visiblePins`, puis la caméra part
+ * vers z13 — mais au rendu suivant le zoom vaut encore celui de la vue globe,
+ * donc le cadrage était jeté et le pin cherché n'apparaissait jamais. Il ne
+ * doit se relâcher que si l'utilisateur DÉZOOME après être arrivé.
+ */
+export function isScopeArmed(zoom: number): boolean {
+  return zoom >= SPREAD_ZOOM;
+}
+
+/**
  * Rayon de la spirale pour le i-ème artiste d'un groupe, en degrés.
  *
  * L'ancienne formule faisait CROÎTRE le rayon avec le zoom

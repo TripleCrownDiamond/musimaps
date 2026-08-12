@@ -48,6 +48,7 @@ import {
   type MapTheme,
   type StyleLayer,
   isInRegion,
+  isScopeArmed,
   isValidCoordinate,
   shouldReleaseScope,
   levelFor,
@@ -166,6 +167,18 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [mapZoom, setMapZoom] = useState(GLOBE_ZOOM);
   const [region, setRegion] = useState<{ east: number; north: number; west: number; south: number } | null>(null);
   const [visiblePins, setVisiblePins] = useState<Artist[]>([]);
+  /**
+   * Le cadrage ne devient relâchable qu'une fois la caméra arrivée au niveau
+   * de détail. Sinon il était jeté AVANT le vol — une recherche pose le pin,
+   * le zoom vaut encore celui de la vue globe au rendu suivant, et le pin
+   * cherché disparaissait aussitôt.
+   */
+  const scopeArmedRef = useRef(false);
+  useEffect(() => {
+    scopeArmedRef.current = false;
+  }, [visiblePins]);
+  if (isScopeArmed(mapZoom)) scopeArmedRef.current = true;
+  const scopeReleased = scopeArmedRef.current && shouldReleaseScope(mapZoom);
   const [mapArtists, setMapArtists] = useState<Artist[]>([]);
   // Score de popularité (vues profil + pin) par artiste — anneaux des pins.
   const [popularityById, setPopularityById] = useState<Map<string, number>>(
@@ -802,7 +815,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     // Au dézoom, on relâche le cadrage posé par un clic sur cluster ou une
     // recherche : sinon la carte restait figée sur ce seul groupe et les
     // autres clusters ne réapparaissaient jamais.
-    const target = shouldReleaseScope(mapZoom) ? [] : visiblePins;
+    const target = scopeReleased ? [] : visiblePins;
     let base: Artist[];
     if (target.length > 0) {
       const ids = new Set(target.map((a) => a.id));
@@ -1349,24 +1362,12 @@ export function ExploreScreen({ navigation, route }: Props) {
                     >
                       {pin.variant === 'sub' ? `${pin.count}` : `${pin.flag} ${pin.label} · ${pin.count}`}
                     </Text>
-                    {(() => {
-                      const fans = pin.members.reduce(
-                        (s, a) => s + (parseFollowersCount(a.followers) || 0),
-                        0,
-                      )
-                      return fans > 0 ? (
-                        <Text
-                          style={[
-                            styles.clusterPinStats,
-                            pin.variant !== 'sub' && {
-                              color: pin.tier === 3 ? '#0b1420' : '#ffffff',
-                            },
-                          ]}
-                        >
-                          {`${compactCount(fans)} fans`}
-                        </Text>
-                      ) : null
-                    })()}
+                    {/* Le pin de cluster ne porte que le lieu et le NOMBRE
+                        D'ARTISTES. Il affichait aussi un total d'abonnés
+                        agrégé (« 12 K fans ») : une seconde ligne qui
+                        alourdissait la pastille et mélangeait deux
+                        informations de nature différente. Retiré des deux
+                        plateformes. */}
                   </>
                 )}
               </Pressable>

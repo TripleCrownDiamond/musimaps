@@ -7,7 +7,7 @@ import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
 import MapboxTokenNotice from '../components/MapboxTokenNotice'
 import RotateToggle from '../components/RotateToggle'
 import type { Artist } from '@musimaps/shared'
-import { CAMERA, countryByName, flagFor, geoCountryOf, shouldReleaseScope } from '@musimaps/shared'
+import { CAMERA, countryByName, flagFor, geoCountryOf, isScopeArmed, shouldReleaseScope } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -92,6 +92,18 @@ export default function GlobeExplore() {
   // Pins visibles : vides au départ (carte épurée). Ils n'apparaissent que
   // lorsqu'une recherche cible un artiste (son pin) ou une ville (ses pins).
   const [visiblePins, setVisiblePins] = useState<Artist[]>([])
+  /**
+   * Le cadrage ne devient relâchable qu'une fois la caméra arrivée au niveau
+   * de détail. Sinon il était jeté AVANT le vol — une recherche pose le pin,
+   * le zoom vaut encore celui de la vue globe au rendu suivant, et le pin
+   * cherché disparaissait aussitôt.
+   */
+  const scopeArmedRef = useRef(false)
+  useEffect(() => {
+    scopeArmedRef.current = false
+  }, [visiblePins])
+  if (isScopeArmed(mapZoom)) scopeArmedRef.current = true
+  const scopeReleased = scopeArmedRef.current && shouldReleaseScope(mapZoom)
 
   // Lieu sélectionné (ville/pays) : panneau bas avec stats + nav artiste-à-
   // artiste. Peut venir de la recherche OU d'un clic sur un cluster de lieu.
@@ -733,7 +745,7 @@ export default function GlobeExplore() {
           // une recherche : sinon la carte reste figée sur ce seul groupe et
           // les autres clusters ne réapparaissent jamais.
           visibleArtists={
-            visiblePins.length > 0 && !shouldReleaseScope(mapZoom)
+            visiblePins.length > 0 && !scopeReleased
               ? visiblePins
               : searchOpen && query.trim()
                 ? []

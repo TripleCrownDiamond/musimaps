@@ -6,7 +6,6 @@ import {
   bucketKey,
   CAMERA,
   clusterBy,
-  compactCount,
   countryByCode,
   declump,
   firstRenderedPosition,
@@ -17,7 +16,6 @@ import {
   isValidCoordinate,
   levelFor,
   MAX_ZOOM,
-  parseFollowersCount,
   pinGlowFor,
   pinOpacityFor,
   pinZoomScale,
@@ -448,12 +446,10 @@ export default function GlobeMap({
       el.className =
         'artist-pin artist-pin--cluster' + (variant === 'sub' ? ' artist-pin--sub' : '')
       el.setAttribute('aria-label', `${label} — ${count} artistes`)
-      // Stats du cluster : compteur d'artistes + popularité agrégée (fans
-      // externes des membres, notation compacte « 10 K » / « 1,2 M »).
-      const totalFans = (members ?? []).reduce(
-        (s, a) => s + (parseFollowersCount(a.followers) || 0),
-        0,
-      )
+      // Le pin de cluster ne porte que le lieu et le NOMBRE D'ARTISTES. Il
+      // affichait aussi un total d'abonnés agrégé (« 12 K fans ») : une
+      // seconde ligne qui alourdissait la pastille et mélangeait deux
+      // informations de nature différente sur un objet de carte.
       const content = document.createElement('span')
       content.className = 'artist-pin__cluster-content'
       const main = document.createElement('span')
@@ -461,12 +457,6 @@ export default function GlobeMap({
       // Pays : drapeau + code ISO lisible (« 🇳🇬 NG ») ; sous-cluster : compte.
       main.textContent = variant === 'sub' ? `${count}` : `${flag} ${label} · ${count}`
       content.appendChild(main)
-      if (totalFans > 0) {
-        const stats = document.createElement('span')
-        stats.className = 'artist-pin__cluster-stats'
-        stats.textContent = `${compactCount(totalFans)} fans`
-        content.appendChild(stats)
-      }
       el.appendChild(content)
       // Pin de cluster lumineux : couleur par DENSITÉ (tier le plus élevé de
       // ses membres) — fond + halo, comme les pins individuels.

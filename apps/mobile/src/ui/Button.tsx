@@ -26,6 +26,11 @@ import { fonts, type AppColors } from '../theme';
 export type ButtonVariant =
   /** Action principale — bleu de marque. */
   | 'default'
+  /**
+   * Action secondaire mise en avant — aplat lime, encre sombre.
+   * Équivaut au `bg-brand text-black` du second CTA de la landing web.
+   */
+  | 'brand'
   /** Action destructive. */
   | 'destructive'
   /** Contour, fond transparent. */
@@ -133,6 +138,8 @@ export function Button({
 /** Couleurs d'une variante — toutes issues des tokens, aucune en dur. */
 function variantPalette(variant: ButtonVariant, colors: AppColors) {
   switch (variant) {
+    case 'brand':
+      return { background: colors.brandSecondary, text: colors.black, border: 'transparent' };
     case 'destructive':
       return { background: colors.danger, text: colors.white, border: 'transparent' };
     case 'outline':
