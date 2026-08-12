@@ -49,7 +49,7 @@ signalées appartiennent au code historique à migrer.
 | Écran | Web | Mobile | Verdict |
 |---|---|---|---|
 | `Dashboard` | **112** clés i18n | **25** | 87 manquantes |
-| `ArtistProfile` | 408 lignes | **absent** | à créer |
+| `ArtistProfile` | 408 lignes | ✅ créé | cover/avatar, bio, stats, titres, dates, liens, booking et artistes liés |
 | `Confirmation` | 202 lignes | ✅ créé | parité waitlist, rôle, CTA, partage natif |
 | `ProfileEdit` | 17 clés | **41** | **inversé** — le web n'a ni suppression de compte ni changement d'email |
 | `Login` · `Signup` · `ResetPassword` | 13 / 41 / 14 | 14 / 41 / 15 | à parité |
@@ -79,8 +79,8 @@ l'échelle `radii`.
 
 ### C. Écrans manquants
 
-`ConfirmationScreen` est construit sur le socle et branché au parcours `ArtistJoin`. Il reste
-`ArtistProfileScreen` ; ses clés i18n existent déjà depuis la phase 2.
+`ConfirmationScreen` et `ArtistProfileScreen` sont construits sur le socle. La sheet carte est
+redevenue un aperçu rapide et ouvre maintenant le profil complet.
 
 ### D. Dashboard à parité
 

@@ -31,6 +31,7 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: { role?: AccountRole; email?: string } | undefined;
   Confirmation: { email: string; profile: 'artiste' | 'amateur'; artistName?: string };
+  ArtistProfile: { artistId: string };
   ForgotPassword: undefined;
   ResetPassword: undefined;
   Dashboard: undefined;

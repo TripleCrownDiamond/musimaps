@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { compactCount, type Artist } from '@musimaps/shared';
+import { compactCount, spacing, type Artist } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
 import { useAppTheme } from '../context/ThemeContext';
@@ -42,6 +42,8 @@ interface ArtistSheetProps {
   nearby?: Artist[];
   onClose: () => void;
   onSelectArtist?: (artist: Artist) => void;
+  /** Ouvre la page artiste complète ; la sheet reste un aperçu rapide. */
+  onOpenProfile?: () => void;
   /** Redirige vers la connexion quand une action exige un compte (comme le web). */
   onRequireAuth?: () => void;
 }
@@ -62,7 +64,7 @@ const PLATFORM_ICONS: Record<string, string> = {
   wikipedia: '📖',
 };
 
-export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onRequireAuth }: ArtistSheetProps) {
+export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOpenProfile, onRequireAuth }: ArtistSheetProps) {
   const { colors } = useAppTheme();
   const { t, lang } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -459,6 +461,13 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onRe
           )}
         </ScrollView>
 
+        {onOpenProfile ? (
+          <Pressable style={styles.fullProfile} onPress={onOpenProfile}>
+            <Ionicons name="open-outline" size={17} color={colors.brandPrimary} />
+            <Text style={styles.fullProfileText}>{t('sheet.fullProfile')}</Text>
+          </Pressable>
+        ) : null}
+
         {/* Forfaits de réservation — l'artiste réservable affiche ses prestations (comme le web). */}
         {booking?.bookable && booking.plans.some((p) => p.active) && (
           <View style={styles.plans}>
@@ -665,6 +674,8 @@ const createStyles = (colors: AppColors) =>
     nearbyName: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15 },
     nearbyMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, marginTop: 2 },
     plans: { marginTop: 4, gap: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+    fullProfile: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+    fullProfileText: { color: colors.brandPrimary, fontFamily: fonts.bold, fontSize: 13 },
     plansHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     plansTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, flex: 1 },
     bookableBadge: { borderRadius: 999, backgroundColor: colors.brand, paddingHorizontal: 8, paddingVertical: 2 },

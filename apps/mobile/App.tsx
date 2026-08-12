@@ -33,6 +33,7 @@ import { SavedScreen } from './src/screens/SavedScreen';
 import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { SignupScreen } from './src/screens/SignupScreen';
 import { ConfirmationScreen } from './src/screens/ConfirmationScreen';
+import { ArtistProfileScreen } from './src/screens/ArtistProfileScreen';
 import { StartScreen } from './src/screens/StartScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { supabase } from './src/lib/supabase';
@@ -163,6 +164,7 @@ function AppNavigator() {
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Signup" component={SignupScreen} />
             <RootStack.Screen name="Confirmation" component={ConfirmationScreen} options={{ animation: 'fade' }} />
+            <RootStack.Screen name="ArtistProfile" component={ArtistProfileScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="Dashboard" component={DashboardScreen} />

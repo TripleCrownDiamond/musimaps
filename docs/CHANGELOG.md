@@ -25,6 +25,9 @@
 - Nouvel écran mobile `ConfirmationScreen` après une demande `ArtistJoin` : rôle, email, position
   waitlist identique au web, prochaines étapes et partage natif. Le succès d'un compte Signup reste
   distinct pour ne jamais afficher une fausse position d'attente.
+- Nouvel écran mobile `ArtistProfileScreen` : cover/avatar, bio, statistiques réelles, titres,
+  événements, liens, artistes du même pays, réservation business et actions suivre/sauver/partager.
+  `ArtistSheet` devient l'aperçu rapide attendu et expose « Voir le profil complet ».
 
 ### 11 août — Globe standardisé bleu/lime
 

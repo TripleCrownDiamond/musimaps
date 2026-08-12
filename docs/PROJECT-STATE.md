@@ -228,6 +228,8 @@ curl -s https://musimaps.com/artistes | grep -oE 'assets/[A-Za-z0-9_-]+\.js' | s
   Not Zany/Kano, Dalida/Cairo, Apashe/Brussels et deux cas ambigus.
 - ✅ Phase carte 3bis terminée (9/9) : le zoom mobile ne simule plus la caméra ; Mapbox v10 est la
   source unique, protégée par `npm run test:map-state`.
+- ✅ Écrans mobiles `Confirmation` et `ArtistProfile` ajoutés sur le socle UI partagé ; la phase 4
+  ne conserve plus que la complétude du formulaire `ArtistJoin`.
 - ✅ Pins lumineux par densité (web `GlobeMap.tsx`/`index.css`, mobile `ExploreScreen.tsx`) : lint + tsc OK, web déployé.
 - ⚠️ APK mobile : code prêt, build bloqué par le quota EAS (voir §6).
 

@@ -1912,6 +1912,11 @@ export function ExploreScreen({ navigation, route }: Props) {
           nearby={nearby}
           onClose={() => setSelected(null)}
           onSelectArtist={goToArtist}
+          onOpenProfile={() => {
+            const artistId = selected.id;
+            setSelected(null);
+            navigation.navigate('ArtistProfile', { artistId });
+          }}
           onRequireAuth={() => navigation.navigate('Login')}
         />
       )}

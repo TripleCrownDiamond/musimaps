@@ -12,7 +12,7 @@
 | 2 — i18n partagé | ✅ fait — 728 clés dans `packages/shared/src/i18n/`, garde-fou `npm run i18n:check` |
 | 3 — Logique métier partagée | ✅ **fait** — socle + les 9 modules, zéro duplication restante |
 | 3bis — Corrections carte | ✅ 9/9 — caméra, pins, styles et navigation standardisés |
-| 4 — Écrans mobiles manquants | 🟠 `Confirmation` fait ; reste `ArtistProfile` |
+| 4 — Écrans mobiles manquants | 🟠 `Confirmation` + `ArtistProfile` faits ; reste la complétude `ArtistJoin` |
 | 5 — Dashboard mobile à parité | ⬜ à faire |
 | 6 — Découpe du globe mobile | ⬜ à faire |
 
@@ -306,7 +306,7 @@ deux plateformes avant de passer au suivant.
 
 C'est ici que le mobile cesse d'être « bizarre ». Rendu possible par la phase 2.
 
-1. **`ArtistProfileScreen`** — nouvel écran plein, poussé sur la `RootStack`. Reprend la
+1. ✅ **`ArtistProfileScreen`** — nouvel écran plein, poussé sur la `RootStack`. Reprend la
    structure de `ArtistProfile.tsx` (web) : header cover + avatar, bio, genres, liens
    plateformes, stats, bouton booking, artistes liés. `ArtistSheet` reste, mais devient
    ce qu'il aurait dû être : un aperçu rapide depuis la carte, avec un « Voir le profil »
