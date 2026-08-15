@@ -10,6 +10,7 @@ export function ArtistAvatar({
   gradient,
   initialsColor = colors.white,
   borderless = false,
+  casing = colors.white,
 }: {
   artist: Artist;
   size?: number;
@@ -20,6 +21,13 @@ export function ArtistAvatar({
   initialsColor?: string;
   /** Supprime la bordure blanche (parité avec l'avatar du web). */
   borderless?: boolean;
+  /**
+   * Couleur du liseré. Blanc par défaut : sur une carte ou une liste, il
+   * détache l'avatar de la surface. Sur la CARTE en thème clair, ce blanc se
+   * confond avec la terre — le pin lime y mesurait 1,16:1. La carte passe
+   * donc `mapOverlays[theme].pinCasing`.
+   */
+  casing?: string;
 }) {
   const borderRadius = rounded ? size / 2 : Math.min(26, size * 0.24);
   // Bordure PROPORTIONNELLE au diamètre. Elle valait 3 px quelle que soit la
@@ -27,7 +35,7 @@ export function ArtistAvatar({
   // mangeaient la moitié du disque — le pin ne se lisait plus comme un rond
   // mais comme un anneau blanc épais et déformé.
   const borderWidth = borderless ? 0 : Math.max(1, Math.min(3, Math.round(size * 0.085)));
-  const borderColor = borderless ? 'transparent' : colors.white;
+  const borderColor = borderless ? 'transparent' : casing;
 
   // Photo HD (Wikipedia / Wikidata) quand elle existe — sinon dégradé + initiales.
   if (artist.image) {

@@ -76,6 +76,7 @@ const OVERLAY_KEYS = [
   ['--map-glass-border', 'glassBorder'],
   ['--map-glass-control', 'glassControl'],
   ['--map-glass-ink-soft', 'glassInkSoft'],
+  ['--map-pin-casing', 'pinCasing'],
 ];
 
 const lines = [
@@ -102,6 +103,9 @@ const lines = [
   '',
   ':root[data-theme=\'dark\'] {',
   `  --map-dot: ${darkPalette.mapDot};`,
+  // Seul le voile qui CHANGE en sombre est redéfini. Le liseré de pin
+  // s'oppose au fond de carte : sombre en clair, clair en sombre.
+  `  --map-pin-casing: ${mapOverlays.dark.pinCasing};`,
   ...DARK_KEYS.map(([css, key]) => `  ${css}: ${darkPalette[key]};`),
   '  color-scheme: dark;',
   '}',

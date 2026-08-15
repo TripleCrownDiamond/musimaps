@@ -74,6 +74,49 @@ sur le diamètre réel du pin ; ils ne s'étirent pas sur la zone de toucher.
 
 ---
 
+## Lisibilité de la carte — le rapport prime sur la couleur
+
+La carte claire avait dérivé vers une feuille blanche. Mesuré :
+
+| Paire | Avant | Après |
+|---|---|---|
+| terre / eau | 1,20:1 | **1,77:1** |
+| terre / espace | 1,06:1 | **1,24:1** |
+| anneau lime (tier 3) sur la terre | 1,16:1 | inchangé — voir ci-dessous |
+
+Deux enseignements, tous deux contre-intuitifs :
+
+1. **Assombrir la terre ne sauve pas le pin lime.** Le lime `#A8FF35` a une
+   luminance élevée : il suit la terre à mesure qu'on la fonce. Le candidat le
+   plus contrasté mesurait même 1,05:1, soit un peu pire que 1,16. Les
+   artistes les plus populaires — ceux que la carte existe pour montrer —
+   étaient les seuls invisibles.
+2. **La réponse est un liseré, pas une couleur.** `mapOverlays.pinCasing`
+   pose un cercle fin qui s'oppose au FOND, pas au pin : sombre en thème
+   clair, clair en thème sombre. Le tier 3 passe alors à **4,60:1** sans que
+   sa couleur change — or elle porte du sens et vient de la marque.
+
+Le liseré corrige aussi le thème sombre au passage : le bleu profond du tier 2
+y mesurait 2,00:1 et passe à 18,88:1.
+
+**Conséquences dans le code** :
+
+- Web : `box-shadow: 0 0 0 1px var(--map-pin-casing)` sur `.artist-pin` et sur
+  son `::before`. Aucun élément ajouté.
+- Mobile : React Native n'a pas d'`outline` — une vue `popRingCasing` est
+  posée juste en dehors de l'anneau, et `ArtistAvatar` reçoit `casing`. Sa
+  bordure était blanche en dur, ce qui la rendait invisible sur la terre
+  claire ; le blanc reste le défaut hors carte.
+- `npm run contrast:check` fixe des **planchers** qui ne doivent que monter.
+  Une couleur prise isolément est toujours valide : c'est son rapport aux
+  autres qui casse, et un rapport ne se relit pas dans un diff.
+
+⚠️ **Reste à traiter** : le thème sombre a le même défaut de séparation que le
+clair avant correction — terre/eau **1,36:1**, terre/parcs **1,44:1**. Le
+plancher le consigne pour qu'on ne l'aggrave pas ; ce n'est pas une cible.
+
+---
+
 ## Paliers de compte
 
 `account_type` admet trois valeurs en base (`CHECK`, migration 00029) :

@@ -1421,6 +1421,24 @@ export function ExploreScreen({ navigation, route }: Props) {
                     },
                   ]}
                 />
+                {/* Liseré de contact de l'anneau de tier — un cercle fin
+                    JUSTE en dehors de lui. React Native n'a pas d'`outline`,
+                    donc là où le web ajoute un `box-shadow` au pseudo-élément,
+                    le mobile pose une vue. Sans lui l'anneau lime du tier 3
+                    mesure 1,16:1 sur la terre claire : invisible. */}
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.popRingCasing,
+                    {
+                      width: ringSize + 2,
+                      height: ringSize + 2,
+                      borderRadius: (ringSize + 2) / 2,
+                      top: (mapUi.markerTouchHeight - ringSize - 2) / 2,
+                      left: (mapUi.markerTouchWidth - ringSize - 2) / 2,
+                    },
+                  ]}
+                />
                 <View
                   pointerEvents="none"
                   style={[
@@ -1434,7 +1452,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       left: (mapUi.markerTouchWidth - ringSize) / 2,
                       borderColor:
                         selectedPin
-                          ? colors.brand
+                          ? colors.brandSecondary
                           : POPULARITY_RING_COLORS[pin.tier as 0 | 1 | 2 | 3],
                     },
                   ]}
@@ -1442,6 +1460,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                 <ArtistAvatar
                   artist={pin.artist}
                   size={displayedPinSize}
+                  casing={overlay.pinCasing}
                   gradient={[
                     POPULARITY_RING_COLORS[pin.tier],
                     POPULARITY_RING_COLORS[pin.tier],
@@ -2005,7 +2024,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     halo: { position: 'absolute', backgroundColor: overlay.pinHalo },
     haloTrending: { backgroundColor: overlay.pinHaloTrending },
     haloSelected: { backgroundColor: overlay.pinHaloSelected },
-    markerTip: { position: 'absolute', bottom: 12, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: colors.white },
+    markerTip: { position: 'absolute', bottom: 12, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: overlay.pinCasing },
     clusterPin: {
       minWidth: mapUi.clusterMinWidth,
       borderRadius: mapUi.clusterRadius,
@@ -2059,6 +2078,12 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       opacity: 0.9,
     },
     popRingSelected: { borderWidth: 3, opacity: 1 },
+    popRingCasing: {
+      position: 'absolute',
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: overlay.pinCasing,
+      opacity: 0.9,
+    },
     pinName: {
       position: 'absolute',
       top: -30,

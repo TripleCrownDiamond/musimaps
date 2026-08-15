@@ -39,10 +39,12 @@
   --map-glass-border: rgba(255, 255, 255, 0.15);
   --map-glass-control: rgba(255, 255, 255, 0.1);
   --map-glass-ink-soft: rgba(255, 255, 255, 0.7);
+  --map-pin-casing: rgba(11, 20, 32, 0.6);
 }
 
 :root[data-theme='dark'] {
   --map-dot: rgba(255, 255, 255, 0.06);
+  --map-pin-casing: #FFFFFF;
   --color-warm-white: #0D0F13;
   --color-secondary-bg: #191D24;
   --color-surface: #14181F;

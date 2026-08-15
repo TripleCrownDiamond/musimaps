@@ -124,14 +124,20 @@ export const lightPalette: ThemePalette = {
   inkForeground: '#FFFFFF',
   muted: '#9CA3AF',
   mapDot: '#e5e5e5',
-  mapLand: '#F8F9F2',
-  mapWater: '#DCE4FF',
-  mapLandAccent: '#E7F8D1',
-  mapSpace: '#EEF2FF',
-  mapFog: '#D5DEFF',
+  // Mesuré : avec la terre à #F8F9F2 et l'eau à #DCE4FF, le rapport
+  // terre/eau valait 1,20:1 et terre/espace 1,06:1 — les côtes et le bord du
+  // globe étaient indiscernables. La carte claire se lisait comme une feuille
+  // blanche. L'eau descend donc vers le bleu de marque et la terre gagne un
+  // cran de densité : 1,77:1 et 1,24:1.
+  mapLand: '#EFEDE4',
+  mapWater: '#9BB4EC',
+  mapLandAccent: '#C7E49F',
+  mapSpace: '#CAD6F0',
+  mapFog: '#C9D6F5',
   mapFogHigh: BRAND_PRIMARY,
   mapLabel: BRAND_PRIMARY,
-  mapLabelHalo: '#F8F9F2',
+  /** Halo des labels — suit la terre pour se lire comme une découpe. */
+  mapLabelHalo: '#EFEDE4',
 };
 
 export const darkPalette: ThemePalette = {
@@ -245,6 +251,19 @@ export interface MapOverlay {
   glassControl: string;
   /** Texte secondaire sur verre sombre. */
   glassInkSoft: string;
+  /**
+   * Liseré de contact d'un pin — le « casing » cartographique.
+   *
+   * Sans lui, un pin dont la couleur de tier a la même luminance que la terre
+   * disparaît. Mesuré : l'anneau lime du tier 3 sur la terre claire donnait
+   * **1,16:1** — les artistes les plus populaires, ceux que la carte existe
+   * pour montrer, étaient les seuls invisibles. Assombrir la terre n'y change
+   * rien (le lime suit), un liseré si : 15:1 et plus.
+   *
+   * Il s'oppose donc au FOND de carte, pas à la couleur du pin — sombre en
+   * thème clair, clair en thème sombre.
+   */
+  pinCasing: string;
 }
 
 const lightOverlay: MapOverlay = {
@@ -264,6 +283,7 @@ const lightOverlay: MapOverlay = {
   glassBorder: 'rgba(255, 255, 255, 0.15)',
   glassControl: 'rgba(255, 255, 255, 0.1)',
   glassInkSoft: 'rgba(255, 255, 255, 0.7)',
+  pinCasing: 'rgba(11, 20, 32, 0.6)',
 };
 
 const darkOverlay: MapOverlay = {
@@ -271,6 +291,8 @@ const darkOverlay: MapOverlay = {
   clusterSurface: 'rgba(20, 24, 31, 0.96)',
   panelSurface: 'rgba(16, 28, 45, 0.92)',
   controlSurface: 'rgba(255, 255, 255, 0.12)',
+  /** En sombre le liseré blanc existait déjà et fonctionnait : on le garde. */
+  pinCasing: '#FFFFFF',
 };
 
 export const mapOverlays = { light: lightOverlay, dark: darkOverlay } as const;

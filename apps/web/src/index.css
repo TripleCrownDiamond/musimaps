@@ -322,13 +322,18 @@
   opacity: var(--pin-opacity, 1);
   transition: scale 0.2s ease, opacity 0.35s ease, box-shadow 0.35s ease;
   /* Halo lumineux : la couleur du tier irradie autour du pin. */
+  /* Liseré de contact en PREMIER : il doit rester au ras du disque, sous le
+     halo. Sans lui, un pin lime posé sur la terre claire mesure 1,16:1 et
+     disparaît — voir `pinCasing` dans tokens.ts. */
   box-shadow:
+    0 0 0 1px var(--map-pin-casing),
     0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
     0 0 22px var(--pin-tier-glow, rgba(47, 82, 224, 0.25)),
     0 4px 12px rgba(0, 0, 0, 0.22);
 }
 .artist-pin:hover {
   box-shadow:
+    0 0 0 1px var(--map-pin-casing),
     0 0 14px var(--pin-tier-glow, rgba(47, 82, 224, 0.5)),
     0 0 30px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
     0 6px 14px rgba(0, 0, 0, 0.28);
@@ -343,6 +348,12 @@
   inset: -6px;
   border-radius: 9999px;
   border: 2px solid var(--pin-tier-color, transparent);
+  /* L'anneau de tier subit le même sort que le disque : le lime du tier 3 se
+     confond avec la terre claire. Un liseré 1px de part et d'autre le
+     détache du fond sans en changer la couleur, qui porte du sens. */
+  box-shadow:
+    0 0 0 1px var(--map-pin-casing),
+    inset 0 0 0 1px var(--map-pin-casing);
   opacity: 0.9;
   pointer-events: none;
 }

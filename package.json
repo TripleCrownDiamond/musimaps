@@ -25,12 +25,13 @@
     "tokens": "node scripts/gen-tokens.mjs",
     "tokens:check": "node scripts/gen-tokens.mjs --check",
     "i18n:check": "node scripts/check-i18n.mjs",
-    "check": "npm run tokens:check && npm run i18n:check && npm run design:check && npm run test:geo-repair && npm run test:map-state && npm run test:waitlist && npm run build:web && npm run typecheck",
+    "check": "npm run tokens:check && npm run i18n:check && npm run design:check && npm run contrast:check && npm run test:geo-repair && npm run test:map-state && npm run test:waitlist && npm run build:web && npm run typecheck",
     "audit:geo": "node scripts/audit-geo.mjs",
     "test:geo-repair": "node --test scripts/geo-repair.test.mjs",
     "test:map-state": "node --test scripts/mobile-map-zoom.test.mjs",
     "test:waitlist": "node --test scripts/waitlist-position.test.mjs",
-    "design:check": "node scripts/check-design.mjs"
+    "design:check": "node scripts/check-design.mjs",
+    "contrast:check": "node scripts/check-map-contrast.mjs"
   },
   "devDependencies": {
     "basic-ftp": "^6.2.0",
