@@ -8,7 +8,8 @@
  *   HOSTINGER_FTP_PORT      defaut 21
  *   HOSTINGER_FTP_USERNAME
  *   HOSTINGER_FTP_PASSWORD
- *   HOSTINGER_FTP_REMOTE_DIR defaut /domains/musimaps.app/public_html
+ *   HOSTINGER_REMOTE_DIR    OBLIGATOIRE — ex. /domains/musimaps.com/public_html
+ *                           (HOSTINGER_FTP_REMOTE_DIR accepte aussi)
  *
  * Stratégie :
  *   1. Upload recursif de tout apps/web/dist (les fichiers emis par Vite sont
@@ -159,10 +160,28 @@ async function main() {
   const password = env.HOSTINGER_FTP_PASSWORD
   const port = Number(env.HOSTINGER_FTP_PORT || 21)
   const protocol = (env.HOSTINGER_FTP_PROTOCOL || 'ftps').toLowerCase()
-  const remoteDir = (env.HOSTINGER_FTP_REMOTE_DIR || '/domains/musimaps.app/public_html').replace(/\/+$/, '')
+  /*
+   * Le dossier distant a DEUX noms de clé possibles. Le script ne lisait que
+   * `HOSTINGER_FTP_REMOTE_DIR`, absente du .env, qui déclare
+   * `HOSTINGER_REMOTE_DIR` : il retombait donc toujours sur son défaut codé en
+   * dur. Corriger le .env n'avait aucun effet — le déploiement repartait sur
+   * le domaine du défaut. Constaté en livrant 94 fichiers dans le mauvais
+   * domaine du compte.
+   *
+   * Plus de défaut codé en dur : une cible de déploiement se déclare, elle ne
+   * se devine pas.
+   */
+  const remoteDir = (env.HOSTINGER_FTP_REMOTE_DIR || env.HOSTINGER_REMOTE_DIR || '').replace(/\/+$/, '')
 
-  if (!host || !user || !password || !remoteDir) {
+  if (!host || !user || !password) {
     console.error('Configuration Hostinger incomplète. Vérifiez les variables HOSTINGER_FTP_* dans .env')
+    process.exit(1)
+  }
+  if (!remoteDir) {
+    console.error(
+      'Dossier distant non défini. Ajoutez dans .env :\n' +
+        '  HOSTINGER_REMOTE_DIR=/domains/<votre-domaine>/public_html',
+    )
     process.exit(1)
   }
   if (protocol === 'sftp') {
@@ -180,31 +199,72 @@ async function main() {
   await applyCachePolicyFromDb()
 
   const client = new Client()
+  const access = {
+    host,
+    port,
+    user,
+    password,
+    secure: protocol === 'ftps' ? 'explicit' : false,
+    secureOptions: { rejectUnauthorized: false },
+  }
+
+  /**
+   * Rejoue une opération FTP qui a échoué, en se reconnectant d'abord.
+   *
+   * Hostinger refuse par moments d'ouvrir une connexion de données quand
+   * elles s'enchaînent vite : « Can't open data connection in passive mode:
+   * connect ETIMEDOUT ». Constaté en plein déploiement, APRÈS une trentaine
+   * de fichiers déjà passés — ce n'est donc pas une mauvaise configuration du
+   * mode passif, c'est un refus ponctuel.
+   *
+   * Sans reprise, le script s'arrête au milieu de l'upload. Les noms émis par
+   * Vite étant hachés, le site reste servi par son ancien `index.html` et ne
+   * casse pas — mais le déploiement est à refaire en entier, et il peut
+   * échouer au même endroit.
+   *
+   * La reconnexion est nécessaire : après un refus, la connexion de contrôle
+   * n'est plus exploitable pour un transfert.
+   */
+  async function withRetry(label, run, attempts = 5) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await run()
+      } catch (err) {
+        if (attempt >= attempts) throw err
+        const wait = 1000 * attempt
+        console.log(`  ! ${label} — essai ${attempt}/${attempts} échoué (${err.message}). Reprise dans ${wait} ms.`)
+        await new Promise((resolve) => setTimeout(resolve, wait))
+        try {
+          client.close()
+        } catch {
+          // La connexion était déjà morte : c'est le cas normal ici.
+        }
+        await client.access(access)
+      }
+    }
+  }
+
   try {
     console.log(`Connexion ${protocol === 'ftps' ? 'FTPS (explicite)' : 'FTP'} -> ${host}:${port} ...`)
-    await client.access({
-      host,
-      port,
-      user,
-      password,
-      secure: protocol === 'ftps' ? 'explicit' : false,
-      secureOptions: { rejectUnauthorized: false },
-    })
+    await client.access(access)
     console.log(`Connecté. Déploiement vers ${remoteDir} ...`)
 
     // 1. Upload
     let uploaded = 0
     for (const rel of [...localFiles].sort()) {
       const dest = `${remoteDir}/${rel}`
-      await client.ensureDir(dirname(dest))
-      await client.uploadFrom(join(LOCAL_DIR, ...rel.split('/')), dest)
+      await withRetry(rel, async () => {
+        await client.ensureDir(dirname(dest))
+        await client.uploadFrom(join(LOCAL_DIR, ...rel.split('/')), dest)
+      })
       uploaded++
       console.log(`  + ${rel}`)
     }
     console.log(`Upload terminé : ${uploaded} fichier(s).`)
 
     // 2. Nettoyage des anciens fichiers
-    const removed = await cleanup(client, remoteDir, localFiles)
+    // `cleanup` relit le distant avant d'agir : le rejouer est sans risque.
+    const removed = await withRetry('nettoyage', () => cleanup(client, remoteDir, localFiles))
     console.log(`Nettoyage terminé : ${removed} fichier(s) obsolète(s) supprimé(s).`)
     console.log(`Déploiement terminé ✓ (${localFiles.size} fichiers, ${localDirs.size} dossiers)`)
   } finally {
