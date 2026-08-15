@@ -227,8 +227,6 @@ export interface MapOverlay {
   pinInkInverse: string;
   /** Fond de l'étiquette de nom au-dessus d'un pin. */
   labelSurface: string;
-  /** Filet du point de cluster en vue globe. */
-  dotBorder: string;
   /** Fond d'un pin de cluster. */
   clusterSurface: string;
   /** Fond des panneaux flottants — barre de recherche, boutons de contrôle. */
@@ -273,7 +271,6 @@ const lightOverlay: MapOverlay = {
   pinInk: '#0B1420',
   pinInkInverse: '#FFFFFF',
   labelSurface: 'rgba(13, 15, 19, 0.92)',
-  dotBorder: 'rgba(255, 255, 255, 0.55)',
   clusterSurface: 'rgba(255, 255, 255, 0.97)',
   panelSurface: 'rgba(255, 255, 255, 0.95)',
   controlSurface: 'rgba(255, 255, 255, 0.94)',

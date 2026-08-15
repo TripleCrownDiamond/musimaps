@@ -2030,7 +2030,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       borderRadius: mapUi.clusterRadius,
       backgroundColor: overlay.clusterSurface,
       borderWidth: 2,
-      borderColor: colors.brandPrimary,
+      borderColor: overlay.pinCasing,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: mapUi.clusterPaddingX,
@@ -2047,7 +2047,9 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       paddingHorizontal: 0,
       paddingVertical: 0,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: overlay.dotBorder,
+      // Liseré commun avec le web. Il valait un blanc à 55 % qui n'apportait
+      // rien sur fond clair.
+      borderColor: overlay.pinCasing,
       backgroundColor: colors.brandPrimary,
     },
     // Sous-cluster : un DISQUE, pas une pilule. Il faisait 44 × 26 pour un
@@ -2061,8 +2063,11 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       paddingVertical: 0,
       borderRadius: mapUi.subclusterDiameter / 2,
       borderWidth: 1.5,
-      backgroundColor: colors.brand,
-      borderColor: colors.brand,
+      backgroundColor: colors.brandSecondary,
+      // Le liseré valait le lime lui-même : un disque lime bordé de lime sur
+      // la terre claire, soit 1,05:1 — le sous-cluster disparaissait. Même
+      // token que `.artist-pin--sub` côté web.
+      borderColor: overlay.pinCasing,
     },
     clusterPinMain: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, lineHeight: 15 },
     clusterPinStats: {

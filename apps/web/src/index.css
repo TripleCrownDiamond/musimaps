@@ -302,7 +302,12 @@
   width: var(--map-pin-diameter);
   height: var(--map-pin-diameter);
   border-radius: 9999px;
-  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  /* Liseré de contact. Il était blanc en dur — donc invisible sur la terre
+     claire, exactement comme la bordure d'`ArtistAvatar` côté mobile. Il
+     s'oppose au FOND de carte : sombre en clair, blanc en sombre. Les pins de
+     cluster n'en redéfinissent que l'ÉPAISSEUR, ils héritent donc de cette
+     couleur — c'est voulu. Voir `pinCasing` dans tokens.ts. */
+  border: 2.5px solid var(--map-pin-casing);
   background: var(--pin-tier-color, var(--color-brand-deep));
   color: var(--pin-ink, var(--color-brand-deep-foreground));
   font-weight: 700;
@@ -322,18 +327,17 @@
   opacity: var(--pin-opacity, 1);
   transition: scale 0.2s ease, opacity 0.35s ease, box-shadow 0.35s ease;
   /* Halo lumineux : la couleur du tier irradie autour du pin. */
-  /* Liseré de contact en PREMIER : il doit rester au ras du disque, sous le
-     halo. Sans lui, un pin lime posé sur la terre claire mesure 1,16:1 et
-     disparaît — voir `pinCasing` dans tokens.ts. */
+  /* Halo lumineux : la couleur du tier irradie autour du pin. Le liseré est
+     porté par la BORDURE et non par une ombre : les variantes de cluster
+     redéfinissent `box-shadow` en entier, un liseré posé ici disparaîtrait
+     donc sur les pins qu'on voit le plus en vue globe. */
   box-shadow:
-    0 0 0 1px var(--map-pin-casing),
     0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
     0 0 22px var(--pin-tier-glow, rgba(47, 82, 224, 0.25)),
     0 4px 12px rgba(0, 0, 0, 0.22);
 }
 .artist-pin:hover {
   box-shadow:
-    0 0 0 1px var(--map-pin-casing),
     0 0 14px var(--pin-tier-glow, rgba(47, 82, 224, 0.5)),
     0 0 30px var(--pin-tier-glow, rgba(47, 82, 224, 0.35)),
     0 6px 14px rgba(0, 0, 0, 0.28);
@@ -536,7 +540,9 @@
   padding: 0;
   border-radius: 9999px;
   border-width: 1.5px;
-  border-color: rgba(0, 0, 0, 0.14);
+  /* Valait `rgba(0, 0, 0, 0.14)` en dur : un liseré sombre non thématisé, donc
+     presque invisible sur la carte sombre. Il rejoint le token commun. */
+  border-color: var(--map-pin-casing);
   background: var(--pin-tier-color, var(--color-brand));
   color: var(--pin-ink, var(--map-pin-ink));
   box-shadow:
