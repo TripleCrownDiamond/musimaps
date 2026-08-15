@@ -359,8 +359,8 @@
   bottom: calc(100% + 10px);
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(13, 15, 19, 0.92);
-  color: #fff;
+  background: var(--map-label-surface);
+  color: var(--map-pin-ink-inverse);
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
@@ -401,7 +401,7 @@
   opacity: 1;
   transform: translateX(-50%) translateY(0);
   background: var(--color-brand);
-  color: #0b1420;
+  color: var(--map-pin-ink);
   font-weight: 700;
 }
 
@@ -527,7 +527,7 @@
   border-width: 1.5px;
   border-color: rgba(0, 0, 0, 0.14);
   background: var(--pin-tier-color, var(--color-brand));
-  color: var(--pin-ink, #0b1420);
+  color: var(--pin-ink, var(--map-pin-ink));
   box-shadow:
     0 0 10px var(--pin-tier-glow, rgba(168, 255, 53, 0.4)),
     0 0 22px var(--pin-tier-glow, rgba(168, 255, 53, 0.25)),

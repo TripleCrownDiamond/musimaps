@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
-import { lightPalette, darkPalette, mapUi, typography } from '../packages/shared/src/design/tokens.ts';
+import { lightPalette, darkPalette, mapOverlays, mapUi, typography } from '../packages/shared/src/design/tokens.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(here, '../apps/web/src/tokens.generated.css');
@@ -62,6 +62,17 @@ const DARK_KEYS = [
   ['--color-ink-foreground', 'inkForeground'],
 ];
 
+/**
+ * Voile des surfaces posées sur la carte. Le web n'en consomme aujourd'hui
+ * que l'étiquette de nom d'un pin (`.artist-pin__tooltip`) ; le reste du jeu
+ * est mobile-only et n'a pas à encombrer le CSS.
+ */
+const OVERLAY_KEYS = [
+  ['--map-label-surface', 'labelSurface'],
+  ['--map-pin-ink', 'pinInk'],
+  ['--map-pin-ink-inverse', 'pinInkInverse'],
+];
+
 const lines = [
   '/* GÉNÉRÉ — ne pas éditer à la main.',
   ' * Source : packages/shared/src/design/tokens.ts',
@@ -81,6 +92,7 @@ const lines = [
   `  --map-cluster-padding-x: ${mapUi.clusterPaddingX}px;`,
   `  --map-cluster-padding-y: ${mapUi.clusterPaddingY}px;`,
   `  --map-subcluster-diameter: ${mapUi.subclusterDiameter}px;`,
+  ...OVERLAY_KEYS.map(([css, key]) => `  ${css}: ${mapOverlays.light[key]};`),
   '}',
   '',
   ':root[data-theme=\'dark\'] {',

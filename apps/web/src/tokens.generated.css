@@ -32,6 +32,9 @@
   --map-cluster-padding-x: 13px;
   --map-cluster-padding-y: 7px;
   --map-subcluster-diameter: 40px;
+  --map-label-surface: rgba(13, 15, 19, 0.92);
+  --map-pin-ink: #0B1420;
+  --map-pin-ink-inverse: #FFFFFF;
 }
 
 :root[data-theme='dark'] {

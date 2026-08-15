@@ -52,7 +52,9 @@ import {
   isValidCoordinate,
   shouldReleaseScope,
   levelFor,
+  mapOverlays,
   mapUi,
+  type MapOverlay,
   MAX_ZOOM,
   PIN_LABEL_ZOOM,
   pinOpacityFor,
@@ -150,7 +152,9 @@ export function ExploreScreen({ navigation, route }: Props) {
   const { deviceId, recordCityVisit } = useApp();
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
-  const styles = useMemo(() => createStyles(colors, theme === 'dark'), [colors, theme]);
+  /** Voile des surfaces posées sur la carte — même jeu que le web. */
+  const overlay = mapOverlays[theme];
+  const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
@@ -1177,7 +1181,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           ) : (
             <>
               <View style={styles.locIconTile}>
-                <Ionicons name="navigate" size={54} color="#111111" />
+                <Ionicons name="navigate" size={54} color={colors.black} />
               </View>
               <Text style={styles.locTitle}>{t('loc.title')}</Text>
               <Text style={styles.locSubtitle}>{t('loc.subtitle')}</Text>
@@ -1356,7 +1360,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       style={[
                         styles.clusterPinMain,
                         pin.variant !== 'sub' && {
-                          color: pin.tier === 3 ? '#0b1420' : '#ffffff',
+                          color: pin.tier === 3 ? overlay.pinInk : overlay.pinInkInverse,
                         },
                       ]}
                     >
@@ -1442,7 +1446,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                     POPULARITY_RING_COLORS[pin.tier],
                     POPULARITY_RING_COLORS[pin.tier],
                   ]}
-                  initialsColor={pin.tier === 3 ? '#0b1420' : '#ffffff'}
+                  initialsColor={pin.tier === 3 ? overlay.pinInk : overlay.pinInkInverse}
                 />
                 <View style={styles.markerTip} />
                 {(showPinNameFor(pin.key) || selectedPin) && (
@@ -1985,7 +1989,7 @@ function DiscoverSelect({
   );
 }
 
-const createStyles = (colors: AppColors, isDark: boolean) =>
+const createStyles = (colors: AppColors, overlay: MapOverlay) =>
   StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
     missingToken: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
@@ -1998,16 +2002,16 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       justifyContent: 'center',
     },
     markerWrapSelected: { zIndex: 1200 },
-    halo: { position: 'absolute', backgroundColor: 'rgba(168,255,53,0.3)' },
-    haloTrending: { backgroundColor: 'rgba(255,78,91,0.26)' },
-    haloSelected: { backgroundColor: 'rgba(47,82,224,0.32)' },
+    halo: { position: 'absolute', backgroundColor: overlay.pinHalo },
+    haloTrending: { backgroundColor: overlay.pinHaloTrending },
+    haloSelected: { backgroundColor: overlay.pinHaloSelected },
     markerTip: { position: 'absolute', bottom: 12, width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: colors.white },
     clusterPin: {
       minWidth: mapUi.clusterMinWidth,
       borderRadius: mapUi.clusterRadius,
-      backgroundColor: isDark ? 'rgba(20,24,31,0.96)' : 'rgba(255,255,255,0.97)',
+      backgroundColor: overlay.clusterSurface,
       borderWidth: 2,
-      borderColor: colors.brandDeep,
+      borderColor: colors.brandPrimary,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: mapUi.clusterPaddingX,
@@ -2024,8 +2028,8 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       paddingHorizontal: 0,
       paddingVertical: 0,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'rgba(255,255,255,0.55)',
-      backgroundColor: colors.brandDeep,
+      borderColor: overlay.dotBorder,
+      backgroundColor: colors.brandPrimary,
     },
     // Sous-cluster : un DISQUE, pas une pilule. Il faisait 44 × 26 pour un
     // seul nombre, et le rayon hérité (17) étant plafonné à la moitié de la
@@ -2061,8 +2065,8 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       left: -(mapUi.pinLabelWidth - mapUi.markerTouchWidth) / 2,
       width: mapUi.pinLabelWidth,
       alignItems: 'center',
-      backgroundColor: 'rgba(13,15,19,0.92)',
-      color: '#fff',
+      backgroundColor: overlay.labelSurface,
+      color: overlay.pinInkInverse,
       fontFamily: fonts.medium,
       fontSize: 11,
       paddingHorizontal: 9,
@@ -2073,8 +2077,8 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       zIndex: 1300,
     },
     pinNameSelected: {
-      backgroundColor: colors.brand,
-      color: '#0b1420',
+      backgroundColor: colors.brandSecondary,
+      color: overlay.pinInk,
       fontFamily: fonts.bold,
       fontSize: 12,
       width: mapUi.pinLabelWidth,
@@ -2086,7 +2090,7 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
       borderRadius: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.94)',
+      backgroundColor: overlay.controlSurface,
       ...shadow,
     },
     locView: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, paddingBottom: 40 },
@@ -2103,7 +2107,7 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     searchBar: {
       minHeight: 46,
       borderRadius: 23,
-      backgroundColor: isDark ? 'rgba(16,28,45,0.92)' : 'rgba(255,255,255,0.95)',
+      backgroundColor: overlay.panelSurface,
       borderWidth: 1,
       borderColor: colors.line,
       flexDirection: 'row',
@@ -2117,7 +2121,7 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     controlBtn: {
       minHeight: 44,
       borderRadius: 22,
-      backgroundColor: isDark ? 'rgba(16,28,45,0.92)' : 'rgba(255,255,255,0.95)',
+      backgroundColor: overlay.panelSurface,
       borderWidth: 1,
       borderColor: colors.line,
       flexDirection: 'row',
@@ -2130,7 +2134,7 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     controlBtnText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13 },
     controlBtnTextActive: { color: colors.black },
     searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 40, justifyContent: 'flex-end' },
-    scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(3,10,20,0.25)', zIndex: 0 },
+    scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: overlay.scrim, zIndex: 0 },
     sheet: {
       height: '62%',
       backgroundColor: colors.surface,
@@ -2197,7 +2201,7 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     },
     discoverSelectText: { flex: 1, color: colors.ink, fontFamily: fonts.medium, fontSize: 14 },
     discoverSelectPlaceholder: { color: colors.muted },
-    pickerScrim: { flex: 1, backgroundColor: 'rgba(3,10,20,0.35)', justifyContent: 'flex-end' },
+    pickerScrim: { flex: 1, backgroundColor: overlay.scrimStrong, justifyContent: 'flex-end' },
     pickerSheet: {
       backgroundColor: colors.surface,
       borderTopLeftRadius: 24,

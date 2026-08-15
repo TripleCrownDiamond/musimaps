@@ -195,6 +195,71 @@ export const mapUi = {
 } as const;
 
 /**
+ * Voile des surfaces posées SUR la carte : pastilles de pin, étiquettes de
+ * nom, panneaux flottants, scrims.
+ *
+ * Pourquoi un jeu à part et non les tokens de surface : ces valeurs sont
+ * translucides par nature — elles laissent voir le globe dessous. `surface`
+ * est opaque ; on ne peut pas les en dériver.
+ *
+ * Pourquoi ici et non dans l'app : elles sont vraies pour le PRODUIT. Le web
+ * les écrivait dans `index.css` et le mobile dans son `StyleSheet`, avec les
+ * mêmes chiffres recopiés des deux côtés — `rgba(13, 15, 19, 0.92)` pour le
+ * fond d'étiquette et `#0B1420` pour son encre. Deux copies, aucune garantie
+ * qu'elles restent égales.
+ */
+export interface MapOverlay {
+  /** Halo sous un pin d'artiste — lime secondaire. */
+  pinHalo: string;
+  /** Halo d'un artiste en tendance. */
+  pinHaloTrending: string;
+  /** Halo du pin sélectionné — bleu principal. */
+  pinHaloSelected: string;
+  /** Encre posée sur un fond clair de pin (lime du tier le plus haut). */
+  pinInk: string;
+  /** Encre posée sur un fond sombre de pin. */
+  pinInkInverse: string;
+  /** Fond de l'étiquette de nom au-dessus d'un pin. */
+  labelSurface: string;
+  /** Filet du point de cluster en vue globe. */
+  dotBorder: string;
+  /** Fond d'un pin de cluster. */
+  clusterSurface: string;
+  /** Fond des panneaux flottants — barre de recherche, boutons de contrôle. */
+  panelSurface: string;
+  /** Fond du bouton de rotation du globe. */
+  controlSurface: string;
+  /** Voile sous une feuille modale. */
+  scrim: string;
+  /** Voile plus dense du sélecteur plein écran. */
+  scrimStrong: string;
+}
+
+const lightOverlay: MapOverlay = {
+  pinHalo: 'rgba(168, 255, 53, 0.3)',
+  pinHaloTrending: 'rgba(255, 78, 91, 0.26)',
+  pinHaloSelected: 'rgba(47, 82, 224, 0.32)',
+  pinInk: '#0B1420',
+  pinInkInverse: '#FFFFFF',
+  labelSurface: 'rgba(13, 15, 19, 0.92)',
+  dotBorder: 'rgba(255, 255, 255, 0.55)',
+  clusterSurface: 'rgba(255, 255, 255, 0.97)',
+  panelSurface: 'rgba(255, 255, 255, 0.95)',
+  controlSurface: 'rgba(255, 255, 255, 0.94)',
+  scrim: 'rgba(3, 10, 20, 0.25)',
+  scrimStrong: 'rgba(3, 10, 20, 0.35)',
+};
+
+const darkOverlay: MapOverlay = {
+  ...lightOverlay,
+  clusterSurface: 'rgba(20, 24, 31, 0.96)',
+  panelSurface: 'rgba(16, 28, 45, 0.92)',
+  controlSurface: 'rgba(255, 255, 255, 0.12)',
+};
+
+export const mapOverlays = { light: lightOverlay, dark: darkOverlay } as const;
+
+/**
  * Familles typographiques. Le web les charge en webfonts, le mobile bundle
  * les .ttf dans `assets/fonts` — mêmes familles, mêmes graisses.
  */
