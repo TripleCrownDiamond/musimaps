@@ -48,14 +48,16 @@ export default function PlacePanel({
 
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-28 z-30 flex justify-center px-4 sm:bottom-24">
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-white/15 bg-black/45 px-2 py-1.5 shadow-xl backdrop-blur-xl">
+      {/* Verre sombre : mêmes valeurs que la mini-barre mobile, lues depuis
+          `mapOverlays` via les variables générées — voir tokens.ts. */}
+      <div className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-[var(--map-glass-border)] bg-[var(--map-glass-surface)] px-2 py-1.5 shadow-xl backdrop-blur-xl">
         {/* Flèche précédent — translucide comme le bouton play */}
         <button
           type="button"
           onClick={() => jump(-1)}
           aria-label={t('place.prev')}
           title={t('place.prev')}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/25"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--map-glass-control)] text-white transition-colors hover:bg-white/25"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -71,7 +73,7 @@ export default function PlacePanel({
           <span className="max-w-[42vw] truncate text-sm font-bold leading-tight text-white sm:max-w-none">
             {current?.name ?? place.name}
           </span>
-          <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-white/70">
+          <span className="flex items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-[var(--map-glass-ink-soft)]">
             <span>{place.flag}</span>
             <span className="max-w-[30vw] truncate sm:max-w-none">{place.name}</span>
             <span aria-hidden>·</span>
@@ -85,7 +87,7 @@ export default function PlacePanel({
           onClick={() => jump(1)}
           aria-label={t('place.next')}
           title={t('place.next')}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/25"
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--map-glass-control)] text-white transition-colors hover:bg-white/25"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

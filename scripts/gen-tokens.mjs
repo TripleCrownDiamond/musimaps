@@ -63,14 +63,19 @@ const DARK_KEYS = [
 ];
 
 /**
- * Voile des surfaces posées sur la carte. Le web n'en consomme aujourd'hui
- * que l'étiquette de nom d'un pin (`.artist-pin__tooltip`) ; le reste du jeu
- * est mobile-only et n'a pas à encombrer le CSS.
+ * Voile des surfaces posées sur la carte. On n'émet que ce que le web
+ * consomme : l'étiquette de nom d'un pin (`.artist-pin__tooltip`) et le verre
+ * sombre de la mini-barre de lieu (`PlacePanel`). Les scrims et les fonds de
+ * panneaux sont mobile-only et n'ont pas à encombrer le CSS.
  */
 const OVERLAY_KEYS = [
   ['--map-label-surface', 'labelSurface'],
   ['--map-pin-ink', 'pinInk'],
   ['--map-pin-ink-inverse', 'pinInkInverse'],
+  ['--map-glass-surface', 'glassSurface'],
+  ['--map-glass-border', 'glassBorder'],
+  ['--map-glass-control', 'glassControl'],
+  ['--map-glass-ink-soft', 'glassInkSoft'],
 ];
 
 const lines = [

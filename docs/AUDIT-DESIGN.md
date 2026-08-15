@@ -10,7 +10,7 @@ migration du catalogue d'écrans reste partielle.
 
 | | Web | Mobile |
 |---|---|---|
-| Primitives d'UI | 17 (`components/ui/`, shadcn) | 6 (`Button`, `Input`, `Card`, `AuthLayout`, `PasswordInput`, index) |
+| Primitives d'UI | 17 (`components/ui/`, shadcn) | 7 (`Button`, `Input`, `Card`/`Field`/`Section`, `AuthLayout`, `PasswordInput`, `ScreenHeader`) |
 | Composants métier | ~20 | 11 |
 
 `Login`, `Signup`, `ForgotPassword`, `ResetPassword` et la vue Discover consomment déjà ce socle. Les écrans
@@ -24,25 +24,40 @@ source principale de dérive.
 | | Occurrences |
 |---|---|
 | Web (pages publiques) | ~3 |
-| **Mobile** | **68** |
+| **Mobile** | **24** (était 91, puis 68) |
 
 Le web est propre parce que Tailwind résout les classes vers les variables CSS
-générées depuis `tokens.ts`. Le mobile écrit `'rgba(255,255,255,0.55)'` en
-clair, encore 68 fois dans les écrans historiques.
+générées depuis `tokens.ts`. Le mobile écrivait `'rgba(255,255,255,0.55)'` en
+clair, 68 fois dans les écrans historiques.
 
-Conséquence : changer une couleur dans `tokens.ts` met à jour le web
+Conséquence : changer une couleur dans `tokens.ts` mettait à jour le web
 intégralement et le mobile **partiellement**. La dérive de palette que la
-phase 1 devait supprimer peut donc revenir par cette porte.
+phase 1 devait supprimer pouvait donc revenir par cette porte.
+
+Deux familles ont été traitées :
+
+1. **Les écrans** — Start, Badges, Profil et les écrans d'authentification
+   consomment le socle et les tokens.
+2. **Le voile de la carte** — halos de pin, étiquettes de nom, verre sombre de
+   la mini-barre de lieu. Ces valeurs sont translucides par nature (elles
+   laissent voir le globe) donc non dérivables de `surface`, qui est opaque.
+   Elles vivent dans `mapOverlays` et sont émises en variables CSS pour le
+   web : `rgba(13, 15, 19, 0.92)` et `#0B1420` étaient recopiés à l'identique
+   dans `index.css` **et** dans le `StyleSheet` mobile.
+
+Les 24 restantes se concentrent sur `PasswordGauge` (5), `StartScreen` (5,
+volontaires — voile sur photo), `DashboardScreen` (3) et `AppBar` (3).
 
 ### Aucune échelle respectée sur mobile
 
-| Propriété | Occurrences | Valeurs distinctes |
+| Propriété | Valeurs distinctes | Aujourd'hui |
 |---|---|---|
-| `borderRadius` hors tokens | — | **36 occurrences** |
-| `padding*` | 238 | **37** |
+| `borderRadius` | **36** au départ | **29** |
+| `padding*` | **37** au départ | **35** |
 
-Les nouvelles primitives lisent les tokens partagés (`radii`, `spacing`). Les 36 occurrences encore
-signalées appartiennent au code historique à migrer.
+Les primitives et les écrans migrés lisent les tokens partagés (`radii`, `spacing`). Les valeurs
+encore signalées appartiennent au code historique à migrer — au premier rang `ExploreScreen`, qui
+n'a été repris que sur ses couleurs.
 
 ## Écarts d'écran
 
@@ -63,9 +78,10 @@ dashboard et les deux écrans absents.
 
 ### A. Socle de primitives mobile
 
-**En cours.** `Button`, `Input`, `Card`, `AuthLayout` et `PasswordInput` existent dans
-`apps/mobile/src/ui/` et lisent les tokens partagés. Il reste à compléter les primitives métier
-(`Badge`) au fil des migrations ; `Section` est déjà exposée par le socle.
+**En cours.** `Button`, `Input`, `Card` / `Field` / `Section`, `AuthLayout`, `PasswordInput` et
+`ScreenHeader` existent dans `apps/mobile/src/ui/` et lisent les tokens partagés. `Card` accepte
+`onPress` : les écrans écrivaient chacun leur `Pressable` avec une opacité différente au pressé
+(0,6 · 0,82 · 0,85). Il reste à compléter les primitives métier (`Badge`) au fil des migrations.
 
 C'est la fondation : sans elle, chaque écran repris réintroduit des valeurs en
 dur. **À faire en premier**, tout le reste en dépend.
@@ -76,6 +92,14 @@ Reprendre les 11 composants et 14 écrans mobiles pour qu'ils consomment le
 socle. Objectif chiffré : ramener les 91 couleurs en dur sous 10 (il en
 restera pour les cas légitimes — halos de carte, dégradés) et les 38 rayons à
 l'échelle `radii`.
+
+**Fait** : `Login`, `Signup`, `ForgotPassword`, `ResetPassword`, `Discover`, `Start`, `Badges`,
+`Profil`, `PlacePanel`, et les couleurs d'`ExploreScreen`. **91 → 24** couleurs en dur,
+**36 → 29** rayons. `npm run design:check` verrouille chaque palier atteint.
+
+**Reste** : `PasswordGauge`, `DashboardScreen`, `AppBar`, `SearchablePicker`, `ArtistSheet`,
+`OnboardingScreen`, `ArtistJoinScreen`, `Charts`, `BookingModal` — et l'échelle d'espacement
+d'`ExploreScreen`, qui tombera avec son découpage (phase F).
 
 ### C. Écrans manquants
 

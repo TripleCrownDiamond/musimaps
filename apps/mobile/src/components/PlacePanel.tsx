@@ -2,9 +2,16 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mapUi, nextIndexWithinPlace, type Artist } from '@musimaps/shared';
+import { mapOverlays, mapUi, nextIndexWithinPlace, type Artist } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fonts, shadow } from '../theme';
+
+/**
+ * Le verre sombre est le même dans les deux thèmes : cette barre se lit par
+ * rapport à la carte, pas par rapport à l'interface. On prend donc le jeu
+ * clair — `glass*` y est identique au jeu sombre.
+ */
+const glass = mapOverlays.light;
 
 export interface PlacePanelData {
   kind: 'country' | 'city';
@@ -56,7 +63,7 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
           onPress={() => jump(-1)}
           style={({ pressed }) => [styles.arrow, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-back" size={18} color="#ffffff" />
+          <Ionicons name="chevron-back" size={18} color={glass.pinInkInverse} />
         </Pressable>
 
         {/* Artiste COURANT en principal, lieu et position en secondaire —
@@ -86,7 +93,7 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
           onPress={() => jump(1)}
           style={({ pressed }) => [styles.arrow, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="chevron-forward" size={18} color="#ffffff" />
+          <Ionicons name="chevron-forward" size={18} color={glass.pinInkInverse} />
         </Pressable>
 
         <Pressable
@@ -96,7 +103,7 @@ export function PlacePanel({ place, index, onJump, onSelect, onClose }: PlacePan
           onPress={onClose}
           style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
         >
-          <Ionicons name="close" size={15} color="rgba(255,255,255,0.7)" />
+          <Ionicons name="close" size={15} color={glass.glassInkSoft} />
         </Pressable>
       </View>
     </View>
@@ -118,8 +125,8 @@ function createStyles() {
       gap: 6,
       borderRadius: 999,
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: 'rgba(255,255,255,0.15)',
-      backgroundColor: 'rgba(0,0,0,0.45)',
+      borderColor: glass.glassBorder,
+      backgroundColor: glass.glassSurface,
       paddingVertical: 6,
       paddingHorizontal: 8,
       maxWidth: '100%',
@@ -131,7 +138,7 @@ function createStyles() {
       borderRadius: mapUi.placeControlSize / 2,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.10)',
+      backgroundColor: glass.glassControl,
     },
     copyBtn: {
       flexDirection: 'column',
@@ -147,7 +154,7 @@ function createStyles() {
       fontFamily: fonts.bold,
       fontSize: 14,
       lineHeight: 18,
-      color: '#ffffff',
+      color: glass.pinInkInverse,
       maxWidth: mapUi.pinLabelWidth,
     },
     metaRow: {
@@ -159,7 +166,7 @@ function createStyles() {
     meta: {
       fontFamily: fonts.medium,
       fontSize: 11,
-      color: 'rgba(255,255,255,0.70)',
+      color: glass.glassInkSoft,
       flexShrink: 1,
     },
     closeBtn: {

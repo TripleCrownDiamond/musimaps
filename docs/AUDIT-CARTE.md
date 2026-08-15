@@ -89,9 +89,12 @@ Le callback obsolète `onRegionIsChanging`, incompatible avec `onCameraChanged` 
 | Opacité du pin par zoom | `min(1, max(0.5, 0.5 + (z−1)·0.06))` (`:424`) | **absente** |
 | Affichage du nom | au survol uniquement | `mapZoom >= 12.5` (`:265`) |
 | `spreadFactor` | calculé hors boucle (`:154`) | recalculé dans la boucle (`:129`) |
-| Fond du `PlacePanel` | `bg-black/45` | `rgba(8,12,18,0.55)` |
-| Bordure du `PlacePanel` | `white/15` | `rgba(255,255,255,0.18)` |
 | Rotation auto | `requestAnimationFrame` + `jumpTo`, −0.06°/frame | `setInterval` 120 ms |
+
+✅ **Résolu** — le `PlacePanel` divergeait sur son fond (`bg-black/45` contre `rgba(8,12,18,0.55)`)
+et sa bordure (`white/15` contre `rgba(255,255,255,0.18)`). Les deux plateformes lisent désormais
+`mapOverlays.glass*` dans `packages/shared/src/design/tokens.ts` — le web via les variables CSS
+générées, le mobile directement. Vérifié dans le navigateur : rendu identique à l'octet près.
 
 Sur l'affichage du nom : le web ne l'affiche qu'au survol — donc **jamais au tactile**. Un
 utilisateur web sur mobile ne voit aucun nom de pin.

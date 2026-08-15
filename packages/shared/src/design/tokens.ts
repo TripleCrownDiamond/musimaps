@@ -233,6 +233,18 @@ export interface MapOverlay {
   scrim: string;
   /** Voile plus dense du sélecteur plein écran. */
   scrimStrong: string;
+  /**
+   * Verre sombre des barres flottantes posées sur le globe — mini-barre de
+   * lieu, bouton de lecture. Toujours sombre, quel que soit le thème : ces
+   * barres se lisent par rapport à la carte, pas par rapport à l'interface.
+   */
+  glassSurface: string;
+  /** Filet du verre sombre. */
+  glassBorder: string;
+  /** Fond d'un contrôle rond posé sur le verre sombre. */
+  glassControl: string;
+  /** Texte secondaire sur verre sombre. */
+  glassInkSoft: string;
 }
 
 const lightOverlay: MapOverlay = {
@@ -248,6 +260,10 @@ const lightOverlay: MapOverlay = {
   controlSurface: 'rgba(255, 255, 255, 0.94)',
   scrim: 'rgba(3, 10, 20, 0.25)',
   scrimStrong: 'rgba(3, 10, 20, 0.35)',
+  glassSurface: 'rgba(0, 0, 0, 0.45)',
+  glassBorder: 'rgba(255, 255, 255, 0.15)',
+  glassControl: 'rgba(255, 255, 255, 0.1)',
+  glassInkSoft: 'rgba(255, 255, 255, 0.7)',
 };
 
 const darkOverlay: MapOverlay = {
