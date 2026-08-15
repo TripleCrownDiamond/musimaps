@@ -5,7 +5,7 @@
  * couple label + message d'erreur utilisé par les formulaires web.
  */
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { radii, spacing } from '@musimaps/shared';
 import { useAppTheme } from '../context/ThemeContext';
 import { fonts } from '../theme';
@@ -14,24 +14,36 @@ interface CardProps {
   children: ReactNode;
   /** Sans bordure ni fond — pour grouper sans encadrer. */
   plain?: boolean;
+  /**
+   * Carte cliquable — devient un `Pressable` et prend le retour au pressé.
+   * Les écrans écrivaient leur propre `Pressable` + `opacity` à la main, avec
+   * une valeur différente par écran (0.82, 0.85, 0.6…).
+   */
+  onPress?: () => void;
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
 }
 
-export function Card({ children, plain = false, style }: CardProps) {
+export function Card({ children, plain = false, onPress, accessibilityLabel, style }: CardProps) {
   const { colors } = useAppTheme();
-  return (
-    <View
-      style={[
-        styles.card,
-        plain
-          ? { backgroundColor: 'transparent', borderWidth: 0, padding: 0 }
-          : { backgroundColor: colors.surface, borderColor: colors.line },
-        style,
-      ]}
-    >
-      {children}
-    </View>
-  );
+  const skin = plain
+    ? { backgroundColor: 'transparent', borderWidth: 0, padding: 0 }
+    : { backgroundColor: colors.surface, borderColor: colors.line };
+
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={onPress}
+        style={({ pressed }) => [styles.card, skin, style, pressed && styles.pressed]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  return <View style={[styles.card, skin, style]}>{children}</View>;
 }
 
 interface FieldProps {
@@ -87,6 +99,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
   },
+  pressed: { opacity: 0.82 },
   field: { gap: spacing.sm },
   label: {
     fontFamily: fonts.bold,

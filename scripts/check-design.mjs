@@ -27,8 +27,8 @@ const MOBILE = path.join(ROOT, 'apps/mobile/src');
  * Une valeur dépassée fait échouer le script.
  */
 const BUDGET = {
-  hardcodedColors: 68,
-  radiusValues: 35,
+  hardcodedColors: 48,
+  radiusValues: 29,
   spacingValues: 35,
 };
 
