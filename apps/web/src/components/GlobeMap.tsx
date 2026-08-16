@@ -16,6 +16,7 @@ import {
   isValidCoordinate,
   levelFor,
   MAX_ZOOM,
+  movedCoordinates,
   pinGlowFor,
   pinOpacityFor,
   pinZoomScale,
@@ -112,6 +113,18 @@ interface GlobeMapProps {
    * nom est affiché en permanence (comme un survol forcé).
    */
   highlightedArtistId?: string | null
+  /**
+   * Mode administrateur : les pins d'artiste deviennent déplaçables.
+   * Réservé aux comptes de la table `admins` — la RLS le vérifie de son côté,
+   * ce drapeau ne fait que l'interface.
+   */
+  editable?: boolean
+  /**
+   * Un pin vient d'être déposé. La coordonnée fournie est déjà la coordonnée
+   * BRUTE corrigée : `GlobeMap` a retiré le décalage de dés-empilement, que
+   * l'appelant n'a aucun moyen de connaître.
+   */
+  onMoveArtist?: (artist: Artist, coordinates: [number, number]) => void
   className?: string
 }
 
@@ -151,6 +164,8 @@ export default function GlobeMap({
   cluster = false,
   popularityById,
   highlightedArtistId,
+  editable = false,
+  onMoveArtist,
   className = '',
 }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -172,6 +187,12 @@ export default function GlobeMap({
   onClusterFocusRef.current = onClusterFocus
   const highlightedRef = useRef(highlightedArtistId)
   highlightedRef.current = highlightedArtistId
+  // Mode admin : passe aussi par des refs, l'activer ne doit pas reconstruire
+  // la carte (les pins, eux, sont redessinés — c'est le rendu des markers).
+  const editableRef = useRef(editable)
+  editableRef.current = editable
+  const onMoveRef = useRef(onMoveArtist)
+  onMoveRef.current = onMoveArtist
 
   // La rotation passe par une ref : basculer le bouton ne doit pas reconstruire la carte.
   const spinRef = useRef(autoRotate)
@@ -576,9 +597,24 @@ export default function GlobeMap({
         el.style.pointerEvents = 'none'
       }
       wrapper.appendChild(el)
-      markersRef.current.push(
-        new mapboxgl.Marker({ element: wrapper }).setLngLat(coords).addTo(map),
-      )
+
+      const admin = editableRef.current && interactive
+      if (admin) el.classList.add('artist-pin--draggable')
+      const marker = new mapboxgl.Marker({ element: wrapper, draggable: admin })
+        .setLngLat(coords)
+        .addTo(map)
+
+      if (admin) {
+        // `coords` est la position AFFICHÉE : `declump` l'a écartée en spirale
+        // de la coordonnée stockée. On renvoie donc le DÉPLACEMENT appliqué à
+        // la coordonnée brute, jamais le point de dépôt — sinon l'artiste
+        // encaisse le décalage de spirale à chaque sauvegarde et dérive.
+        marker.on('dragend', () => {
+          const { lng, lat } = marker.getLngLat()
+          onMoveRef.current?.(artist, movedCoordinates(artist.coordinates, coords, [lng, lat]))
+        })
+      }
+      markersRef.current.push(marker)
     }
 
     // Clustering (Monde → pays → villes → artistes) : appliqué à l'ensemble
@@ -726,7 +762,10 @@ export default function GlobeMap({
       if (!isValidCoordinate(artist.coordinates)) continue
       addArtistPin(artist, spread.get(artist.id) ?? artist.coordinates)
     }
-  }, [styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, liveZoom, highlightedArtistId])
+    // `editable` est dans les dépendances : basculer le mode admin doit
+    // redessiner les markers pour qu'ils deviennent (ou cessent d'être)
+    // déplaçables — `draggable` se fixe à la construction du marker.
+  }, [styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, liveZoom, highlightedArtistId, editable])
 
   // Le conteneur Mapbox est un div interne : mapbox-gl.css force `position: relative`
   // sur .mapboxgl-map et ecraserait un `absolute inset-0` passe via className.

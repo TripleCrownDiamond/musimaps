@@ -367,6 +367,16 @@
   opacity: 1;
 }
 
+/* Mode administrateur : le pin s'attrape. Le curseur est le seul indice
+   qu'un pin est déplaçable — sans lui, on ne découvre la fonction qu'en
+   glissant par accident. */
+.artist-pin--draggable {
+  cursor: grab;
+}
+.artist-pin--draggable:active {
+  cursor: grabbing;
+}
+
 /* Nom de l'artiste au survol d'un pin individuel — petite étiquette
    discrète au-dessus du pin, comme sur le web (parité mobile). */
 .artist-pin__tooltip {

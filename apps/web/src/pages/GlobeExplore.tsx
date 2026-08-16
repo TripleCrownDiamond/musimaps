@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Globe2, History, Loader2, MapPin, Mic2, Music2, Plus, Search, Send, Shuffle, X } from 'lucide-react'
+import { ChevronLeft, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Plus, Search, Send, Shuffle, X } from 'lucide-react'
 import GlobeMap, { type GlobeMapHandle } from '../components/GlobeMap'
 import ArtistSheet from '../components/ArtistSheet'
 import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
 import MapboxTokenNotice from '../components/MapboxTokenNotice'
 import RotateToggle from '../components/RotateToggle'
+import AdminArtistEditor from '../components/AdminArtistEditor'
+import { currentUserEmail, isAdminUser } from '../lib/admin'
 import type { Artist } from '@musimaps/shared'
 import { CAMERA, countryByName, flagFor, geoCountryOf, isScopeArmed, shouldReleaseScope } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
@@ -68,6 +70,36 @@ export default function GlobeExplore() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Artist | null>(null)
   const [spinning, setSpinning] = useState(true)
+
+  /*
+   * Édition administrateur.
+   *
+   * `isAdmin` ne fait QUE l'interface : c'est la politique RLS
+   * `map_artists_update_admin` (migration 00016) qui autorise réellement
+   * l'écriture. Truquer ce booléen dans le navigateur ne donne donc aucun
+   * droit — au pire un panneau qui échoue à l'enregistrement.
+   *
+   * Le mode ne s'active pas tout seul : un admin explore la carte comme tout
+   * le monde la plupart du temps, et des pins déplaçables par mégarde sur des
+   * données de production seraient un piège.
+   */
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [editArtist, setEditArtist] = useState<Artist | null>(null)
+  const [movedTo, setMovedTo] = useState<[number, number] | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    void currentUserEmail()
+      .then((email) => (email ? isAdminUser(email) : false))
+      .then((admin) => {
+        if (alive) setIsAdmin(admin)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
   // Logo navbar : CMS (priorité) sinon logo officiel embarqué — comme la navbar.
   const navbarLogo =
     resolveBrandLogo(
@@ -729,7 +761,22 @@ export default function GlobeExplore() {
         <GlobeMap
           className="absolute inset-0 cursor-grab active:cursor-grabbing"
           onReady={handleReady}
-          onSelectArtist={goToArtist}
+          // En mode édition, cliquer un pin ouvre le correcteur au lieu de la
+          // fiche : c'est le geste que l'admin répète, il ne doit pas passer
+          // par une fiche publique qu'il devra refermer à chaque artiste.
+          onSelectArtist={(artist) => {
+            if (editMode) {
+              setEditArtist(artist)
+              setMovedTo(null)
+            } else {
+              goToArtist(artist)
+            }
+          }}
+          editable={editMode}
+          onMoveArtist={(artist, coordinates) => {
+            setEditArtist(artist)
+            setMovedTo(coordinates)
+          }}
           autoRotate={spinning}
           onAutoRotateChange={setSpinning}
           onZoomChange={(z) => setMapZoom((prev) => (prev === z ? prev : z))}
@@ -904,7 +951,60 @@ export default function GlobeExplore() {
               className="pointer-events-auto"
             />
           )}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditMode((on) => !on)
+                setEditArtist(null)
+                setMovedTo(null)
+              }}
+              title={t('mapAdmin.hint')}
+              aria-pressed={editMode}
+              className={`pointer-events-auto flex items-center gap-2 rounded-full px-5 py-3 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors ${
+                editMode
+                  ? 'bg-brand text-black'
+                  : 'bg-surface/85 hover:bg-surface'
+              }`}
+            >
+              <Pencil className="h-4 w-4" />
+              {editMode ? t('mapAdmin.disable') : t('mapAdmin.enable')}
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Correcteur admin — ouvert par un clic sur pin en mode édition. */}
+      {isAdmin && editMode && editArtist && (
+        <AdminArtistEditor
+          artist={editArtist}
+          pendingCoordinates={movedTo}
+          onClose={() => {
+            setEditArtist(null)
+            setMovedTo(null)
+          }}
+          onSaved={(patch) => {
+            // La carte lit `mapArtists` : on y répercute la correction sans
+            // refaire un aller-retour réseau, sinon le pin saute à son
+            // ancienne place le temps du rechargement.
+            setMapArtists((list) =>
+              list.map((a) =>
+                a.id === editArtist.id
+                  ? {
+                      ...a,
+                      name: patch.name ?? a.name,
+                      genre: patch.genre ?? a.genre,
+                      district: patch.district ?? a.district,
+                      city: patch.city ?? a.city,
+                      country: patch.country ?? a.country,
+                      coordinates: patch.coordinates ?? a.coordinates,
+                    }
+                  : a,
+              ),
+            )
+            setMovedTo(null)
+          }}
+        />
       )}
 
       {/* Panneau de recherche */}

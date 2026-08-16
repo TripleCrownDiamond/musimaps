@@ -308,6 +308,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 // aucun import de valeur, pour que les scripts Node puissent la charger
 // telle quelle plutôt qu'en réécrire une copie.
 export * from './geo-consistency';
+export * from './admin-move';
 
 export interface Cluster {
   key: string;
@@ -399,17 +400,27 @@ export interface CameraTarget {
  *
  * Les durées mobiles étaient aussi 3× plus courtes (800-950 ms contre
  * 1400-2600), ce qui ne laissait pas aux clusters le temps de se scinder.
+ *
+ * ⚠️ Les durées de CLUSTER sont volontairement les plus longues de la table.
+ * Un clic sur un cluster part de la vue globe (z0,75) pour arriver au pays
+ * (z12) ou à la ville (z13) : plus de **onze niveaux de zoom**, là où une
+ * sélection d'artiste depuis une vue déjà rapprochée n'en franchit que deux
+ * ou trois. À durée égale, le même mouvement de caméra paraît donc trois fois
+ * plus violent sur un cluster. Retour du commanditaire : le zoom vers les
+ * clusters était trop rapide. Ne pas les réaligner sur `artist` « par
+ * cohérence » — c'est l'amplitude parcourue qui commande, pas l'uniformité
+ * des chiffres.
  */
 export const CAMERA: Record<
   'artist' | 'city' | 'place' | 'country' | 'genre' | 'sub' | 'globe',
   CameraTarget
 > = {
   artist: { zoom: 13, duration: 1400 },
-  city: { zoom: 13, duration: 1600 },
-  place: { zoom: 14, duration: 1600 },
-  country: { zoom: 12, duration: 1600 },
-  genre: { zoom: 11, duration: 1600 },
-  sub: { zoom: 13.5, duration: 1400 },
+  city: { zoom: 13, duration: 2400 },
+  place: { zoom: 14, duration: 2200 },
+  country: { zoom: 12, duration: 2600 },
+  genre: { zoom: 11, duration: 2200 },
+  sub: { zoom: 13.5, duration: 1800 },
   globe: { zoom: 0.75, duration: 2000 },
 };
 
