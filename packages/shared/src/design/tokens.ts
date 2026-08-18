@@ -35,6 +35,23 @@ const BRAND_SECONDARY = '#A8FF35';
 /** Blanc sur bleu — contraste ~6:1, identique en clair et en sombre. */
 const BRAND_PRIMARY_FG = '#FFFFFF';
 
+/**
+ * Sommet du halo atmosphérique en thème CLAIR — le bleu de marque, désaturé.
+ *
+ * Il valait `BRAND_PRIMARY` tel quel, soit **74 % de saturation**. Cumulé au
+ * bleu de l'eau du globe (68 %) et à celui de la brume basse (69 %), le globe
+ * se retrouvait cerné d'un bleu fluo — signalé en revue.
+ *
+ * Même teinte (228°) et même clarté (53 %), saturation ramenée à **40 %** : le
+ * halo reste identifiable comme celui de Musimaps sans dominer la carte. La
+ * clarté est conservée intacte car c'est elle, et non la saturation, qui porte
+ * le liseré séparant le globe de l'espace.
+ *
+ * Le thème SOMBRE garde `BRAND_PRIMARY` : sur fond noir le bleu pur ne sature
+ * pas, il fait exactement le halo attendu.
+ */
+const FOG_HIGH_LIGHT = '#586BB7';
+
 /** Jeu de couleurs complet d'un thème. */
 export interface ThemePalette {
   /** Fond de page. */
@@ -132,9 +149,9 @@ export const lightPalette: ThemePalette = {
   mapLand: '#EFEDE4',
   mapWater: '#9BB4EC',
   mapLandAccent: '#C7E49F',
-  mapSpace: '#CAD6F0',
-  mapFog: '#C9D6F5',
-  mapFogHigh: BRAND_PRIMARY,
+  mapSpace: '#D3D9E7',
+  mapFog: '#D5DBE9',
+  mapFogHigh: FOG_HIGH_LIGHT,
   mapLabel: BRAND_PRIMARY,
   /** Halo des labels — suit la terre pour se lire comme une découpe. */
   mapLabelHalo: '#EFEDE4',
