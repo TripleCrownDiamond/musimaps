@@ -1251,6 +1251,11 @@ export function ExploreScreen({ navigation, route }: Props) {
         attributionEnabled={false}
         onPress={() => {
           setSpinning(false);
+          setHighlightedId(null);
+          if (selected) {
+            if (selectedPlace) setVisiblePins(selectedPlace.artists);
+            else setVisiblePins([]);
+          }
           setSelected(null);
         }}
         onMapIdle={loadRegion}
@@ -1498,6 +1503,10 @@ export function ExploreScreen({ navigation, route }: Props) {
           // web) — ferme la fiche et revient au header normal logo + cloche.
           backOverride={selected !== null}
           onBack={() => {
+            setHighlightedId(null);
+            setSelectedPlace(null);
+            setPlaceIndex(0);
+            setVisiblePins([]);
             setSelected(null);
             setSearchOpen(false);
             setQuery('');
@@ -1934,7 +1943,12 @@ export function ExploreScreen({ navigation, route }: Props) {
         <ArtistSheet
           artist={selected}
           nearby={nearby}
-          onClose={() => setSelected(null)}
+          onClose={() => {
+            setHighlightedId(null);
+            if (selectedPlace) setVisiblePins(selectedPlace.artists);
+            else setVisiblePins([]);
+            setSelected(null);
+          }}
           onSelectArtist={goToArtist}
           onOpenProfile={() => {
             const artistId = selected.id;
