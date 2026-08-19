@@ -1081,9 +1081,9 @@ export default function Dashboard() {
               {/* 14 derniers jours — courbe */}
               <ChartCard
                 title={t('dash.analyticsDays')}
-                subtitle={detailStats.by_day.length === 0 ? t('dash.analyticsNoData') : undefined}
+                subtitle={(detailStats.by_day ?? []).length === 0 ? t('dash.analyticsNoData') : undefined}
               >
-                {detailStats.by_day.length === 0 ? (
+                {(detailStats.by_day ?? []).length === 0 ? (
                   <p className="py-6 text-sm text-secondary-text">{t('dash.analyticsNoData')}</p>
                 ) : (
                   <>
@@ -1094,8 +1094,8 @@ export default function Dashboard() {
                       fillColor={DEEP}
                     />
                     <div className="mt-1 flex justify-between text-[11px] text-secondary-text">
-                      <span>{dayLabel(detailStats.by_day[0].day, lang)}</span>
-                      <span>{dayLabel(detailStats.by_day[detailStats.by_day.length - 1].day, lang)}</span>
+                      <span>{dayLabel(detailStats.by_day![0].day, lang)}</span>
+                      <span>{dayLabel(detailStats.by_day![detailStats.by_day!.length - 1].day, lang)}</span>
                     </div>
                   </>
                 )}
@@ -1104,13 +1104,13 @@ export default function Dashboard() {
               {/* Top pays */}
               <ChartCard
                 title={t('dash.analyticsCountries')}
-                subtitle={detailStats.top_countries.length === 0 ? t('dash.analyticsNoData') : undefined}
+                subtitle={(detailStats.top_countries ?? []).length === 0 ? t('dash.analyticsNoData') : undefined}
               >
-                {detailStats.top_countries.length === 0 ? (
+                {(detailStats.top_countries ?? []).length === 0 ? (
                   <p className="py-6 text-sm text-secondary-text">{t('dash.analyticsNoData')}</p>
                 ) : (
                   <HBarList
-                    data={detailStats.top_countries.map((c) => ({
+                    data={(detailStats.top_countries ?? []).map((c) => ({
                       label: c.country,
                       value: c.views,
                       sub: c.unique_viewers > 0 ? `${c.unique_viewers} ${t('dash.analyticsUniqShort')}` : undefined,
@@ -1146,11 +1146,11 @@ export default function Dashboard() {
             </div>
 
             {/* Viewers récurrents */}
-            {detailStats.top_viewers.length > 0 && (
+            {(detailStats.top_viewers ?? []).length > 0 && (
               <div className="mt-5">
                 <h3 className="mb-3 text-sm font-bold text-secondary-text">{t('dash.analyticsRepeat')}</h3>
                 <ul className="grid gap-2 sm:grid-cols-2">
-                  {detailStats.top_viewers.map((v) => (
+                  {(detailStats.top_viewers ?? []).map((v) => (
                     <li
                       key={v.label}
                       className="flex items-center justify-between rounded-xl bg-secondary-bg px-4 py-2.5 text-sm"
