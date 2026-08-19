@@ -87,8 +87,7 @@ export default function GlobeExplore() {
   const [editMode, setEditMode] = useState(false)
   const [editArtist, setEditArtist] = useState<Artist | null>(null)
   const [movedTo, setMovedTo] = useState<[number, number] | null>(null)
-  // Recherche dans le mode édition : filtre les pins par nom/ville/pays/genre.
-  const [editQuery, setEditQuery] = useState('')
+
 
   useEffect(() => {
     let alive = true
@@ -924,7 +923,6 @@ export default function GlobeExplore() {
                 setEditMode((on) => !on)
                 setEditArtist(null)
                 setMovedTo(null)
-                setEditQuery('')
                 setVisiblePins([])
               }}
               title={t('mapAdmin.hint')}
@@ -975,79 +973,7 @@ export default function GlobeExplore() {
         />
       )}
 
-      {/* Panneau de recherche en mode édition — filtre instantané par nom/ville/pays */}
-      {isAdmin && editMode && (
-        <div className="pointer-events-auto absolute left-4 top-20 z-30 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-hairline bg-surface p-3 shadow-xl sm:left-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-secondary-text" />
-            <input
-              autoFocus
-              value={editQuery}
-              onChange={(e) => {
-                const q = e.target.value
-                setEditQuery(q)
-                // Filtrage instantané : affiche les pins correspondants.
-                if (!q.trim()) {
-                  setVisiblePins([])
-                  return
-                }
-                const nq = norm(q)
-                const matches = mapArtists.filter((a) =>
-                  norm(a.name).includes(nq) ||
-                  norm(a.city).includes(nq) ||
-                  norm(a.country).includes(nq) ||
-                  norm(a.genre).includes(nq),
-                )
-                setVisiblePins(matches)
-              }}
-              placeholder={t('globe.searchPh')}
-              className="w-full rounded-xl border border-hairline-strong bg-secondary-bg py-2.5 pl-10 pr-3 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
-            />
-          </div>
-          {editQuery.trim() && (
-            <div className="mt-2 max-h-48 overflow-y-auto">
-              {/* Résultats artistes */}
-              {visiblePins.length > 0 ? (
-                <ul>
-                  {visiblePins.slice(0, 12).map((a) => (
-                    <li key={a.id}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditArtist(a)
-                          setMovedTo(null)
-                          mapRef.current?.focusArtist(a.id)
-                        }}
-                        className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-secondary-bg"
-                      >
-                        <AnimatedAvatar
-                          name={a.name}
-                          image={a.image}
-                          className="h-8 w-8 rounded-full"
-                          initialsClassName="bg-brand-soft text-xs font-bold text-brand-deep"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{a.name}</span>
-                          <span className="block truncate text-xs text-secondary-text">
-                            {[a.city, a.country].filter(Boolean).join(', ') || '—'}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                  {visiblePins.length > 12 && (
-                    <li className="px-2 py-1 text-center text-xs text-secondary-text">
-                      +{visiblePins.length - 12} {t('globe.typeArtist')}{visiblePins.length - 12 > 1 ? 's' : ''}
-                    </li>
-                  )}
-                </ul>
-              ) : (
-                <p className="py-3 text-center text-xs text-secondary-text">{t('globe.noResults', { query: editQuery })}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+
 
       {/* Panneau de recherche */}
       {searchOpen && (
