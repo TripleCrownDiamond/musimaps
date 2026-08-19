@@ -5,6 +5,7 @@ import {
   Bell,
   Briefcase,
   CalendarCheck,
+  ChevronDown,
   CalendarDays,
   CalendarHeart,
   Camera,
@@ -205,6 +206,13 @@ export default function Dashboard() {
   // Streak de connexion (pointage quotidien) + badges par rôle.
   const [streak, setStreak] = useState<StreakInfo | null>(null)
   const [rewards, setRewards] = useState<ComputedBadge[] | null>(null)
+
+  // Panneaux pliables — ouverts seulement quand l'utilisateur clique.
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [showRewards, setShowRewards] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+
 
   const switchAccountType = async () => {
     if (!user) return
@@ -956,7 +964,7 @@ export default function Dashboard() {
             )}
             {rewards && (
               <div className="rounded-3xl border border-hairline bg-surface p-5 sm:p-6">
-                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <button type="button" onClick={() => setShowRewards((v) => !v)} className="flex w-full items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand-deep">
                       <Trophy className="h-5 w-5" />
@@ -977,7 +985,9 @@ export default function Dashboard() {
                       })}
                     </span>
                   </div>
-                </div>
+                  <ChevronDown className={`h-5 w-5 text-secondary-text transition-transform ${showRewards ? 'rotate-180' : ''}`} />
+                </button>
+                {showRewards && (
                 <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {rewards.map((badge) => {
                     const BadgeIcon = badgeIcon(badge.icon)
@@ -1027,18 +1037,42 @@ export default function Dashboard() {
                     )
                   })}
                 </ul>
+                )}
               </div>
             )}
           </div>
         )}
 
-        {/* Analytique détaillée (artiste revendiqué) : vues uniques, pays, 14 jours, récurrents */}
+        {/* Analytique détaillée (artiste revendiqué) — pliable */}
         {isArtist && detailStats && (
           <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
-            <h2 className="display-font mb-4 flex items-center gap-2 text-2xl font-bold">
-              <Eye className="h-5 w-5 text-brand-deep" /> {t('dash.analyticsTitle')}
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <button
+              type="button"
+              onClick={() => setShowAnalytics((v) => !v)}
+              className="flex w-full items-center justify-between gap-3"
+            >
+              <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
+                <Eye className="h-5 w-5 text-brand-deep" /> {t('dash.analyticsTitle')}
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-secondary-text">
+                  {detailStats.total} {t('dash.analyticsTotal').toLowerCase()}
+                </span>
+                <ChevronDown className={`h-5 w-5 text-secondary-text transition-transform ${showAnalytics ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+            {!showAnalytics && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {[{ label: t('dash.analyticsTotal'), value: detailStats.total }, { label: t('dash.statLikes'), value: detailStats.likes ?? 0 }, { label: t('dash.analyticsUnique'), value: detailStats.unique_viewers }, { label: t('dash.statProfileViews'), value: detailStats.profile_views }, { label: t('dash.statPinViews'), value: detailStats.pin_views }].map(({ label, value }) => (
+                  <span key={label} className="rounded-full bg-secondary-bg px-3 py-1.5 text-xs font-medium">
+                    {label}: <span className="font-bold">{value}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            {showAnalytics && (
+              <>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <div className="rounded-2xl bg-secondary-bg p-4">
                 <p className="text-xs text-secondary-text">{t('dash.analyticsTotal')}</p>
                 <p className="display-font mt-1 text-3xl font-bold">{detailStats.total}</p>
@@ -1164,6 +1198,8 @@ export default function Dashboard() {
                 </ul>
               </div>
             )}
+            </>
+            )}
           </div>
         )}
 
@@ -1262,23 +1298,26 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Notifications récentes */}
+        {/* Notifications récentes — pliable */}
         {notifications !== null && notifications.length > 0 && (
           <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="display-font flex items-center gap-2 text-2xl font-bold">
+            <button type="button" onClick={() => setShowNotifications((v) => !v)} className="flex w-full items-center justify-between gap-3">
+              <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
                 <Bell className="h-5 w-5 text-brand-deep" /> {t('dash.notifications')}
+                <span className="ml-2 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand-deep">{notifications.filter((n) => !n.read).length || notifications.length}</span>
               </h2>
-              {notifications.some((n) => !n.read) && (
-                <button
-                  type="button"
-                  onClick={() => void markAllRead()}
-                  className="flex items-center gap-1.5 rounded-full border border-hairline-strong px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary-bg"
-                >
-                  <CheckCheck className="h-3.5 w-3.5" /> {t('dash.markAllRead')}
-                </button>
-              )}
-            </div>
+              <ChevronDown className={`h-5 w-5 text-secondary-text transition-transform ${showNotifications ? 'rotate-180' : ''}`} />
+            </button>
+            {notifications.some((n) => !n.read) && (
+              <button
+                type="button"
+                onClick={() => void markAllRead()}
+                className="mb-3 flex items-center gap-1.5 rounded-full border border-hairline-strong px-3 py-1.5 text-xs font-medium transition-colors hover:bg-secondary-bg"
+              >
+                <CheckCheck className="h-3.5 w-3.5" /> {t('dash.markAllRead')}
+              </button>
+            )}
+            {showNotifications && (
             <ul className="grid gap-1">
               {notifications.slice(0, 6).map((n) => (
                 <li
@@ -1299,6 +1338,7 @@ export default function Dashboard() {
                 </li>
               ))}
             </ul>
+            )}
           </div>
         )}
 
