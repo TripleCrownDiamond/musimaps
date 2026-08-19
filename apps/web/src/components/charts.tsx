@@ -32,11 +32,21 @@ export function BarChart({
   const barW = 100 / data.length
   const pad = Math.min(14, barW * 0.3)
 
+  /*
+   * La hauteur est imposée en PIXELS, et pas seulement via le viewBox.
+   *
+   * Le viewBox vaut 100 unités de large pour `height` de haut. Sans hauteur
+   * CSS, le SVG adopte ce ratio : dans une carte de 600 px il se rendait à
+   * 600 × height/100, soit plus de 1000 px de haut — le graphique débordait
+   * de sa carte. `preserveAspectRatio="none"` étire le viewBox pour remplir
+   * la boîte, encore faut-il que la boîte ait la bonne hauteur.
+   */
   return (
     <div>
       <svg
         viewBox={`0 0 100 ${height}`}
         preserveAspectRatio="none"
+        style={{ height }}
         className="block w-full"
         role="img"
         aria-label="Histogramme"
@@ -253,7 +263,7 @@ export function TrendArea({
   const lastY = last ? last[1] : 0
 
   return (
-    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="block w-full" role="img" aria-label="Courbe d'évolution">
+    <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" style={{ height }} className="block w-full" role="img" aria-label="Courbe d'évolution">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={fillColor} stopOpacity="0.22" />

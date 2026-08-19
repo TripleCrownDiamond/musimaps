@@ -10,9 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { hasSupabase } from '@/lib/supabase'
 import { signIn } from '@/lib/admin'
+import { supabase } from '@/lib/supabase'
+import { useAdminT } from './i18n'
 import Brand from '@/components/Brand'
 
 /**
@@ -26,6 +28,38 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  /** Confirmation de l'envoi du lien de réinitialisation. */
+  const [sent, setSent] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const { t } = useAdminT()
+
+  /*
+   * Réinitialisation depuis l'espace admin.
+   *
+   * Le lien renvoie vers `/reset-password`, la page utilisateur : c'est le
+   * MÊME compte Supabase des deux côtés, dupliquer l'écran ne ferait qu'une
+   * seconde page à maintenir.
+   *
+   * Le message de succès reste volontairement vague (« si un compte existe »).
+   * Supabase ne révèle jamais qu'une adresse est inconnue, pour empêcher de
+   * deviner les comptes : afficher « e-mail envoyé » mentirait la moitié du
+   * temps.
+   */
+  const sendReset = async () => {
+    setError(null)
+    setSent(null)
+    const address = email.trim()
+    if (!address) return setError(t('login.forgotNeedEmail'))
+    if (!supabase) return setError(t('login.notConfigured'))
+    setSending(true)
+    const { error: err } = await supabase.auth.resetPasswordForEmail(address, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setSending(false)
+    if (err) setError(t('login.forgotError', { message: err.message }))
+    else setSent(t('login.forgotSent'))
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -72,17 +106,40 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="admin-password">Mot de passe</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  className="pr-11"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="-mt-2 text-right">
+              <button
+                type="button"
+                onClick={sendReset}
+                disabled={sending}
+                className="text-brand-deep text-sm font-medium hover:underline disabled:opacity-60"
+              >
+                {sending ? t('login.forgotSending') : t('login.forgot')}
+              </button>
             </div>
 
             {error && <p className="text-destructive text-sm">{error}</p>}
+            {sent && !error && <p className="text-sm text-emerald-600">{sent}</p>}
 
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="animate-spin" />}
