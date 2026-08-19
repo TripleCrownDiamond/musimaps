@@ -112,7 +112,8 @@ export default function GlobeExplore() {
   // de clustering par ville), la barre de recherche se replie en icône dans
   // le coin haut droit — la carte reprend toute la place.
   const [mapZoom, setMapZoom] = useState(GLOBE_VIEW.zoom)
-  const searchCollapsed = selected !== null || mapZoom >= 3.2
+  // La searchbar centrale a été supprimée : seule l'icône en haut à droite
+  // reste visible pour ouvrir le panneau de recherche.
 
   // Historique de recherche (stockage partagé, asynchrone) + filtres du
   // panneau Découverte. Il se charge après le premier rendu : la liste part
@@ -851,56 +852,19 @@ export default function GlobeExplore() {
         </Link>
       )}
 
-      {/* Barre de recherche — se replie en icône (coin haut droit, animée)
-          dès qu'on zoome sur la carte ou qu'une fiche s'ouvre ; un clic sur
-          l'icône ramène la recherche. */}
-      {!searchOpen && (
-        <>
-          <div
-            aria-hidden={searchCollapsed}
-            className={`pointer-events-none absolute inset-x-0 top-0 z-20 px-4 pt-44 transition-all duration-300 sm:px-6 ${
-              searchCollapsed ? 'search-bar-collapsing' : ''
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                // La fiche et le panneau de recherche ne coexistent pas :
-                // ouvrir la recherche referme la fiche (sinon les deux
-                // overlays se superposent — bouton « Retour » sur le globe).
-                setSelected(null)
-                setSearchOpen(true)
-              }}
-              tabIndex={searchCollapsed ? -1 : 0}
-              className={`mx-auto flex w-full max-w-2xl items-center gap-3 rounded-full bg-surface/85 px-5 py-4 text-left shadow-lg backdrop-blur-xl transition-colors hover:bg-surface ${
-                searchCollapsed ? 'pointer-events-none' : 'pointer-events-auto'
-              }`}
-            >
-              <Search className="h-5 w-5 shrink-0 text-secondary-text" />
-              <span className="flex-1 text-secondary-text">{t('globe.searchPlaceholder')}</span>
-            </button>
-          </div>
-
-          {/* Icône recherche — réapparaît (pop + anneau pulsé) quand la barre
-              se replie, et permet de rouvrir la recherche à tout moment. */}
-          <button
-            key={searchCollapsed ? 'search-on' : 'search-off'}
-            type="button"
-            onClick={() => {
-              setSelected(null)
-              setSearchOpen(true)
-            }}
-            aria-label={t('globe.searchPlaceholder')}
-            aria-hidden={!searchCollapsed}
-            tabIndex={searchCollapsed ? 0 : -1}
-            className={`absolute right-4 top-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:right-6 ${
-              searchCollapsed ? 'search-icon opacity-100' : 'pointer-events-none opacity-0'
-            }`}
-          >
-            <span className="search-icon__ring" />
-            <Search className="h-5 w-5" />
-          </button>
-        </>
+      {/* Icône recherche — coin haut droit, ouvre le panneau de recherche. */}
+      {!searchOpen && !selected && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelected(null)
+            setSearchOpen(true)
+          }}
+          aria-label={t('globe.searchPlaceholder')}
+          className="absolute right-4 top-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:right-6"
+        >
+          <Search className="h-5 w-5" />
+        </button>
       )}
 
       {/* Panneau « lieu » : stats de la ville/pays + nav artiste-à-artiste */}

@@ -680,6 +680,7 @@ export const en: Record<MessageKey, string> = {
   'sheet.claiming': 'Sending…',
   'sheet.close': 'Close artist card',
   'sheet.closeAria': 'Close artist card',
+  'sheet.editProfile': 'Edit my profile',
   'sheet.events': 'Events',
   'sheet.follow': 'Follow',
   'sheet.followError': 'Could not follow',

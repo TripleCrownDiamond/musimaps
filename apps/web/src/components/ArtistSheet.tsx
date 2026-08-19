@@ -9,6 +9,7 @@ import {
   Heart,
   Loader2,
   Music2,
+  Pencil,
   Play,
   Share2,
   ShieldCheck,
@@ -155,6 +156,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
   // Un artiste connecté (rôle artiste) peut revendiquer un profil découvert.
   const isDiscovered = artist.source === 'musicbrainz'
   const canClaim = isDiscovered && !artist.claimedBy && user?.role === 'artist'
+  const isOwner = Boolean(user && artist.claimedBy === user.id)
 
   const claim = async () => {
     setClaiming(true)
@@ -498,6 +500,16 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   ? t('sheet.claiming')
                   : t('sheet.claim')}
           </button>
+        )}
+
+        {/* Le propriétaire du profil peut le modifier directement depuis la carte */}
+        {isOwner && (
+          <Link
+            to={localize('/profil')}
+            className="mt-3 flex items-center justify-center gap-2 rounded-full border border-hairline-strong py-3 text-sm font-medium transition-colors hover:bg-secondary-bg"
+          >
+            <Pencil className="h-4 w-4" /> {t('sheet.editProfile')}
+          </Link>
         )}
 
         <Link

@@ -683,6 +683,7 @@ export const fr = {
   'sheet.claiming': 'Envoi…',
   'sheet.close': 'Fermer la fiche artiste',
   'sheet.closeAria': 'Fermer la fiche artiste',
+  'sheet.editProfile': 'Modifier mon profil',
   'sheet.events': 'Événements',
   'sheet.follow': 'Suivre',
   'sheet.followError': 'Impossible de suivre',
