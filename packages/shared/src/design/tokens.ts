@@ -50,7 +50,6 @@ const BRAND_PRIMARY_FG = '#FFFFFF';
  * Le thème SOMBRE garde `BRAND_PRIMARY` : sur fond noir le bleu pur ne sature
  * pas, il fait exactement le halo attendu.
  */
-const FOG_HIGH_LIGHT = '#586BB7';
 
 /** Jeu de couleurs complet d'un thème. */
 export interface ThemePalette {
@@ -149,9 +148,12 @@ export const lightPalette: ThemePalette = {
   mapLand: '#EFEDE4',
   mapWater: '#9BB4EC',
   mapLandAccent: '#C7E49F',
-  mapSpace: '#D3D9E7',
-  mapFog: '#D5DBE9',
-  mapFogHigh: FOG_HIGH_LIGHT,
+  // L'espace autour du globe est neutre (pas de halo bleu) : les couleurs
+  // de marque ne vivent que dans les pins et la navigation.
+  mapSpace: '#F0EDE8',
+  // La brume atmosphérique est très subtile et neutre en thème clair.
+  mapFog: '#E8E5DF',
+  mapFogHigh: '#D5D0C8',
   mapLabel: BRAND_PRIMARY,
   /** Halo des labels — suit la terre pour se lire comme une découpe. */
   mapLabelHalo: '#EFEDE4',
@@ -182,9 +184,11 @@ export const darkPalette: ThemePalette = {
   mapLand: '#0A1024',
   mapWater: '#142765',
   mapLandAccent: '#24351A',
-  mapSpace: '#020615',
-  mapFog: '#101D4F',
-  mapFogHigh: BRAND_PRIMARY,
+  // Espace autour du globe : noir pur, pas de bleu résiduel.
+  mapSpace: '#000000',
+  // Brume très atténuée en sombre — le halo bleu de marque est retiré.
+  mapFog: '#0A0F1C',
+  mapFogHigh: '#151D35',
   mapLabel: BRAND_SECONDARY,
   mapLabelHalo: '#0A1024',
 };
