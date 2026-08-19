@@ -2113,7 +2113,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       fontSize: 12,
       width: mapUi.pinLabelWidth,
     },
-    appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 20 },
+    appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 1500 },
     rotateBtn: {
       width: 48,
       height: 48,
@@ -2133,7 +2133,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     locExploreText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 16 },
     locChecking: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, marginTop: 10 },
     locBtnBusy: { opacity: 0.7 },
-    searchBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 20 },
+    searchBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 1500 },
     searchBar: {
       minHeight: 46,
       borderRadius: 23,
@@ -2147,7 +2147,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       ...shadow,
     },
     searchBarText: { flex: 1, color: colors.inkSoft, fontFamily: fonts.medium, fontSize: 14 },
-    bottomControls: { position: 'absolute', left: 20, right: 20, zIndex: 20, flexDirection: 'row', justifyContent: 'center', gap: 10 },
+    bottomControls: { position: 'absolute', left: 20, right: 20, zIndex: 1500, flexDirection: 'row', justifyContent: 'center', gap: 10 },
     controlBtn: {
       minHeight: 44,
       borderRadius: 22,
@@ -2163,7 +2163,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     controlBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
     controlBtnText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13 },
     controlBtnTextActive: { color: colors.black },
-    searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 40, justifyContent: 'flex-end' },
+    searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1500, justifyContent: 'flex-end' },
     scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: overlay.scrim, zIndex: 0 },
     sheet: {
       height: '62%',

@@ -281,6 +281,13 @@
   display: none !important;
 }
 
+/* La carte Mapbox doit être un stacking context (z-index) pour que les
+   markers (z-index: 1000-1300) ne débordent pas sur les panneaux
+   d'overlay (ArtistSheet, AdminArtistEditor) qui vivent en fratrie. */
+.mapboxgl-map {
+  z-index: 1;
+}
+
 /* Wrapper des markers : Mapbox pose dessus son transform (positionnement).
    Le scale visuel est appliqué sur l'enfant .artist-pin pour ne jamais
    mélanger scale et transform sur le même élément (sinon les pins sont

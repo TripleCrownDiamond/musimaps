@@ -591,7 +591,7 @@ const createStyles = (colors: AppColors) =>
       right: 0,
       bottom: 0,
       left: 0,
-      zIndex: 40, // au-dessus de la carte (comme le panneau de recherche)
+      zIndex: 1500, // au-dessus des pins sélectionnés (zIndex: 1200-1300)
       justifyContent: 'flex-end',
       backgroundColor: 'rgba(3,10,20,0.48)',
     },

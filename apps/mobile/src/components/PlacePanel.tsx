@@ -116,7 +116,7 @@ function createStyles() {
       position: 'absolute',
       left: 16,
       right: 16,
-      zIndex: 40,
+      zIndex: 1500,
       alignItems: 'center',
     },
     card: {
