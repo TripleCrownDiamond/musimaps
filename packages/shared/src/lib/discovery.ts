@@ -46,6 +46,8 @@ export interface DiscoveredArtist {
   events?: ArtistEvent[]
   /** Popularité externe (fans Deezer) — anneau + stats de cluster. */
   followers?: string
+  /** Slug personnalisé pour le lien de profil (/artist/mon-slug). */
+  slug?: string | null
 }
 
 /** Couleur par défaut pour un artiste découvert (aucune identité visuelle). */
@@ -1354,7 +1356,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
-    'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers'
+    'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers, slug'
   const BASE_SELECT = 'id, name, genre, city, district, country, flag, lat, lng, bio, image, source'
   let { data, error } = await supabase
     .from('map_artists')
@@ -1395,6 +1397,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     claimedBy: row.claimed_by ?? null,
     events: (row.events ?? []) as ArtistEvent[],
     followers: row.followers ? String(row.followers) : '',
+    slug: row.slug ?? null,
   }))
 }
 
@@ -1578,6 +1581,7 @@ export function toArtist(d: DiscoveredArtist): MapArtistView {
     socials: d.socials ?? {},
     source: d.source,
     claimedBy: d.claimedBy ?? null,
+    slug: d.slug ?? null,
   }
 }
 

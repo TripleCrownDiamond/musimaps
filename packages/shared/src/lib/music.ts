@@ -146,10 +146,73 @@ export async function fetchArtistTracks(
       })
       if (tracks.length >= limit) break
     }
+    // Deezer : API publique sans clé, en complément d'iTunes.
+    const deezerTracks = await fetchDeezerTracks(name, signal, limit)
+    for (const dt of deezerTracks) {
+      const key = normalize(dt.title)
+      if (seen.has(key)) continue
+      seen.add(key)
+      tracks.push(dt)
+      if (tracks.length >= limit) break
+    }
     if (tracks.length > 0) {
       trackCache.set(name, tracks)
       // Fraîcheur : la liste reste en cache 1 heure, puis sera re-moissonnée.
       setTimeout(() => trackCache.delete(name), 60 * 60 * 1000)
+    }
+    return tracks
+  } catch {
+    return []
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Deezer — API publique (sans clé), limitée à ~50 req/min.
+// ─────────────────────────────────────────────────────────────────────
+
+interface DeezerTrack {
+  title: string
+  artist: { name: string }
+  album: { title: string; cover_medium?: string }
+  duration: number
+  preview: string
+  link: string
+}
+
+async function fetchDeezerTracks(
+  artistName: string,
+  signal?: AbortSignal,
+  limit = 24,
+): Promise<StreamedTrack[]> {
+  try {
+    // 1) Trouver l'artiste par nom (top résultat).
+    const searchRes = await fetch(
+      `https://api.deezer.com/search/artist?q=${encodeURIComponent(artistName)}`,
+      { signal },
+    )
+    if (!searchRes.ok) return []
+    const searchData = (await searchRes.json()) as { data?: Array<{ id: number; name: string }> }
+    const match = searchData.data?.find((a) => matchesArtist(a.name, artistName))
+    if (!match) return []
+    // 2) Récupérer les top titres de cet artiste.
+    const topRes = await fetch(
+      `https://api.deezer.com/artist/${match.id}/top?limit=${limit}`,
+      { signal },
+    )
+    if (!topRes.ok) return []
+    const topData = (await topRes.json()) as { data?: DeezerTrack[] }
+    const tracks: StreamedTrack[] = []
+    for (const r of topData.data ?? []) {
+      if (!r.title) continue
+      const artwork = r.album?.cover_medium ?? ''
+      tracks.push({
+        title: r.title,
+        album: r.album?.title ?? '',
+        duration: formatDuration(r.duration * 1000),
+        artwork,
+        url: r.link || `https://www.deezer.com/artist/${match.id}`,
+        previewUrl: r.preview,
+      })
     }
     return tracks
   } catch {

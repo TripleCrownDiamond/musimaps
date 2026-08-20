@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Plus, Search, Send, Shuffle, X } from 'lucide-react'
+import { Check, ChevronLeft, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, X } from 'lucide-react'
 import GlobeMap, { type GlobeMapHandle } from '../components/GlobeMap'
 import ArtistSheet from '../components/ArtistSheet'
 import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
@@ -9,7 +9,7 @@ import RotateToggle from '../components/RotateToggle'
 import AdminArtistEditor from '../components/AdminArtistEditor'
 import { currentUserEmail, isAdminUser } from '../lib/admin'
 import type { Artist } from '@musimaps/shared'
-import { CAMERA, countryByName, flagFor, geoCountryOf, isScopeArmed, shouldReleaseScope } from '@musimaps/shared'
+import { CAMERA, COUNTRIES, countryByName, flagFor, geoCountryOf, isScopeArmed, shouldReleaseScope } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -61,7 +61,7 @@ function norm(value: string | null | undefined) {
 }
 
 export default function GlobeExplore() {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const localize = useLocalizedPath()
   const { content } = useCms()
   const theme = useThemeValue()
@@ -151,6 +151,10 @@ export default function GlobeExplore() {
   const [onlineResults, setOnlineResults] = useState<DiscoveredArtist[]>([])
   const [searchingWeb, setSearchingWeb] = useState(false)
   const [addingId, setAddingId] = useState<string | null>(null)
+  // Validation de localisation avant ajout à la carte.
+  const [validatingCandidate, setValidatingCandidate] = useState<DiscoveredArtist | null>(null)
+  const [validCity, setValidCity] = useState('')
+  const [validCountry, setValidCountry] = useState('')
   // Score de popularité (vues profil + pin) par artiste — anneaux des pins.
   const [popularityById, setPopularityById] = useState<Map<string, number>>(
     new Map(),
@@ -1370,22 +1374,23 @@ export default function GlobeExplore() {
                                 {candidate.genre} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
                               </p>
                             </div>
-                            {/* Sans localisation, « Ajouter à la carte » est
-                                désactivé : seul le référencement est possible
-                                (l'admin validera une ville avant le pin). */}
+                            {/* Bouton de validation de localisation avant ajout */}
                             <button
                               type="button"
-                              onClick={() => void addToMap(candidate)}
-                              disabled={addingId === candidate.id || !candidate.city}
-                              title={candidate.city ? undefined : t('discovery.referHint')}
+                              onClick={() => {
+                                setValidatingCandidate(candidate)
+                                setValidCity(candidate.city ?? '')
+                                setValidCountry(candidate.country ?? '')
+                              }}
+                              disabled={addingId === candidate.id}
                               className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand-deep px-4 py-2 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
                             >
                               {addingId === candidate.id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                <Plus className="h-4 w-4" />
+                                <MapPin className="h-4 w-4" />
                               )}
-                              {t('discovery.add')}
+                              {t('discovery.addToMap')}
                             </button>
                           </div>
                           {candidate.bio && (
@@ -1420,6 +1425,86 @@ export default function GlobeExplore() {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Panneau de validation de localisation avant ajout à la carte */}
+      {validatingCandidate && (
+        <div className="absolute inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center">
+          <button type="button" aria-label="Fermer" className="absolute inset-0" onClick={() => setValidatingCandidate(null)} />
+          <div className="pointer-events-auto relative w-full max-w-md rounded-t-3xl border border-hairline bg-surface p-6 shadow-2xl sm:rounded-3xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="display-font text-lg font-bold">{t('discovery.validateLocation')}</h2>
+                <p className="mt-0.5 text-xs text-secondary-text">{t('discovery.validateHint')}</p>
+              </div>
+              <button type="button" onClick={() => setValidatingCandidate(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-text hover:bg-secondary-bg">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl bg-secondary-bg p-3">
+              <AnimatedAvatar name={validatingCandidate.name} image={validatingCandidate.image} className="h-12 w-12 rounded-full" initialsClassName="bg-gradient-to-br from-brand-deep to-brand text-sm font-bold text-black" />
+              <div>
+                <p className="font-medium">{validatingCandidate.name}</p>
+                <p className="text-xs text-secondary-text">{validatingCandidate.genre} · {validatingCandidate.country ?? '—'}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-secondary-text">{t('mapAdmin.country')}</span>
+                <select
+                  value={validCountry}
+                  onChange={(e) => setValidCountry(e.target.value)}
+                  className="w-full rounded-xl border border-hairline-strong bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                >
+                  <option value="">—</option>
+                  {COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>{flagFor(c.code)} {lang === 'fr' ? c.fr : c.en}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-secondary-text">{t('mapAdmin.city')}</span>
+                <input
+                  value={validCity}
+                  onChange={(e) => setValidCity(e.target.value)}
+                  placeholder="Ex. Abidjan, Paris, Dakar…"
+                  className="w-full rounded-xl border border-hairline-strong bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                />
+              </label>
+            </div>
+
+            {validCity && validCountry && (
+              <p className="mt-3 flex items-center gap-2 text-xs text-success">
+                <Check className="h-3.5 w-3.5" /> {validCity} · {flagFor(validCountry)} {lang === 'fr' ? COUNTRIES.find((c) => c.code === validCountry)?.fr : COUNTRIES.find((c) => c.code === validCountry)?.en}
+              </p>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                disabled={!validCity.trim() || !validCountry || addingId === validatingCandidate.id}
+                onClick={() => {
+                  const patched = {
+                    ...validatingCandidate,
+                    city: validCity.trim(),
+                    country: validCountry,
+                    flag: flagFor(validCountry) ?? '🌍',
+                  }
+                  setValidatingCandidate(null)
+                  void addToMap(patched)
+                }}
+                className="flex-1 rounded-full bg-brand-deep px-4 py-2.5 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
+              >
+                {addingId === validatingCandidate.id ? <Loader2 className="h-4 w-4 animate-spin" /> : t('discovery.confirmAdd')}
+              </button>
+              <button type="button" onClick={() => setValidatingCandidate(null)} className="rounded-full border border-hairline-strong px-4 py-2.5 text-sm font-bold transition-colors hover:bg-secondary-bg">
+                {t('mapAdmin.cancel')}
+              </button>
             </div>
           </div>
         </div>

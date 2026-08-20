@@ -375,7 +375,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  hero: { minHeight: 430, overflow: 'hidden', paddingHorizontal: spacing['2xl'], paddingBottom: spacing['3xl'] },
+  hero: { minHeight: 360, overflow: 'hidden', paddingHorizontal: spacing['2xl'], paddingBottom: spacing.xl },
   cover: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.42 },
   coverVeil: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.48 },
   back: { width: 46, height: 46, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   name: { flexShrink: 1, fontFamily: fonts.displayBlack, fontSize: 42, letterSpacing: -1.5 },
   trending: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radii.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   trendingText: { fontFamily: fonts.bold, fontSize: 12 },
-  content: { padding: spacing['2xl'], paddingBottom: spacing['4xl'], gap: spacing['3xl'] },
+  content: { padding: spacing.lg, paddingBottom: spacing['4xl'], gap: spacing.xl },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   followButton: { flex: 1 },
   bio: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24 },

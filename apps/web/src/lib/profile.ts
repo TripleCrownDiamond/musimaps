@@ -23,6 +23,7 @@ export interface ClaimedArtistProfile {
   platforms: Record<string, string>
   socials: Record<string, string>
   verified: boolean
+  slug?: string | null
 }
 
 /** Le profil de la carte revendiqué par l'utilisateur connecté (ou null). */

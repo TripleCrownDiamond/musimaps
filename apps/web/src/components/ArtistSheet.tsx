@@ -17,7 +17,7 @@ import {
   UserRoundPlus,
   X,
 } from 'lucide-react'
-import { compactCount, type Artist } from '@musimaps/shared'
+import { compactCount, slugify, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { requestClaim } from '@musimaps/shared'
@@ -34,6 +34,7 @@ import {
 import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
+import { saveMapArtist } from '../lib/mapAdmin'
 import BookingModal from './BookingModal'
 
 const tabs = ['About', 'Musics', 'Events', 'Nearby'] as const
@@ -89,6 +90,11 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
   const [likes, setLikes] = useState(0)
   // Réservations : artiste réservable + forfaits (migration 00048).
   const [booking, setBooking] = useState<ArtistBooking | null>(null)
+  // Édition du slug personnalisé (propriétaire du profil).
+  const [slugEdit, setSlugEdit] = useState(artist.slug ?? '')
+  const [slugSaving, setSlugSaving] = useState(false)
+  const [slugSaved, setSlugSaved] = useState(false)
+  const [slugError, setSlugError] = useState<string | null>(null)
 
   // Like persistant + compteur de vue profil. Le garde utilise le dernier id
   // d'artiste affiché (la fiche reste montée quand on change d'artiste via Nearby).
@@ -102,6 +108,9 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
     setFollowers(0)
     setLikes(0)
     setBooking(null)
+    setSlugEdit(artist.slug ?? '')
+    setSlugSaved(false)
+    setSlugError(null)
     void fetchFavorites().then((ids) => setSaved(ids.includes(artist.id)))
     void fetchFollowing().then((ids) => setFollowing(ids.includes(artist.id)))
     void fetchArtistFollowers(artist.id).then((n) => setFollowers(n))
@@ -473,7 +482,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
             type="button"
             aria-label={t('sheet.share')}
             onClick={() => {
-              const url = `${window.location.origin}${localize(`/artist/${artist.id}`)}`
+              const url = `${window.location.origin}${localize(`/artist/${artist.slug || artist.id}`)}`
               if (navigator.share) navigator.share({ title: artist.name, url }).catch(() => {})
               else navigator.clipboard?.writeText(url)
             }}
@@ -512,8 +521,55 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
           </Link>
         )}
 
+        {/* Édition du slug personnalisé (propriétaire du profil) */}
+        {isOwner && (
+          <div className="mt-3 rounded-2xl border border-hairline bg-secondary-bg p-3">
+            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-secondary-text">
+              {t('mapAdmin.slug')}
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={slugEdit}
+                onChange={(e) => { setSlugEdit(e.target.value); setSlugSaved(false); setSlugError(null) }}
+                placeholder={artist.id}
+                className="flex-1 rounded-xl border border-hairline-strong bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const s = slugify(slugEdit)
+                  if (!s) return
+                  setSlugSaving(true)
+                  void saveMapArtist(artist.id, { slug: s }).then((res) => {
+                    setSlugSaving(false)
+                    if (!res.ok) {
+                      setSlugError(res.error === 'slug_taken' ? t('sheet.slugTaken') : t('mapAdmin.error', { message: res.error ?? '' }))
+                      return
+                    }
+                    setSlugSaved(true)
+                    setSlugEdit(s)
+                  })
+                }}
+                disabled={slugSaving || !slugEdit.trim()}
+                className="shrink-0 rounded-full bg-brand-deep px-3 py-2 text-xs font-bold text-brand-deep-foreground disabled:opacity-60"
+              >
+                {slugSaving ? '…' : '✓'}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-secondary-text">
+              {slugSaved ? (
+                <span className="text-success font-medium">✓ /artist/{slugEdit}</span>
+              ) : slugError ? (
+                <span className="text-danger font-medium">{slugError}</span>
+              ) : (
+                <>{window.location.origin}/artist/<span className="font-mono">{slugEdit || artist.id}</span></>
+              )}
+            </p>
+          </div>
+        )}
+
         <Link
-          to={localize(`/artist/${artist.id}`)}
+          to={localize(`/artist/${artist.slug || artist.id}`)}
           className="mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-medium text-brand-deep transition-colors hover:bg-secondary-bg"
         >
           {t('sheet.fullProfile')} <ExternalLink className="h-4 w-4" />

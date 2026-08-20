@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
-import { ADMIN_COORD_DECIMALS, distanceKm, type Artist } from '@musimaps/shared'
+import { ADMIN_COORD_DECIMALS, distanceKm, slugify, type Artist } from '@musimaps/shared'
 import { useLanguage } from '../i18n/LanguageContext'
 import { saveMapArtist, type MapArtistPatch } from '../lib/mapAdmin'
 
@@ -35,6 +35,7 @@ export default function AdminArtistEditor({
   const [district, setDistrict] = useState(artist.district ?? '')
   const [city, setCity] = useState(artist.city ?? '')
   const [country, setCountry] = useState(artist.country ?? '')
+  const [slug, setSlug] = useState(artist.slug ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
@@ -47,9 +48,10 @@ export default function AdminArtistEditor({
     setDistrict(artist.district ?? '')
     setCity(artist.city ?? '')
     setCountry(artist.country ?? '')
+    setSlug(artist.slug ?? '')
     setError(null)
     setDone(false)
-  }, [artist.id, artist.name, artist.genre, artist.district, artist.city, artist.country])
+  }, [artist.id, artist.name, artist.genre, artist.district, artist.city, artist.country, artist.slug])
 
   const coordinates = pendingCoordinates ?? artist.coordinates
   const movedKm = pendingCoordinates
@@ -59,7 +61,7 @@ export default function AdminArtistEditor({
   const submit = async () => {
     setSaving(true)
     setError(null)
-    const patch: MapArtistPatch = { name, genre, district, city, country }
+    const patch: MapArtistPatch = { name, genre, district, city, country, slug: slug || null }
     if (pendingCoordinates) patch.coordinates = pendingCoordinates
     const result = await saveMapArtist(artist.id, patch)
     setSaving(false)
@@ -114,6 +116,14 @@ export default function AdminArtistEditor({
         {field(t('mapAdmin.district'), district, setDistrict)}
         {field(t('mapAdmin.city'), city, setCity)}
         {field(t('mapAdmin.country'), country, setCountry)}
+        {field(t('mapAdmin.slug'), slug ?? '', setSlug)}
+        {slug ? (
+          <p className="mt-1 text-xs text-secondary-text">
+            <span className="text-brand-deep font-medium">{window.location.origin}</span>/artist/<span className="font-mono text-primary-text">{slugify(slug)}</span>
+          </p>
+        ) : (
+          <p className="mt-1 text-xs text-secondary-text">{t('mapAdmin.slugHint')}{artist.id}</p>
+        )}
       </div>
 
       <div className="mt-4 rounded-xl bg-secondary-bg p-3">

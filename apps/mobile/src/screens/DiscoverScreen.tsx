@@ -256,7 +256,7 @@ function Chip({
 const createStyles = (colors: AppColors, isDark: boolean) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
-    content: { paddingHorizontal: spacing['2xl'], paddingTop: spacing.lg, gap: spacing['2xl'] },
+    content: { paddingHorizontal: 20, paddingTop: spacing.lg, gap: spacing['2xl'] },
     empty: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
     chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
     chip: {

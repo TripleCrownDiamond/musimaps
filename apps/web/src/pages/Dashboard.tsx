@@ -720,7 +720,7 @@ export default function Dashboard() {
                 {claimed.bio && <p className="mt-2 line-clamp-2 text-sm text-secondary-text">{claimed.bio}</p>}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
-                    to={localize(`/artist/${claimed.id}`)}
+                    to={localize(`/artist/${claimed.slug || claimed.id}`)}
                     className="flex items-center gap-2 rounded-full bg-brand-deep px-5 py-2.5 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02]"
                   >
                     <ExternalLink className="h-4 w-4" /> {t('dash.viewClaimed')}

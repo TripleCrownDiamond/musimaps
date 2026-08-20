@@ -6,6 +6,7 @@
  * Ce module se contente d'écrire les champs que l'admin peut toucher — et
  * seulement ceux-là.
  */
+import { slugify } from '@musimaps/shared'
 import { supabase, hasSupabase } from './supabase'
 
 /**
@@ -23,6 +24,7 @@ export interface MapArtistPatch {
   city?: string
   country?: string
   flag?: string
+  slug?: string | null
   coordinates?: [number, number]
 }
 
@@ -53,6 +55,21 @@ export async function saveMapArtist(
   if (patch.district !== undefined) {
     const value = (patch.district ?? '').trim()
     row.district = value === '' ? null : value
+  }
+  if (patch.slug !== undefined) {
+    const raw = patch.slug === null ? null : patch.slug.trim()
+    const slug = raw === '' || raw === null ? null : slugify(raw)
+    // Vérifie l'unicité du slug en base (excluant l'artiste en cours).
+    if (slug) {
+      const { data: taken } = await supabase!.rpc('check_slug_unique', {
+        p_slug: slug,
+        p_exclude_id: id,
+      })
+      if (taken === false) {
+        return { ok: false, error: 'slug_taken' }
+      }
+    }
+    row.slug = slug
   }
   if (patch.coordinates) {
     row.lng = patch.coordinates[0]

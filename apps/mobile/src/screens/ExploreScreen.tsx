@@ -157,6 +157,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
+  useEffect(() => { console.log('[PIN-DEBUG] MOUNT: HAS_MAPBOX=', HAS_MAPBOX, 'token=', !!MAPBOX_TOKEN, 'theme=', theme); }, []);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
 
   // --- État (miroir de la page globe web) ---
@@ -238,7 +239,14 @@ export function ExploreScreen({ navigation, route }: Props) {
       let cancelled = false;
       void fetchMapArtists().then((rows) => {
         if (cancelled) return;
-        setMapArtists(rows.map((row) => toArtist(row)));
+        const artists = rows.map((row) => toArtist(row));
+        console.log('[PIN-DEBUG] fetchMapArtists returned', rows.length, 'rows,', artists.length, 'artists');
+        if (artists.length > 0) {
+          console.log('[PIN-DEBUG] first artist:', artists[0].name, 'coords:', artists[0].coordinates, 'city:', artists[0].city);
+        }
+        setMapArtists(artists);
+      }).catch((err) => {
+        console.log('[PIN-DEBUG] fetchMapArtists ERROR:', err?.message ?? err);
       });
       void fetchAllArtistPopularity().then((map) => {
         if (!cancelled) setPopularityById(map);
@@ -281,6 +289,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
   const allArtists = useMemo(() => mapArtists, [mapArtists]);
+  useEffect(() => { console.log('[PIN-DEBUG] allArtists count:', allArtists.length, 'mapArtists:', mapArtists.length, 'locState:', locState, 'showMap:', locState === 'granted' || locState === 'skipped', 'MAPBOX_TOKEN set:', !!MAPBOX_TOKEN); }, [allArtists.length, locState]);
 
   // --- Résultats typés (nom / lieux / pays / genres), miroir du web ---
   const artistResults = useMemo(() => {
@@ -806,13 +815,15 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // --- Région visible + zoom (pins par niveau de cluster) ---
   const regionArtists = useMemo(() => {
-    if (!region) return allArtists;
+    if (!region) { console.log('[PIN-DEBUG] regionArtists: region=null, returning all', allArtists.length); return allArtists; }
     // `isInRegion` élargit le cadrage de la marge de dés-empilement : le
     // filtre porte sur la coordonnée BRUTE alors que le pin est dessiné
     // jusqu'à 1,5 km plus loin. Sans cette marge, un artiste au bord se
     // retrouvait affiché hors de la zone, et un autre juste dehors
     // n'apparaissait jamais alors que son pin aurait été visible.
-    return allArtists.filter((artist) => isInRegion(artist.coordinates, region));
+    const filtered = allArtists.filter((artist) => isInRegion(artist.coordinates, region));
+    console.log('[PIN-DEBUG] regionArtists:', filtered.length, '/', allArtists.length, 'in region');
+    return filtered;
   }, [region, allArtists]);
 
   const pins = useMemo(() => {
@@ -829,6 +840,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     } else {
       base = regionArtists;
     }
+    console.log('[PIN-DEBUG] pins calc: target=', target.length, 'scopeReleased=', scopeReleased, 'searchOpen=', searchOpen, 'query=', query.slice(0, 20), 'base=', base.length, 'mapZoom=', mapZoom.toFixed(2), 'level=', levelFor(mapZoom));
     if (base.length === 0) return [];
     const valid = base.filter((a) => isValidCoordinate(a.coordinates));
     const level = levelFor(mapZoom);
@@ -919,6 +931,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         out.push({ key: `a-${artist.id}`, kind: 'artist', artist, coords: spread.get(artist.id) ?? artist.coordinates, tier: tierOf(artist, popularityById) });
       }
     }
+    console.log('[PIN-DEBUG] pins RESULT:', out.length, 'items (' + out.filter(p => p.kind === 'cluster').length + ' clusters, ' + out.filter(p => p.kind === 'artist').length + ' artists)');
     return out;
   }, [regionArtists, visiblePins, searchOpen, query, allArtists, mapZoom, popularityById]);
 
@@ -944,6 +957,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       return aSelected - bSelected;
     });
   }, [pins, highlightedId]);
+  useEffect(() => { console.log('[PIN-DEBUG] orderedPins:', orderedPins.length, 'highlightedId:', highlightedId); }, [orderedPins.length, highlightedId]);
 
   // Source unique de vérité du zoom : les événements Mapbox v10. Pendant le
   // mouvement, un rendu n'est déclenché qu'au changement de niveau de cluster ;

@@ -57,11 +57,11 @@ export default function ArtistProfile() {
       setLoading(false)
       return
     }
-    // Artiste découvert : on le cherche dans la table map_artists.
+    // Artiste découvert : on cherche d'abord par slug, puis par ID.
     setLoading(true)
     void fetchMapArtists().then((rows) => {
       if (cancelled) return
-      const found = rows.find((r) => r.id === idValue)
+      const found = rows.find((r) => r.slug === idValue || r.id === idValue)
       setArtist(found ? toArtist(found) : null)
       setLoading(false)
     })
@@ -379,7 +379,7 @@ export default function ArtistProfile() {
                   {sameCountry.map((other) => (
                     <li key={other.id}>
                       <Link
-                        to={localize(`/artist/${other.id}`)}
+                        to={localize(`/artist/${other.slug || other.id}`)}
                         className="flex items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-secondary-bg"
                       >
                         <AnimatedAvatar

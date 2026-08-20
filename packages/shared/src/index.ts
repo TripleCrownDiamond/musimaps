@@ -55,6 +55,8 @@ export interface Artist {
   source?: 'catalog' | 'musicbrainz' | string;
   /** Profil revendiqué par un compte artiste (id utilisateur). */
   claimedBy?: string | null;
+  /** Slug personnalisé pour le lien de profil (/artist/mon-slug). */
+  slug?: string | null;
   tracks: Track[];
   events: ArtistEvent[];
 }
@@ -224,4 +226,18 @@ export function searchArtists(query: string) {
 
 export function findArtist(id: string) {
   return artists.find((artist) => artist.id === id);
+}
+
+/**
+ * Génère un slug URL-safe à partir d'un nom d'artiste.
+ * Ex. "DJ Arafat" → "dj-arafat", "L'Artiste 225" → "lartiste-225"
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
 }
