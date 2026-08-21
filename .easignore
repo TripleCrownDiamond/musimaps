@@ -24,6 +24,10 @@ design/
 apps/mobile/android/
 apps/mobile/ios/
 
+# Web app is not needed for mobile builds
+apps/web/
+apps/admin/
+
 # Editor and OS files
 .DS_Store
 Thumbs.db

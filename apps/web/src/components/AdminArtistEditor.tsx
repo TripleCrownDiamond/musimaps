@@ -93,7 +93,7 @@ export default function AdminArtistEditor({
   )
 
   return (
-    <div className="pointer-events-auto absolute right-4 top-24 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-3xl border border-hairline bg-surface p-5 shadow-2xl">
+    <div className="pointer-events-auto absolute right-4 top-24 z-50 max-h-[calc(100vh-6rem)] w-[22rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-3xl border border-hairline bg-surface p-5 shadow-2xl">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="display-font truncate text-lg font-bold">{t('mapAdmin.title')}</h2>

@@ -55,17 +55,18 @@ export function applySeo(seo: SeoContent, lang: Lang = 'fr', cacheVersion = 1) {
   if (seo.keywords) setMeta('name', 'keywords', seo.keywords)
   if (seo.ogTitle) setMeta('property', 'og:title', seo.ogTitle)
   if (seo.ogDescription) setMeta('property', 'og:description', seo.ogDescription)
-  if (seo.ogImage) {
-    // Les réseaux sociaux exigent une URL absolue pour l'image OG. `new URL`
-    // gère les URL absolues, relatives et protocol-relative proprement.
-    setMeta(
-      'property',
-      'og:image',
-      new URL(withCacheQuery(seo.ogImage, cacheVersion), 'https://musimaps.app').toString(),
-    )
-    setMeta('property', 'og:image:width', '1200')
-    setMeta('property', 'og:image:height', '630')
-  }
+
+  // Image OG par langue : si le CMS fournit une image on l'utilise,
+  // sinon on utilise les images dédiées FR/EN dans /public.
+  const ogImage = seo.ogImage || (lang === 'en' ? '/og-en.jpg' : '/og-fr.jpg')
+  setMeta(
+    'property',
+    'og:image',
+    new URL(withCacheQuery(ogImage, cacheVersion), 'https://musimaps.app').toString(),
+  )
+  setMeta('property', 'og:image:width', '1200')
+  setMeta('property', 'og:image:height', '630')
+  setMeta('property', 'og:image:alt', lang === 'en' ? 'Musimaps — The world\'s map of music' : 'Musimaps — Explorez le monde en musique')
 
   setMeta('property', 'og:type', 'website')
   setMeta('property', 'og:site_name', 'Musimaps')
@@ -81,14 +82,12 @@ export function applySeo(seo: SeoContent, lang: Lang = 'fr', cacheVersion = 1) {
   if (seo.twitterDescription || seo.ogDescription) {
     setMeta('name', 'twitter:description', seo.twitterDescription || seo.ogDescription)
   }
-  const twitterImage = seo.twitterImage || seo.ogImage
-  if (twitterImage) {
-    setMeta(
-      'name',
-      'twitter:image',
-      new URL(withCacheQuery(twitterImage, cacheVersion), 'https://musimaps.app').toString(),
-    )
-  }
+  const twitterImage = seo.twitterImage || ogImage
+  setMeta(
+    'name',
+    'twitter:image',
+    new URL(withCacheQuery(twitterImage, cacheVersion), 'https://musimaps.app').toString(),
+  )
 
   // Canonical : URL de la page courante dans la locale active (le préfixe
   // `/en` distingue les deux versions — pas de doublons d'indexation).
