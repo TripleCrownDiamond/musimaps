@@ -17,6 +17,7 @@ import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/share
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
 import { Toast } from './src/components/Toast';
+import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { ArtistJoinScreen } from './src/screens/ArtistJoinScreen';
 import { BadgesScreen } from './src/screens/BadgesScreen';
@@ -173,6 +174,9 @@ function AppNavigator() {
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
+        {/* Au-dessus de la navigation : une mise à jour imposée doit
+            couvrir tout l'écran, quel que soit l'écran affiché. */}
+        <UpdateGate />
         <AchievementToast />
         <Toast />
         </LanguageProvider>

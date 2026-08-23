@@ -183,6 +183,19 @@ export interface SettingsContent {
   openSignup: boolean
   /** Message affiché sur l'inscription quand elle est fermée. */
   closedSignupMessage: string
+  /**
+   * Version minimale de l'app mobile encore acceptée. En dessous, l'app
+   * BLOQUE et impose la mise à jour — à ne renseigner que lorsqu'une version
+   * ancienne ne peut réellement plus fonctionner. Vide = ne bloque jamais.
+   */
+  minAppVersion?: string
+  /**
+   * Dernière version publiée sur les stores. Au-dessus de la version
+   * installée, l'app propose la mise à jour sans l'imposer. Vide = silence.
+   */
+  latestAppVersion?: string
+  /** Ce qui change dans cette version, affiché dans la fenêtre. */
+  updateMessage?: string
 }
 
 /** Une slide de l'onboarding mobile (icône lucide + textes, par langue). */
