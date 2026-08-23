@@ -424,6 +424,26 @@ export const CAMERA: Record<
   globe: { zoom: 0.75, duration: 2000 },
 };
 
+/**
+ * Zoom de RÉFÉRENCE auquel les positions dés-empilées sont calculées.
+ *
+ * `declump` produit un décalage géographique dont le rayon dépend du zoom.
+ * Deux règles en découlent, et les enfreindre se voit à l'écran :
+ *
+ *  1. Ne JAMAIS recalculer avec le zoom courant. La position de chaque pin
+ *     changerait à chaque frame d'un pinch — les artistes glisseraient sur la
+ *     carte pendant le zoom.
+ *  2. Toujours utiliser la MÊME valeur pour le rendu et pour la caméra. Voler
+ *     vers une position calculée au zoom de destination (14 pour un quartier,
+ *     12 pour un pays) alors que les pins sont dessinés à ce zoom-ci, c'est
+ *     centrer l'écran sur un point où il n'y a pas de pin.
+ *
+ * D'où cette constante : une seule valeur, partagée par les deux plateformes
+ * et par les deux usages. Elle est indépendante des zooms de `CAMERA`, qui
+ * décrivent une destination de vol, pas une mise en page.
+ */
+export const PIN_LAYOUT_ZOOM = 13;
+
 /** Zoom au-delà duquel la barre de recherche se replie en icône. */
 export const SEARCH_COLLAPSE_ZOOM = 3.2;
 

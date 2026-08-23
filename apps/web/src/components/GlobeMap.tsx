@@ -8,6 +8,7 @@ import {
   clusterBy,
   countryByCode,
   declump,
+  PIN_LAYOUT_ZOOM,
   firstRenderedPosition,
   flagFor,
   geoConsistent,
@@ -218,7 +219,8 @@ export default function GlobeMap({
    *   - sub     : sous-groupes ~2 km — les artistes géocodés au même point
    *               (ville-centre) se chevaucheraient → une pin compacte ×N.
    *   - spread  : pins individuels, décalés en spirale pour ne pas s'empiler.
-   */  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
+   */
+  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
   // Zoom vivant : mis à jour à chaque `zoom` (pas seulement aux seuils de
   // cluster). Sert à rouvrir la spirale de dés-empilement quand on zoome
   // profondément (quartier/rue) — sinon les pins resteraient figés au
@@ -337,7 +339,7 @@ export default function GlobeMap({
       focusArtist: (id) => {
         // Vole vers la position AFFICHÉE du pin, dés-empilement recalculé au
         // zoom cible : le point brut peut être à des centaines de px du pin.
-        const rendered = renderedPosition(artistsRef.current, id, CAMERA.artist.zoom)
+        const rendered = renderedPosition(artistsRef.current, id, PIN_LAYOUT_ZOOM)
         if (!rendered) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
@@ -350,7 +352,9 @@ export default function GlobeMap({
         })
       },
       focusFirst: (artists, zoom = CAMERA.artist.zoom) => {
-        const first = firstRenderedPosition(artists, zoom)
+        // La position vient du zoom de MISE EN PAGE, jamais de la destination :
+        // `zoom` ne pilote que la camera.
+        const first = firstRenderedPosition(artists, PIN_LAYOUT_ZOOM)
         if (!first) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
@@ -520,7 +524,7 @@ export default function GlobeMap({
         if (members && members.length > 0) {
           const firstMember = members[0]
           if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-            const spread = declump(members, CAMERA.artist.zoom)
+            const spread = declump(members, PIN_LAYOUT_ZOOM)
             const rendered = spread.get(firstMember.id)
             if (rendered) {
               targetCoords = rendered
@@ -765,7 +769,7 @@ export default function GlobeMap({
     // partagent la même localisation (≈2 km) — chaque pin reste cliquable et
     // visible au lieu d'être écrasé sous les autres. La position reste fixe
     // pendant le zoom : seule la caméra et la taille visuelle évoluent.
-    const spread = declump(allArtists, CAMERA.artist.zoom)
+    const spread = declump(allArtists, PIN_LAYOUT_ZOOM)
     const seenIds = new Set<string>()
     for (const artist of allArtists) {
       if (seenIds.has(artist.id)) continue

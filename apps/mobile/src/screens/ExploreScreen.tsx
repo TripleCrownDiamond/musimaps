@@ -30,6 +30,7 @@ import {
   clusterBy,
   compactCount,
   countryByName,
+  PIN_LAYOUT_ZOOM,
   declump,
   firstRenderedPosition,
   flagFor,
@@ -156,7 +157,6 @@ export function ExploreScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
-  useEffect(() => { console.log('[PIN-DEBUG] MOUNT: HAS_MAPBOX=', HAS_MAPBOX, 'token=', !!MAPBOX_TOKEN, 'theme=', theme); }, []);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
 
   // --- État (miroir de la page globe web) ---
@@ -238,13 +238,10 @@ export function ExploreScreen({ navigation, route }: Props) {
       void fetchMapArtists().then((rows) => {
         if (cancelled) return;
         const artists = rows.map((row) => toArtist(row));
-        console.log('[PIN-DEBUG] fetchMapArtists returned', rows.length, 'rows,', artists.length, 'artists');
-        if (artists.length > 0) {
-          console.log('[PIN-DEBUG] first artist:', artists[0].name, 'coords:', artists[0].coordinates, 'city:', artists[0].city);
-        }
         setMapArtists(artists);
-      }).catch((err) => {
-        console.log('[PIN-DEBUG] fetchMapArtists ERROR:', err?.message ?? err);
+      }).catch(() => {
+        /* Carte indisponible : on garde la liste courante plutot que de vider
+           l'ecran. L'utilisateur reverra les pins au prochain chargement. */
       });
       void fetchAllArtistPopularity().then((map) => {
         if (!cancelled) setPopularityById(map);
@@ -287,7 +284,6 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
   const allArtists = useMemo(() => mapArtists, [mapArtists]);
-  useEffect(() => { console.log('[PIN-DEBUG] allArtists count:', allArtists.length, 'mapArtists:', mapArtists.length, 'locState:', locState, 'showMap:', locState === 'granted' || locState === 'skipped', 'MAPBOX_TOKEN set:', !!MAPBOX_TOKEN); }, [allArtists.length, locState]);
 
   // --- Résultats typés (nom / lieux / pays / genres), miroir du web ---
   const artistResults = useMemo(() => {
@@ -479,7 +475,7 @@ export function ExploreScreen({ navigation, route }: Props) {
    */
   const flyToArtist = (artist: Artist) => {
     const rendered =
-      renderedPosition(allArtists, artist.id, CAMERA.artist.zoom) ?? artist.coordinates;
+      renderedPosition(allArtists, artist.id, PIN_LAYOUT_ZOOM) ?? artist.coordinates;
     flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
   };
 
@@ -575,8 +571,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = cityArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(cityArtists, 13);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(cityArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.city.zoom, CAMERA.city.duration);
           return;
         }
@@ -617,8 +612,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = nearArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(nearArtists, 14);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(nearArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.place.zoom, CAMERA.place.duration);
           return;
         }
@@ -653,8 +647,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = countryArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(countryArtists, 12);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(countryArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.country.zoom, CAMERA.country.duration);
           return;
         }
@@ -676,8 +669,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         setHighlightedId(artist.id);
         // Vole vers la position AFFICHÉE du pin (dés-empilement inclus) pour
         // qu'il arrive au centre de l'écran — pas dans un coin au zoom.
-        const spread = declump(selectedPlace.artists, 13);
-        const rendered = spread.get(artist.id) ?? artist.coordinates;
+        const rendered =
+          renderedPosition(selectedPlace.artists, artist.id, PIN_LAYOUT_ZOOM) ?? artist.coordinates;
         flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
       }
     },
@@ -828,7 +821,6 @@ export function ExploreScreen({ navigation, route }: Props) {
       // périmées après un vol ou un dézoom (et pouvait vider tous les pays).
       base = allArtists;
     }
-    console.log('[PIN-DEBUG] pins calc: target=', target.length, 'scopeReleased=', scopeReleased, 'searchOpen=', searchOpen, 'query=', query.slice(0, 20), 'base=', base.length, 'mapZoom=', mapZoom.toFixed(2), 'level=', levelFor(mapZoom));
     if (base.length === 0) return [];
     const valid = base.filter((a) => isValidCoordinate(a.coordinates));
     const level = levelFor(mapZoom);
@@ -916,12 +908,11 @@ export function ExploreScreen({ navigation, route }: Props) {
     } else {
       // Coordonnées stables pendant tout le zoom : recalculer la spirale avec
       // `mapZoom` faisait glisser les artistes à chaque frame du pinch.
-      const spread = declump(valid, CAMERA.artist.zoom);
+      const spread = declump(valid, PIN_LAYOUT_ZOOM);
       for (const artist of valid) {
         out.push({ key: `a-${artist.id}`, kind: 'artist', artist, coords: spread.get(artist.id) ?? artist.coordinates, tier: tierOf(artist, popularityById) });
       }
     }
-    console.log('[PIN-DEBUG] pins RESULT:', out.length, 'items (' + out.filter(p => p.kind === 'cluster').length + ' clusters, ' + out.filter(p => p.kind === 'artist').length + ' artists)');
     return out;
   }, [visiblePins, searchOpen, query, allArtists, mapZoom, popularityById, scopeReleased]);
 
@@ -947,7 +938,6 @@ export function ExploreScreen({ navigation, route }: Props) {
       return aSelected - bSelected;
     });
   }, [pins, highlightedId]);
-  useEffect(() => { console.log('[PIN-DEBUG] orderedPins:', orderedPins.length, 'highlightedId:', highlightedId); }, [orderedPins.length, highlightedId]);
 
   // Source unique de vérité du zoom : les événements Mapbox v10. Pendant le
   // mouvement, un rendu n'est déclenché qu'au changement de niveau de cluster ;
@@ -1394,8 +1384,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                   if (pin.members.length > 0) {
                     const firstMember = pin.members[0];
                     if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-                      const spread = declump(pin.members, 13);
-                      const rendered = spread.get(firstMember.id);
+                      const rendered = renderedPosition(pin.members, firstMember.id, PIN_LAYOUT_ZOOM);
                       if (rendered) {
                         targetCoords = rendered;
                         targetZoom = 13;

@@ -39,10 +39,31 @@ test('les petits clusters pays restent touchables et n’envoient pas le geste �
 });
 
 test('les pins artistes gardent des coordonnées stables pendant le zoom sur mobile et web', () => {
-  assert.match(source, /declump\(valid, CAMERA\.artist\.zoom\)/);
+  // Le rendu passe par la constante partagée, jamais par le zoom courant :
+  // recalculer la spirale à chaque frame ferait glisser les pins pendant un pinch.
+  assert.match(source, /declump\(valid, PIN_LAYOUT_ZOOM\)/);
   assert.doesNotMatch(source, /declump\(valid, mapZoom\)/);
-  assert.match(webMapSource, /declump\(allArtists, CAMERA\.artist\.zoom\)/);
+  assert.match(webMapSource, /declump\(allArtists, PIN_LAYOUT_ZOOM\)/);
   assert.doesNotMatch(webMapSource, /declump\(allArtists, liveZoom\)/);
+});
+
+test('la caméra vise la position DESSINÉE, jamais une position calculée au zoom de destination', () => {
+  // Le mobile calculait ses cibles de vol à 12, 13 ou 14 selon le contexte,
+  // alors que les pins sont toujours dessinés à PIN_LAYOUT_ZOOM : la caméra
+  // se centrait sur un point où il n'y avait pas de pin.
+  for (const file of [source, webMapSource]) {
+    assert.doesNotMatch(file, /declump\([^)]*,\s*1[0-9](\.[0-9]+)?\s*\)/);
+    assert.doesNotMatch(file, /renderedPosition\([^)]*,\s*1[0-9](\.[0-9]+)?\s*\)/);
+    assert.doesNotMatch(file, /firstRenderedPosition\([^)]*,\s*1[0-9](\.[0-9]+)?\s*\)/);
+  }
+  // Le web ne doit pas réutiliser le zoom de la caméra pour positionner.
+  assert.doesNotMatch(webMapSource, /firstRenderedPosition\(artists, zoom\)/);
+});
+
+test('aucune trace de debug ne subsiste dans l’écran carte mobile', () => {
+  // Deux de ces journaux tournaient à chaque recalcul de pins, donc à chaque
+  // frame d'un pinch : sur React Native, console.log traverse le pont Metro.
+  assert.doesNotMatch(source, /console\.log/);
 });
 
 test('une session Supabase valide ne redevient pas anonyme si le profil arrive en retard', () => {
