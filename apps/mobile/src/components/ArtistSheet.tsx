@@ -27,7 +27,7 @@ import {
   toggleFollow,
 } from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
-import { appleMusicSearchUrl, loadArtistTracks, type StreamedTrack } from '@musimaps/shared';
+import { appleMusicSearchUrl, artistUrl, loadArtistTracks, type StreamedTrack } from '@musimaps/shared';
 import { requestClaim } from '@musimaps/shared';
 import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
@@ -548,16 +548,21 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
           <Pressable
             accessibilityLabel={t('sheet.shareAria')}
             style={styles.iconBtn}
-            onPress={() =>
-              Share.share({
+            onPress={() => {
+              // Sans URL, le destinataire recevait un texte sans aucun moyen
+              // de revenir sur Musimaps. iOS lit `url`, Android ne lit que
+              // `message` : on met le lien dans les deux.
+              const url = artistUrl(artist.slug || artist.id);
+              void Share.share({
                 title: artist.name,
-                message: t('sheet.shareMessage', {
+                message: `${t('sheet.shareMessage', {
                   name: artist.name,
                   genre: artist.genre,
                   city: artist.city,
-                }),
-              })
-            }
+                })} ${url}`,
+                url,
+              }).catch(() => undefined);
+            }}
           >
             <Ionicons name="share-outline" size={23} color={colors.ink} />
           </Pressable>

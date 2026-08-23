@@ -18,8 +18,8 @@
  * ici on couvre le premier chargement, le seul que voient les robots.
  *
  * Deux fichiers sont produits, le préfixe de langue vivant dans l'URL :
- *   dist/index.html      → français  (musimaps.app/)
- *   dist/en/index.html   → anglais   (musimaps.app/en)
+ *   dist/index.html      → français  (musimaps.com/)
+ *   dist/en/index.html   → anglais   (musimaps.com/en)
  *
  * Sans identifiants Supabase, le script n'échoue pas : il laisse le HTML tel
  * quel et rend la main (`npm run check` doit rester vert sans secrets).
@@ -32,7 +32,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const dist = path.join(root, 'apps', 'web', 'dist')
-const SITE = 'https://musimaps.app'
+const SITE = 'https://musimaps.com'
 
 /** Dimensions annoncées aux robots pour une grande carte de partage. */
 const OG_IMAGE_WIDTH = '1200'

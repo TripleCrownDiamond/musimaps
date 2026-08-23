@@ -288,6 +288,6 @@ export function inviteLink(email: string, role: 'artist' | 'melomane' = 'meloman
   const base =
     typeof window !== 'undefined'
       ? `${window.location.origin}/signup`
-      : 'https://musimaps.app/signup'
+      : 'https://musimaps.com/signup'
   return `${base}?email=${encodeURIComponent(email)}&role=${role}`
 }

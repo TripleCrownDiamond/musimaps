@@ -61,7 +61,7 @@ const Tabs = createBottomTabNavigator<MainTabParamList>();
 // ne coupe que sur '?', donc un fragment resterait dans le path et le lien ne matcherait pas.
 // L'écran ResetPassword relit l'URL complète (avec token) via Linking.getInitialURL().
 const linking = {
-  prefixes: ['musimaps://', 'https://musimaps.app', ...(__DEV__ ? ['http://localhost:8090'] : [])],
+  prefixes: ['musimaps://', 'https://musimaps.com', ...(__DEV__ ? ['http://localhost:8090'] : [])],
   config: {
     screens: {
       ResetPassword: 'reset-password',

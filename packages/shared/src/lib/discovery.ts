@@ -8,7 +8,7 @@ import { countryByName } from '../geo'
  * les agents génériques ou vides sont rejetés (HTTP 503).
  */
 const MUSICBRAINZ_USER_AGENT =
-  'Musimaps/1.0 (https://musimaps.app)'
+  'Musimaps/1.0 (https://musimaps.com)'
 
 /** Plateformes d'écoute publiques d'un artiste. */
 export type ArtistPlatforms = Partial<

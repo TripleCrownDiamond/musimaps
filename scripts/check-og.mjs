@@ -31,8 +31,8 @@ function metaContent(html, property) {
 
 const failures = []
 const targets = [
-  { file: path.join(dist, 'index.html'), lang: 'fr', expectUrl: 'https://musimaps.app/' },
-  { file: path.join(dist, 'en', 'index.html'), lang: 'en', expectUrl: 'https://musimaps.app/en' },
+  { file: path.join(dist, 'index.html'), lang: 'fr', expectUrl: 'https://musimaps.com/' },
+  { file: path.join(dist, 'en', 'index.html'), lang: 'en', expectUrl: 'https://musimaps.com/en' },
 ]
 
 if (!existsSync(targets[0].file)) {

@@ -34,7 +34,7 @@ export function loadMapboxToken(root) {
   }
 }
 
-export const AGENT_UA = 'MusiMaps/1.0 (https://musimaps.app; ai-artist-agent)'
+export const AGENT_UA = 'MusiMaps/1.0 (https://musimaps.com; ai-artist-agent)'
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 

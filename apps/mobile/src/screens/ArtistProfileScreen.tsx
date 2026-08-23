@@ -6,6 +6,7 @@ import {
   fetchArtistFollowers,
   fetchArtistLikes,
   appleMusicSearchUrl,
+  artistUrl,
   fetchFollowing,
   loadArtistTracks,
   fetchMapArtists,
@@ -258,7 +259,14 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
               size="icon"
               variant="outline"
               accessibilityLabel={t('sheet.shareAria')}
-              onPress={() => void Share.share({ title: artist.name, message: t('sheet.shareMessage', { name: artist.name, genre: artist.genre, city: artist.city }) })}
+              onPress={() => {
+                const url = artistUrl(artist.slug || artist.id);
+                void Share.share({
+                  title: artist.name,
+                  message: `${t('sheet.shareMessage', { name: artist.name, genre: artist.genre, city: artist.city })} ${url}`,
+                  url,
+                }).catch(() => undefined);
+              }}
               icon={<Ionicons name="share-outline" size={22} color={colors.ink} />}
             />
           </View>

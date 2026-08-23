@@ -54,7 +54,7 @@ function PlatformPreview({
         </div>
       )}
       <div className="grid gap-0.5 p-3">
-        <p className={cn('text-xs uppercase tracking-wide', s.domain)}>musimaps.app</p>
+        <p className={cn('text-xs uppercase tracking-wide', s.domain)}>musimaps.com</p>
         <p className="line-clamp-1 font-semibold leading-snug">{title || 'Titre à renseigner'}</p>
         <p className={cn('line-clamp-2 text-sm leading-snug', s.domain)}>
           {description || 'Description à renseigner'}
@@ -245,7 +245,7 @@ export default function SeoPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-xs text-secondary-text">
-                https://musimaps.app{lang === 'en' ? '/en' : ''}
+                https://musimaps.com{lang === 'en' ? '/en' : ''}
               </div>
               <p className="text-xl leading-snug text-[#1a0dab] dark:text-[#8ab4f8]">
                 {draft.title || 'Titre à renseigner'}

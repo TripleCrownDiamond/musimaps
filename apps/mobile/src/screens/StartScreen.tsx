@@ -2,9 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { lightPalette, spacing } from '@musimaps/shared';
+import { lightPalette, privacyUrl, spacing, termsUrl } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { Button } from '../ui';
@@ -37,7 +37,7 @@ const ON_MEDIA = {
  * Les contrôles restent accessibles et s’adaptent à toutes les hauteurs d’écran.
  */
 export function StartScreen({ navigation }: Props) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   // Pas de logo sur l'écran d'accueil/auth — une illustration 3D du globe
   // pose le ton (comme l'onboarding), le reste est épuré et natif.
   const startFlow = async () => {
@@ -105,9 +105,26 @@ export function StartScreen({ navigation }: Props) {
             />
           </View>
 
+          {/* Ces deux libellés étaient stylés en liens mais n'avaient aucun
+              `onPress` : du texte mort. L'App Store et le Play Store exigent
+              des conditions et une politique de confidentialité atteignables. */}
           <Text style={styles.legal}>
-            {t('start.legalPrefix')} <Text style={styles.legalLink}>{t('start.legalTerms')}</Text>{' '}
-            {t('start.legalAnd')} <Text style={styles.legalLink}>{t('start.legalPrivacy')}</Text>
+            {t('start.legalPrefix')}{' '}
+            <Text
+              style={styles.legalLink}
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(termsUrl(lang)).catch(() => {})}
+            >
+              {t('start.legalTerms')}
+            </Text>{' '}
+            {t('start.legalAnd')}{' '}
+            <Text
+              style={styles.legalLink}
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(privacyUrl(lang)).catch(() => {})}
+            >
+              {t('start.legalPrivacy')}
+            </Text>
             {t('start.legalSuffix')}
           </Text>
         </View>

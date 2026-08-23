@@ -7,7 +7,7 @@
  * Déploiement (une fois) :
  *   npx supabase functions deploy purge-cache
  *   npx supabase secrets set HOSTINGER_API_TOKEN=xxx HOSTINGER_ACCOUNT_USERNAME=u123456789
- *     (HOSTINGER_DOMAIN optionnel, défaut musimaps.app)
+ *     (HOSTINGER_DOMAIN optionnel, défaut musimaps.com)
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -16,7 +16,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 const TOKEN = Deno.env.get('HOSTINGER_API_TOKEN') ?? ''
 const ACCOUNT = Deno.env.get('HOSTINGER_ACCOUNT_USERNAME') ?? ''
-const DOMAIN = Deno.env.get('HOSTINGER_DOMAIN') ?? 'musimaps.app'
+const DOMAIN = Deno.env.get('HOSTINGER_DOMAIN') ?? 'musimaps.com'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

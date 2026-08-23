@@ -12,7 +12,7 @@ import { AppBar } from '../components/AppBar';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { getLevelInfo, radii, spacing } from '@musimaps/shared';
+import { SITE_URL, getLevelInfo, radii, spacing } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fetchUnreadCount } from '@musimaps/shared';
 import { checkin, type StreakInfo } from '@musimaps/shared';
@@ -59,9 +59,12 @@ export function ProfileScreen({ navigation }: Props) {
   );
 
   const shareApp = () => {
+    // Le message d'invitation n'embarquait aucun lien : impossible pour le
+    // destinataire de rejoindre Musimaps.
     Share.share({
       title: 'Musimaps',
-      message: t('profile.shareMessage', { name }),
+      message: `${t('profile.shareMessage', { name })} ${SITE_URL}`,
+      url: SITE_URL,
     }).catch(() => {});
   };
 

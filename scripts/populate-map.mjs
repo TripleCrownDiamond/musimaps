@@ -58,7 +58,7 @@ const headers = {
   'Content-Type': 'application/json',
 }
 
-const USER_AGENT = 'MusiMaps/1.0 (https://musimaps.app; map population script)'
+const USER_AGENT = 'MusiMaps/1.0 (https://musimaps.com; map population script)'
 
 /* ---------------------------------------------------------------- */
 /* Argv                                                             */
