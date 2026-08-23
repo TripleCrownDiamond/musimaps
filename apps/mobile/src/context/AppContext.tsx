@@ -10,7 +10,7 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { DEFAULT_BADGES, appliesToRole, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
+import { DEFAULT_BADGES, appliesToRole, computeBadges, parseBadges, satisfiesRule, syncGamification, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
 import {
   mergeLocalFavorites,
   toggleFavorite as sharedToggleFavorite,
@@ -374,25 +374,23 @@ export function AppProvider({ children }: PropsWithChildren) {
     if (!client || !deviceId || !loadedRef.current) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      const levelInfo = getLevelInfo(points);
-      client
-        .from('gamification')
-        .upsert(
-          {
-            user_key: deviceId,
-            display_name: profile?.displayName ?? null,
-            points,
-            level: levelInfo.level,
-            level_title: levelInfo.title,
-            badges: earnedBadges,
-            badge_count: earnedBadges.length,
-            visited_cities: visitedCities.length,
-            favorites: favorites.length,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_key' },
-        )
-        .then(() => {}, () => {});
+      // `syncGamification` est la MÊME écriture que celle du dashboard web.
+      // Le mobile la réécrivait à la main : deux payloads concurrents sur la
+      // même table, voués à diverger à la première colonne ajoutée.
+      void syncGamification({
+        userKey: deviceId,
+        displayName: profile?.displayName ?? null,
+        badges: computeBadges(badgeDefs, {
+          role: 'audience',
+          cities: visitedCities.length,
+          favorites: favorites.length,
+          hasProfile: profile !== null,
+        }),
+        cities: visitedCities.length,
+        favorites: favorites.length,
+        // Les dates d'obtention déjà connues, pour ne pas les réinitialiser.
+        earnedAt: Object.fromEntries(earnedBadges.map((b) => [b.id, b.earnedAt])),
+      });
     }, 900);
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
