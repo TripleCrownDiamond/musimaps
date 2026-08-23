@@ -152,7 +152,7 @@ export default function Signup() {
   const signupClosed = !content.settings.openSignup && !user && !prefill.email
   if (signupClosed) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
         <div className="w-full max-w-md">
           <div className="rounded-[2rem] border border-hairline bg-surface p-8 text-center shadow-xl">
             <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-black">
@@ -172,7 +172,7 @@ export default function Signup() {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -184,7 +184,7 @@ export default function Signup() {
 
   if (sent) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
         <div className="w-full max-w-md">
           <div className="rounded-[2rem] border border-hairline bg-surface p-8 text-center shadow-xl">
             <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-black">
@@ -203,12 +203,12 @@ export default function Signup() {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
       <div className="w-full max-w-md">
         <div className="rounded-[2rem] border border-hairline bg-surface p-8 shadow-xl">
           <div className="mb-5 flex flex-col items-center">
@@ -394,6 +394,6 @@ export default function Signup() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   )
 }

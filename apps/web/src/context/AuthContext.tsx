@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import {
-  fetchProfile,
   getSessionProfile,
   resetPasswordForEmail as apiResetPasswordForEmail,
   signIn as apiSignIn,
@@ -72,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        void fetchProfile(session.user.id, session.user.email ?? null).then((profile) => {
+        void getSessionProfile().then((profile) => {
           if (cancelled) return
           setUser(profile)
           setLoading(false)

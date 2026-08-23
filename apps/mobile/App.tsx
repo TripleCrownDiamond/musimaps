@@ -49,6 +49,7 @@ configureRuntime({
   storage: nativeStorage,
   // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.
   resetPasswordUrl: 'musimaps://reset-password',
+  signUpConfirmationUrl: 'musimaps://login',
 });
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -65,6 +66,7 @@ const linking = {
     screens: {
       ResetPassword: 'reset-password',
       ForgotPassword: 'forgot-password',
+      Login: 'login',
     },
   },
   getInitialURL: async () => {

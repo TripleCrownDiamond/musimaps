@@ -5,8 +5,9 @@ import {
   fetchArtistBooking,
   fetchArtistFollowers,
   fetchArtistLikes,
-  fetchArtistTracks,
+  appleMusicSearchUrl,
   fetchFollowing,
+  loadArtistTracks,
   fetchMapArtists,
   hexToRgba,
   radii,
@@ -116,20 +117,16 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
           album: '',
           duration: track.duration,
           artwork: '',
-          url: `https://music.apple.com/search?term=${encodeURIComponent(`${artist.name} ${track.title}`)}`,
+          url: appleMusicSearchUrl(artist.name, track.title),
         })),
       );
       return;
     }
-    const controller = new AbortController();
     setTracksLoading(true);
-    void fetchArtistTracks(artist.name, controller.signal).then((items) => {
-      if (!controller.signal.aborted) {
-        setTracks(items);
-        setTracksLoading(false);
-      }
+    return loadArtistTracks(artist.name, (items) => {
+      setTracks(items);
+      setTracksLoading(false);
     });
-    return () => controller.abort();
   }, [artist]);
 
   const links = useMemo(

@@ -13,7 +13,7 @@
  *     noms. Fusionnées, en gardant le repli « colonne bio absente » du mobile
  *     et le champ `avatarUrl` du web.
  */
-import { getResetPasswordUrl, getSupabase } from '../runtime';
+import { getResetPasswordUrl, getSignUpConfirmationUrl, getSupabase } from '../runtime';
 
 export type AccountRole = 'artist' | 'melomane';
 
@@ -95,6 +95,7 @@ export async function signUp(params: {
     email: params.email.trim(),
     password: params.password,
     options: {
+      emailRedirectTo: getSignUpConfirmationUrl() || undefined,
       data: {
         role: params.role,
         display_name: params.displayName.trim(),
@@ -130,6 +131,45 @@ export async function signUp(params: {
   };
 }
 
+/** Renvoie le mail de validation quand le premier envoi n'est pas arrivé. */
+export async function resendSignUpConfirmation(email: string): Promise<{ error: AuthError | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: { message: 'Supabase non configuré' } };
+  const { error } = await supabase.auth.resend({
+    type: 'signup',
+    email: email.trim(),
+    options: { emailRedirectTo: getSignUpConfirmationUrl() || undefined },
+  });
+  return { error: error ? { message: error.message } : null };
+}
+
+type AuthUserLike = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+};
+
+/** Profil de session sûr pendant que le trigger `profiles` termine son travail. */
+function sessionShell(user: AuthUserLike): UserProfile {
+  const meta = user.user_metadata ?? {};
+  const email = user.email ?? '';
+  const displayName = typeof meta.display_name === 'string' && meta.display_name.trim()
+    ? meta.display_name.trim()
+    : email.split('@')[0] || 'Musimaps';
+  return {
+    id: user.id,
+    email,
+    displayName,
+    city: typeof meta.city === 'string' ? meta.city : null,
+    district: null,
+    country: typeof meta.country === 'string' ? meta.country : null,
+    role: meta.role === 'artist' ? 'artist' : 'melomane',
+    accountType: 'personal',
+    favoriteGenres: [],
+    avatarUrl: null,
+  };
+}
+
 export async function signIn(
   email: string,
   password: string,
@@ -142,7 +182,7 @@ export async function signIn(
   });
   if (error) return { user: null, error: { message: error.message } };
   if (!data.user) return { user: null, error: null };
-  const profile = await fetchProfile(data.user.id, data.user.email ?? null);
+  const profile = await fetchProfile(data.user.id, data.user.email ?? null) ?? sessionShell(data.user);
   // Rattache sa ligne waitlist / son pin à ce compte (migration 00053).
   if (profile?.role === 'artist') void linkArtistAccountToMap();
   return { user: profile, error: null };
@@ -290,7 +330,7 @@ export async function fetchProfile(
       .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url')
       .eq('id', userId)
       .maybeSingle();
-    if (full.error && /account_type|favorite_genres/i.test(full.error.message)) {
+    if (full.error && /account_type|favorite_genres|district|country|avatar_url|column .* does not exist|schema cache/i.test(full.error.message)) {
       const base = await supabase
         .from('profiles')
         .select('id, display_name, city, role')
@@ -342,7 +382,7 @@ export async function getSessionProfile(): Promise<UserProfile | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
-  const profile = await fetchProfile(data.user.id, data.user.email ?? null);
+  const profile = await fetchProfile(data.user.id, data.user.email ?? null) ?? sessionShell(data.user);
   // Artiste déjà connecté (session restaurée) : rattache sa ligne waitlist /
   // son pin à ce compte — couvre les comptes créés AVANT le déploiement 00053.
   if (profile?.role === 'artist') void linkArtistAccountToMap();

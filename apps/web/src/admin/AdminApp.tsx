@@ -14,6 +14,8 @@ import OnboardingPage from './pages/OnboardingPage'
 import WaitlistPage from './pages/WaitlistPage'
 import BadgesPage from './pages/BadgesPage'
 import GamificationPage from './pages/GamificationPage'
+import GuidePage from './pages/GuidePage'
+import DocsPage from './pages/DocsPage'
 import SettingsPage from './pages/SettingsPage'
 import CachePage from './pages/CachePage'
 import HistoryPage from './pages/HistoryPage'
@@ -150,6 +152,11 @@ export default function AdminApp() {
         <Route path="claims" element={<ClaimsPage />} />
         <Route path="cache" element={<CachePage />} />
         <Route path="settings" element={<SettingsPage />} />
+        {/* Guide d'édition (mode d'emploi par page) et documentation produit.
+            `DocsPage` existait déjà mais n'était routée nulle part : elle était
+            inaccessible depuis l'admin. */}
+        <Route path="guide" element={<GuidePage />} />
+        <Route path="docs" element={<DocsPage />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Route>
     </Routes>

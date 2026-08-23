@@ -11,7 +11,11 @@ import {
   type PropsWithChildren,
 } from 'react';
 import { DEFAULT_BADGES, appliesToRole, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
-import { updateProfile } from '@musimaps/shared';
+import {
+  mergeLocalFavorites,
+  toggleFavorite as sharedToggleFavorite,
+  updateProfile,
+} from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
 const FAVORITES_KEY = 'musimaps.mobile.favorites';
@@ -77,6 +81,43 @@ export function AppProvider({ children }: PropsWithChildren) {
   const loadedRef = useRef(false);
   const firstAwardRef = useRef(true);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Un compte est connecté : les favoris passent par Supabase, pas AsyncStorage. */
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Synchronisation des favoris avec le compte.
+  //
+  // `AppProvider` enveloppe `AuthProvider` (App.tsx) : on ne peut pas lire le
+  // contexte d'authentification ici, on écoute donc Supabase directement.
+  // À la connexion, les favoris posés hors ligne sont repris dans le compte,
+  // puis le cache local est vidé — sans quoi ils seraient réinjectés dans le
+  // compte suivant qui se connecterait sur le même appareil.
+  useEffect(() => {
+    let cancelled = false;
+
+    const sync = async (hasSession: boolean) => {
+      if (cancelled) return;
+      setSignedIn(hasSession);
+      if (!hasSession) return;
+      const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+      const local: string[] = raw ? JSON.parse(raw) : [];
+      const merged = await mergeLocalFavorites(local);
+      if (cancelled) return;
+      setFavorites(merged);
+      if (local.length > 0) await AsyncStorage.removeItem(FAVORITES_KEY);
+    };
+
+    void supabase?.auth.getSession().then(({ data }) => {
+      void sync(Boolean(data.session));
+    });
+    const listener = supabase?.auth.onAuthStateChange((_event, session) => {
+      void sync(Boolean(session));
+    });
+
+    return () => {
+      cancelled = true;
+      listener?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -86,6 +127,8 @@ export function AppProvider({ children }: PropsWithChildren) {
       AsyncStorage.getItem(BADGES_KEY),
     ])
       .then(([savedFavorites, savedProfile, savedCities, savedBadges]) => {
+        // Affichage immédiat depuis le cache local ; dès qu'un compte est
+        // connecté, l'effet de synchronisation ci-dessous fait autorité.
         if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
         if (savedProfile) setProfile(JSON.parse(savedProfile));
         if (savedCities) setVisitedCities(JSON.parse(savedCities));
@@ -193,15 +236,33 @@ export function AppProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
-  const toggleFavorite = useCallback(async (artistId: string) => {
-    setFavorites((current) => {
-      const next = current.includes(artistId)
-        ? current.filter((id) => id !== artistId)
-        : [...current, artistId];
-      AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
+  const toggleFavorite = useCallback(
+    async (artistId: string) => {
+      // Connecté : la table `favorites` fait autorité, comme sur le web —
+      // un artiste sauvé ici apparaît sur l'autre plateforme.
+      if (signedIn) {
+        const result = await sharedToggleFavorite(artistId);
+        if (!result.ok) return;
+        setFavorites((current) =>
+          result.liked
+            ? current.includes(artistId)
+              ? current
+              : [...current, artistId]
+            : current.filter((id) => id !== artistId),
+        );
+        return;
+      }
+      // Déconnecté : cache local, repris en base à la prochaine connexion.
+      setFavorites((current) => {
+        const next = current.includes(artistId)
+          ? current.filter((id) => id !== artistId)
+          : [...current, artistId];
+        AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    },
+    [signedIn],
+  );
 
   const applyAsArtist = useCallback(async (application: ArtistApplication) => {
     if (!supabase) return 'Supabase n’est pas configuré. La demande n’a pas pu être envoyée.';

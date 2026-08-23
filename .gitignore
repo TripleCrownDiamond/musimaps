@@ -35,3 +35,14 @@ npm-debug.*
 # Artefacts d outils (Playwright, captures de debug)
 .playwright-cli/
 /output/
+
+# Rapports et traces Playwright (regeneres a chaque `npm run test:e2e`)
+/test-results/
+/playwright-report/
+
+# Configurations d editeurs et d outils locaux
+.zed/
+.gemini/
+
+# Archives de deploiement (produites par `npm run build`)
+/musimaps_hostinger.zip

@@ -78,7 +78,10 @@ export function DashboardScreen({ navigation }: Props) {
   if (!user) {
     return (
       <View style={[styles.root, styles.center, styles.gap]}>
-        <Text style={styles.emptyText}>{t('booking.loginText')}</Text>
+        {/* Mêmes libellés que le tableau de bord web : l'état invité parlait
+            de réservation d'artistes (`booking.loginText`), hors sujet ici. */}
+        <Text style={styles.emptyTitle}>{t('dash.loginTitle')}</Text>
+        <Text style={styles.emptyText}>{t('dash.loginText')}</Text>
         <Pressable style={styles.primaryCta} onPress={() => navigation.navigate('Login')}>
           <Text style={styles.primaryCtaText}>{t('auth.login')}</Text>
         </Pressable>
@@ -336,6 +339,7 @@ const createStyles = (colors: AppColors) =>
       marginTop: 7,
     },
     cardContact: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
+    emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 24, textAlign: 'center' },
     emptyText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, textAlign: 'center' },
     primaryCta: {
       minHeight: 54,

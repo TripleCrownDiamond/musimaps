@@ -116,7 +116,9 @@ export function DiscoverScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <AppBar navigation={navigation} />
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+        <AppBar navigation={navigation} />
+      </View>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
@@ -256,6 +258,7 @@ function Chip({
 const createStyles = (colors: AppColors, isDark: boolean) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
+    appBarWrap: { paddingHorizontal: 20, paddingBottom: spacing.md },
     content: { paddingHorizontal: 20, paddingTop: spacing.lg, gap: spacing['2xl'] },
     empty: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
     chipRow: { gap: spacing.sm, paddingRight: spacing.lg },

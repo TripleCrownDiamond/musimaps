@@ -21,6 +21,7 @@ configureRuntime({
   supabase,
   storage: webStorage,
   resetPasswordUrl: `${window.location.origin}/reset-password`,
+  signUpConfirmationUrl: `${window.location.origin}/login`,
 })
 
 createRoot(document.getElementById('root')!).render(

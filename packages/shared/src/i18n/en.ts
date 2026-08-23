@@ -56,6 +56,7 @@ export const en: Record<MessageKey, string> = {
   'auth.backHome': 'Back to home',
   'auth.checkEmail': 'Check your inbox',
   'auth.checkEmailText': 'We sent a confirmation link to the address below. Click it to activate your account, then log in.',
+  'auth.confirmationResent': 'A new confirmation link has just been sent.',
   'auth.city': 'City',
   'auth.country': 'Country',
   'auth.dashboard': 'Dashboard',
@@ -108,6 +109,7 @@ export const en: Record<MessageKey, string> = {
   'auth.resetSubmit': 'Update password',
   'auth.resetSubtitle': 'Choose a new password for your account.',
   'auth.resetTitle': 'New password',
+  'auth.resendConfirmation': 'Resend confirmation email',
   'auth.role': 'I am…',
   'auth.roleArtist': 'Artist',
   'auth.roleArtistHint': 'I want to be featured on the map.',
@@ -295,6 +297,42 @@ export const en: Record<MessageKey, string> = {
   'dash.bookingSaved': 'Plans saved.',
   'dash.bookingTitle': 'Bookings (plans)',
   'dash.budget': 'Budget',
+  // Dashboard guide — the copy adapts to role and account type.
+  'dash.guideTitle': 'How to use your dashboard',
+  'dash.guideToggle': 'Show guide',
+  'dash.guideHide': 'Hide guide',
+  'dash.guideArtist':
+    'You are an artist. Your priority: complete your profile so people can find you. Fill in your city and district — they decide where your pin lands on the globe. Add your streaming links; they appear on your public profile.',
+  'dash.guideArtistTracks':
+    'Your tracks are not entered by hand: they are found automatically on Apple Music from your artist name. If the Music tab stays empty, check the exact spelling of your name.',
+  'dash.guideMelomane':
+    'You are a listener. Explore the globe, open profiles, save what you like: your favourites follow you on web and mobile alike. Every city you visit moves your badges forward.',
+  'dash.guideBusiness':
+    'Your business account lets you send booking requests to bookable artists. Your requests and their replies land here.',
+  'dash.guidePersonal':
+    'Switch to a business account if you organise events: you will then be able to contact artists to book them.',
+  // Contextual help bubbles (“?”).
+  'dash.helpAnalytics':
+    'Who views your profile, and from which countries, over the last 14 days. A unique visitor is counted once, even if they come back.',
+  'dash.helpAnalyticsAria': 'Help about your profile analytics',
+  'dash.helpRewards':
+    'Badges unlock automatically as soon as their condition is met — retroactively. The counter under each locked badge shows what is left to do.',
+  'dash.helpRewardsAria': 'Help about badges and levels',
+  'dash.helpStreak':
+    'Your streak counts consecutive days you open Musimaps. Missing a day resets it to zero.',
+  'dash.helpStreakAria': 'Help about the login streak',
+  'dash.helpBooking':
+    'Turn on your availability, then describe your offerings. Only active packages appear on your public profile.',
+  'dash.helpBookingAria': 'Help about booking packages',
+  'dash.helpMyArtists':
+    'The artists you saved. This list belongs to your account: it is identical on the web and in the mobile app.',
+  'dash.helpMyArtistsAria': 'Help about your saved artists',
+  'dash.helpAccount':
+    'This information comes from your account. Your city is used to suggest artists near you.',
+  'dash.helpAccountAria': 'Help about account information',
+  'dash.helpNotifications':
+    'You are notified when someone follows you, claims a profile, or replies to a booking request.',
+  'dash.helpNotificationsAria': 'Help about notifications',
   'dash.business': 'Business',
   'dash.businessDesc': 'Book artists for your events (budget, expected audience…).',
   'dash.businessUpsell': 'Artist booking',
@@ -494,7 +532,21 @@ export const en: Record<MessageKey, string> = {
   'globe.genreArtists': '{count} artist{s} of this genre',
   'globe.genreArtistsShort': '{count} artist{s}',
   'globe.genres': 'Genres',
-  'globe.globeView': 'Globe view',
+'globe.globeView': 'Globe view',
+'globe.guideOpen': 'Open map guide',
+'globe.guideClose': 'Close guide',
+'globe.guideTitle': 'Read the map',
+'globe.guideIntro': 'Shapes identify the pin type; colors describe popularity.',
+'globe.guidePlaceTitle': 'Country or city',
+'globe.guidePlaceText': 'The blue pill shows the flag, place and number of grouped artists.',
+'globe.guideArtistTitle': 'Artist',
+'globe.guideArtistText': 'The circle shows a photo or initials. Its ring indicates popularity.',
+'globe.guidePopularity': 'Popularity ring',
+'globe.guideTierNew': 'Emerging',
+'globe.guideTierKnown': 'Known',
+'globe.guideTierPopular': 'Popular',
+'globe.guideTierStar': 'Star',
+'globe.guideZoom': 'Zoom from countries to cities and then artists. Select a place to browse its artists with the arrows.',
   'globe.hint': 'Search an artist, a city or a music genre — the map will spin to it.',
   'globe.history': 'Search history',
   'globe.historyEmpty': 'No recent searches — jump in, or get surprised.',

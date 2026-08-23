@@ -46,6 +46,22 @@ export function isLegacyBrandUrl(url: string): boolean {
   return LEGACY_BRAND_FILES.some((fragment) => url.includes(fragment));
 }
 
+/**
+ * Vide les champs qui pointent encore vers un ancien logo.
+ *
+ * Le site les ignorait déjà à l'affichage, mais ils restaient stockés dans le
+ * CMS : l'admin les présentait comme des logos actifs, sous un bandeau
+ * d'avertissement permanent. Nettoyer le brouillon au chargement fait
+ * disparaître les deux — et l'enregistrement rend la suppression définitive.
+ */
+export function stripLegacyBrandUrls<T extends object>(brand: T): T {
+  const cleaned: Record<string, unknown> = { ...(brand as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(cleaned)) {
+    if (typeof value === 'string' && isLegacyBrandUrl(value)) cleaned[key] = '';
+  }
+  return cleaned as T;
+}
+
 export type BrandTheme = 'light' | 'dark';
 
 /**
