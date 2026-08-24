@@ -159,6 +159,47 @@ export function matchesArtist(trackArtist: string, artistName: string): boolean 
 }
 
 /**
+ * Plateformes d'écoute, de la plus à la moins spécifique à la musique.
+ * Un lien Spotify vaut mieux qu'un site personnel pour écouter un morceau.
+ */
+const LISTEN_PLATFORMS = [
+  'spotify',
+  'apple_music',
+  'deezer',
+  'youtube',
+  'soundcloud',
+  'bandcamp',
+] as const
+
+/**
+ * Où mène le bouton « écouter » d'un titre.
+ *
+ * Trois destinations, par ordre de précision décroissante :
+ *
+ *  1. l'URL du titre lui-même, quand la source en fournit une — c'est le
+ *     morceau exact, rien ne fait mieux ;
+ *  2. la page de l'artiste sur une plateforme d'écoute qu'il a lui-même
+ *     renseignée — autoritatif, contrairement à une recherche ;
+ *  3. une recherche Apple Music, en dernier recours.
+ *
+ * Les titres du catalogue éditorial n'ont qu'un nom et une durée : ils
+ * tombaient donc systématiquement sur la recherche, alors que l'artiste avait
+ * souvent son Spotify renseigné juste à côté.
+ */
+export function trackListenUrl(
+  track: { title: string; url?: string },
+  artist: { name: string; platforms?: Partial<Record<string, string>> },
+): string {
+  if (track.url) return track.url
+  const platforms = artist.platforms ?? {}
+  for (const key of LISTEN_PLATFORMS) {
+    const url = platforms[key]
+    if (url) return url
+  }
+  return appleMusicSearchUrl(artist.name, track.title)
+}
+
+/**
  * Lien d'écoute de repli pour un titre du catalogue éditorial : celui-ci ne
  * porte qu'un titre et une durée, jamais d'URL. La recherche Apple Music est
  * la destination commune aux trois écrans qui listent ces titres.

@@ -18,7 +18,7 @@ import {
 import Footer from '../components/Footer'
 import { artists, compactCount, findArtist, type Artist } from '@musimaps/shared'
 import { fetchMapArtists, toArtist } from '@musimaps/shared'
-import { appleMusicSearchUrl, loadArtistTracks, type StreamedTrack } from '@musimaps/shared'
+import { appleMusicSearchUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import {
   fetchArtistFollowers,
   fetchArtistLikes,
@@ -214,7 +214,7 @@ export default function ArtistProfile() {
                       </span>
                       <span className="text-sm text-secondary-text">{track.duration}</span>
                       <a
-                        href={track.url}
+                        href={trackListenUrl(track, artist)}
                         target="_blank"
                         rel="noreferrer"
                         aria-label={t('profile.listen', { title: track.title })}

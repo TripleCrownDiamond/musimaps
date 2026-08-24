@@ -7,7 +7,7 @@
  * des hypothèses.
  */
 import { describe, expect, it } from 'vitest'
-import { appleMusicSearchUrl, matchesArtist, normalize } from './music'
+import { appleMusicSearchUrl, matchesArtist, normalize, trackListenUrl } from './music'
 
 describe('normalize', () => {
   it('retire les accents', () => {
@@ -129,5 +129,40 @@ describe('appleMusicSearchUrl', () => {
     expect(url).toContain('AC%2FDC')
     expect(url).toContain('%26')
     expect(() => new URL(url)).not.toThrow()
+  })
+})
+
+describe('trackListenUrl', () => {
+  const artist = { name: 'Booba', platforms: { spotify: 'https://open.spotify.com/artist/x' } }
+
+  it('privilégie l’URL du titre — c’est le morceau exact', () => {
+    const track = { title: 'Charbon', url: 'https://music.apple.com/track/1' }
+    expect(trackListenUrl(track, artist)).toBe('https://music.apple.com/track/1')
+  })
+
+  it('retombe sur une plateforme d’écoute de l’artiste', () => {
+    // Titre du catalogue éditorial : pas d'URL, mais l'artiste a son Spotify.
+    expect(trackListenUrl({ title: 'Charbon' }, artist)).toBe(
+      'https://open.spotify.com/artist/x',
+    )
+  })
+
+  it('respecte l’ordre de préférence des plateformes', () => {
+    const many = {
+      name: 'Booba',
+      platforms: { bandcamp: 'https://b', youtube: 'https://y', spotify: 'https://s' },
+    }
+    expect(trackListenUrl({ title: 'x' }, many)).toBe('https://s')
+  })
+
+  it('ignore un site personnel — ce n’est pas une plateforme d’écoute', () => {
+    const web = { name: 'Booba', platforms: { website: 'https://booba.fr' } }
+    expect(trackListenUrl({ title: 'Charbon' }, web)).toContain('music.apple.com/search')
+  })
+
+  it('sans rien, cherche le titre sur Apple Music', () => {
+    expect(trackListenUrl({ title: 'Charbon' }, { name: 'Booba' })).toBe(
+      appleMusicSearchUrl('Booba', 'Charbon'),
+    )
   })
 })

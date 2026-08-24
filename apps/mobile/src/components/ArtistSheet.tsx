@@ -27,7 +27,7 @@ import {
   toggleFollow,
 } from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
-import { appleMusicSearchUrl, artistUrl, loadArtistTracks, type StreamedTrack } from '@musimaps/shared';
+import { artistUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared';
 import { requestClaim } from '@musimaps/shared';
 import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
@@ -341,7 +341,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                   accessibilityRole="link"
                   accessibilityLabel={t('profile.listen', { title: track.title })}
                   onPress={() =>
-                    Linking.openURL(appleMusicSearchUrl(artist.name, track.title)).catch(() => {})
+                    Linking.openURL(trackListenUrl(track, artist)).catch(() => {})
                   }
                   style={styles.track}
                 >
@@ -362,7 +362,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                   style={styles.track}
                   accessibilityRole="link"
                   accessibilityLabel={t('profile.listen', { title: track.title })}
-                  onPress={() => Linking.openURL(track.url).catch(() => {})}
+                  onPress={() => Linking.openURL(trackListenUrl(track, artist)).catch(() => {})}
                 >
                   {track.artwork ? (
                     <Image source={{ uri: track.artwork }} style={styles.trackArt} />

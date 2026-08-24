@@ -7,6 +7,7 @@ import {
   fetchArtistLikes,
   appleMusicSearchUrl,
   artistUrl,
+  trackListenUrl,
   fetchFollowing,
   loadArtistTracks,
   fetchMapArtists,
@@ -300,7 +301,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
             ) : (
               <Card style={styles.listCard}>
                 {tracks.map((track, index) => (
-                  <Pressable key={`${track.title}-${index}`} style={[styles.row, { borderBottomColor: colors.line }]} onPress={() => Linking.openURL(track.url).catch(() => {})}>
+                  <Pressable key={`${track.title}-${index}`} style={[styles.row, { borderBottomColor: colors.line }]} onPress={() => Linking.openURL(trackListenUrl(track, artist)).catch(() => {})}>
                     {track.artwork ? <Image source={{ uri: track.artwork }} style={styles.trackArt} /> : (
                       <View style={[styles.trackTile, { backgroundColor: colors.brandSoft }]}><Text style={[styles.trackIndex, { color: colors.brandPrimary }]}>{index + 1}</Text></View>
                     )}

@@ -117,10 +117,38 @@ test.describe('Connexion', () => {
 })
 
 test.describe('Inscription', () => {
-  test('le formulaire se rend avec ses champs', async ({ page }) => {
+  test('ouvre sur le choix du rôle, sans demander de mot de passe', async ({ page }) => {
     await page.goto('/signup')
-    await expect(page.locator('input[type="email"]')).toBeVisible()
-    await expect(page.locator('input[type="password"]').first()).toBeVisible()
+    // Étape 1 : uniquement le rôle. Demander un mot de passe d'entrée de jeu
+    // est ce que le découpage en étapes cherche justement à éviter.
+    await expect(page.locator('[aria-pressed]').first()).toBeVisible()
+    await expect(page.locator('input[type="password"]')).toHaveCount(0)
+    await expect(page.locator('[role="progressbar"]')).toBeVisible()
+  })
+
+  test('avance étape par étape, et refuse d’avancer sans les champs requis', async ({ page }) => {
+    await page.goto('/signup')
+    const progress = page.locator('[role="progressbar"]')
+    await expect(progress).toHaveAttribute('aria-valuenow', '1')
+
+    // Étape 1 → 2 : choisir un rôle débloque la suite.
+    await page.locator('[aria-pressed]').first().click()
+    await page.getByRole('button', { name: /continuer|continue/i }).click()
+    await expect(progress).toHaveAttribute('aria-valuenow', '2')
+    await expect(page.locator('input[type="password"]')).toHaveCount(0)
+
+    // Étape 2 : nom et ville exigés — sans eux, on reste sur place.
+    await page.getByRole('button', { name: /continuer|continue/i }).click()
+    await expect(progress).toHaveAttribute('aria-valuenow', '2')
+  })
+
+  test('le bouton retour ramène à l’étape précédente', async ({ page }) => {
+    await page.goto('/signup')
+    await page.locator('[aria-pressed]').first().click()
+    await page.getByRole('button', { name: /continuer|continue/i }).click()
+    await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', '2')
+    await page.getByRole('button', { name: /retour|back/i }).click()
+    await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', '1')
   })
 
   test('n’envoie rien tant que les champs sont vides', async ({ page }) => {

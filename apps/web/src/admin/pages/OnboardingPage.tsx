@@ -34,6 +34,14 @@ export default function OnboardingPage() {
   const setSlides = (slides: OnboardingContent['slides']) =>
     setDraft((d) => (d ? { ...d, slides } : d))
 
+  /** Fusion partielle : un contenu publié avant l'ajout de `start` n'a pas ce bloc. */
+  const setStart = (patch: Partial<NonNullable<OnboardingContent['start']>>) =>
+    setDraft((d) =>
+      d
+        ? { ...d, start: { tagline: '', explore: '', signup: '', ...d.start, ...patch } }
+        : d,
+    )
+
   if (!draft) {
     return (
       <div className="py-16 text-center text-sm text-muted-foreground">Chargement…</div>
@@ -62,6 +70,42 @@ export default function OnboardingPage() {
           />
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Écran d’entrée</CardTitle>
+          <CardDescription>
+            Le tout premier écran de l’app, avant l’onboarding. La mention légale n’est pas
+            éditable : c’est une phrase construite autour des liens Conditions et Confidentialité.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-3">
+          <Field
+            label="Phrase d’accroche"
+            hint="Affichée en capitales. Trois lignes maximum sur un petit écran."
+          >
+            <TextAreaInput
+              value={draft.start?.tagline ?? ''}
+              onChange={(v) => setStart({ tagline: v })}
+              rows={2}
+            />
+          </Field>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Bouton principal" hint="Entre dans l’app.">
+              <TextInput
+                value={draft.start?.explore ?? ''}
+                onChange={(v) => setStart({ explore: v })}
+              />
+            </Field>
+            <Field label="Bouton secondaire" hint="Crée un compte.">
+              <TextInput
+                value={draft.start?.signup ?? ''}
+                onChange={(v) => setStart({ signup: v })}
+              />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

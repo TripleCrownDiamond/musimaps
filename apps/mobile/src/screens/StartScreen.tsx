@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { Image, Linking, StyleSheet, Text, View } from 'react-native';
@@ -10,6 +11,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { Button } from '../ui';
 import { fonts } from '../theme';
 import { ONBOARDING_SEEN_KEY } from './OnboardingScreen';
+import { fetchCmsStart, type CmsStartScreen } from '../lib/onboarding';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Start'>;
 
@@ -38,6 +40,24 @@ const ON_MEDIA = {
  */
 export function StartScreen({ navigation }: Props) {
   const { t, lang } = useI18n();
+  /**
+   * Textes publiés depuis l'admin (section « Onboarding app »). Repli champ
+   * par champ sur les textes embarqués : un champ vide dans l'admin, ou un CMS
+   * injoignable, ne doit jamais laisser un bouton sans libellé.
+   */
+  const [cms, setCms] = useState<CmsStartScreen | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void fetchCmsStart(lang).then((content) => {
+      if (!cancelled) setCms(content);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
+  const tagline = cms?.tagline || t('start.tagline');
+  const exploreLabel = cms?.explore || t('start.explore');
+  const signupLabel = cms?.signup || t('start.signup');
   // Pas de logo sur l'écran d'accueil/auth — une illustration 3D du globe
   // pose le ton (comme l'onboarding), le reste est épuré et natif.
   const startFlow = async () => {
@@ -80,7 +100,7 @@ export function StartScreen({ navigation }: Props) {
           />
         </View>
         <View style={styles.content}>
-          <Text style={styles.tagline}>{t('start.tagline')}</Text>
+          <Text style={styles.tagline}>{tagline}</Text>
 
           {/* Hiérarchie alignée sur la landing web : action principale en
               BLEU, action secondaire en lime. Le mobile faisait l'inverse
@@ -89,7 +109,7 @@ export function StartScreen({ navigation }: Props) {
             <Button
               block
               size="lg"
-              label={t('start.explore')}
+              label={exploreLabel}
               accessibilityLabel={t('start.exploreAria')}
               onPress={startFlow}
               style={styles.heroButton}
@@ -98,7 +118,7 @@ export function StartScreen({ navigation }: Props) {
               block
               size="lg"
               variant="brand"
-              label={t('start.signup')}
+              label={signupLabel}
               accessibilityLabel={t('start.signupAria')}
               onPress={() => navigation.navigate('Signup')}
               style={styles.heroButton}

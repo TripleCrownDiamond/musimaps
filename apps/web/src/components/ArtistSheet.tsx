@@ -31,7 +31,7 @@ import {
   toggleFollow,
   viewerCountryFromCity,
 } from '@musimaps/shared'
-import { appleMusicSearchUrl, loadArtistTracks, type StreamedTrack } from '@musimaps/shared'
+import { loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import { saveMapArtist } from '../lib/mapAdmin'
@@ -303,7 +303,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   {/* Les titres du catalogue n'ont pas d'URL : on renvoie vers
                       la recherche Apple Music, comme la page profil complète. */}
                   <a
-                    href={appleMusicSearchUrl(artist.name, track.title)}
+                    href={trackListenUrl(track, artist)}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={t('profile.listen', { title: track.title })}
@@ -337,7 +337,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   </span>
                   <span className="text-sm text-secondary-text">{track.duration}</span>
                   <a
-                    href={track.url}
+                    href={trackListenUrl(track, artist)}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={t('profile.listen', { title: track.title })}
