@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { DEFAULT_BADGES, appliesToRole, computeBadges, parseBadges, satisfiesRule, syncGamification, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
 import {
+  getSessionProfile,
   mergeLocalFavorites,
   toggleFavorite as sharedToggleFavorite,
   updateProfile,
@@ -104,6 +105,28 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (cancelled) return;
       setFavorites(merged);
       if (local.length > 0) await AsyncStorage.removeItem(FAVORITES_KEY);
+
+      // Profil : le COMPTE fait autorité. `saveProfile` poussait déjà le
+      // profil local vers le compte, mais rien ne faisait le chemin inverse —
+      // après une inscription, l'app redemandait un nom et une ville que
+      // l'utilisateur venait de saisir.
+      const account = await getSessionProfile();
+      if (cancelled || !account) return;
+      setProfile((current) => {
+        const next: LocalProfile = {
+          displayName: account.displayName ?? current?.displayName ?? '',
+          city: account.city ?? current?.city ?? '',
+          district: account.district ?? current?.district ?? '',
+          // La bio ne vit que sur l'appareil : le compte ne la porte pas, on
+          // ne l'écrase donc jamais avec du vide.
+          bio: current?.bio ?? '',
+          favoriteGenres: account.favoriteGenres?.length
+            ? account.favoriteGenres
+            : (current?.favoriteGenres ?? []),
+        };
+        AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
     };
 
     void supabase?.auth.getSession().then(({ data }) => {

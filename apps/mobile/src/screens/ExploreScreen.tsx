@@ -986,12 +986,14 @@ export function ExploreScreen({ navigation, route }: Props) {
       centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
       cameraRef.current?.setCamera({
         centerCoordinate: centerRef.current,
-        animationDuration: 0,
-        // moveTo = saut INSTANTANÉ (équivalent du jumpTo web). Surtout pas
-        // 'flyTo' : même avec duration 0, le mode FLIGHT lance une animation
-        // caméra native qui bloque / reprend le dessus sur les gestes de
-        // l'utilisateur — le globe semble figé au toucher pendant la rotation.
-        animationMode: 'moveTo',
+        // Le natif interpole ces 250 ms à 60 fps. Avec `animationDuration: 0`
+        // et 30 ticks/seconde, chaque pas était un saut discret : la gigue du
+        // minuteur JS se voyait directement à l'écran.
+        animationDuration: GLOBE_SPIN_TICK_MS,
+        // `linearTo` = interpolation à vitesse constante, indispensable pour
+        // une rotation continue. Surtout pas 'flyTo' : le mode FLIGHT lance
+        // une animation caméra qui reprend le dessus sur les gestes.
+        animationMode: 'linearTo',
       });
     }, GLOBE_SPIN_TICK_MS);
     spinIntervalRef.current = interval;
@@ -1313,6 +1315,14 @@ export function ExploreScreen({ navigation, route }: Props) {
           // immédiatement (clear synchrone de l'intervalle).
           if (gestures?.isGestureActive && spinRef.current) {
             stopSpinImmediate();
+          }
+          // Le centre suit le geste EN CONTINU. Il n'était rafraîchi qu'à
+          // `onMapIdle` : en relançant la rotation, on repartait de la position
+          // d'avant le déplacement et le globe sautait en arrière — le fameux
+          // « sens contraire ».
+          const center = properties.center;
+          if (Array.isArray(center) && center.length === 2) {
+            centerRef.current = [center[0], center[1]];
           }
           syncMapZoom(properties.zoom)
         }}
