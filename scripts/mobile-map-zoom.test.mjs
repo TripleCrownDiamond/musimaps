@@ -60,6 +60,24 @@ test('la caméra vise la position DESSINÉE, jamais une position calculée au zo
   assert.doesNotMatch(webMapSource, /firstRenderedPosition\(artists, zoom\)/);
 });
 
+test('les contournements DOM du web ne s’exécutent jamais en natif', () => {
+  // `getScrollableNode()` passe par `findNodeHandle`, déprécié et qui LÈVE
+  // sous la Nouvelle Architecture (défaut depuis le SDK 57). Appelé depuis un
+  // `onPress` sans capture, il fermait l'app en production — au clic sur
+  // « suivant » de l'onboarding, jamais au swipe.
+  const onboarding = readFileSync(
+    new URL('../apps/mobile/src/screens/OnboardingScreen.tsx', import.meta.url),
+    'utf8',
+  );
+  const guardIndex = onboarding.indexOf("Platform.OS === 'web'");
+  const usageIndex = onboarding.indexOf('getScrollableNode?.()');
+  assert.ok(guardIndex !== -1, 'le contournement doit être gardé par Platform.OS');
+  assert.ok(
+    usageIndex > guardIndex,
+    'getScrollableNode ne doit être atteignable qu’APRÈS le garde web',
+  );
+});
+
 test('aucune trace de debug ne subsiste dans l’écran carte mobile', () => {
   // Deux de ces journaux tournaient à chaque recalcul de pins, donc à chaque
   // frame d'un pinch : sur React Native, console.log traverse le pont Metro.
