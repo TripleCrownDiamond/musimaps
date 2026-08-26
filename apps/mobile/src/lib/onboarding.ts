@@ -27,6 +27,45 @@ function parseSlide(raw: unknown): CmsOnboardingSlide | null {
   return slide.title || slide.text ? slide : null;
 }
 
+/** Textes de l'écran d'entrée, publiés dans la même section que les slides. */
+export interface CmsStartScreen {
+  tagline: string;
+  explore: string;
+  signup: string;
+}
+
+/**
+ * Charge les textes PUBLIÉS de l'écran d'entrée.
+ *
+ * Chaque champ est indépendant : un champ laissé vide dans l'admin ne doit pas
+ * effacer le libellé d'un bouton — l'écran retombe alors sur son texte i18n.
+ * D'où les chaînes vides plutôt qu'un `null` global.
+ */
+export async function fetchCmsStart(lang: 'fr' | 'en' = 'fr'): Promise<CmsStartScreen | null> {
+  const client = supabase;
+  if (!client) return null;
+  try {
+    const { data } = await client
+      .from('site_content_public')
+      .select('content, content_en')
+      .eq('key', 'onboarding')
+      .maybeSingle();
+    const published = lang === 'en' ? data?.content_en : data?.content;
+    if (!published || typeof published !== 'object') return null;
+    const raw = (published as Record<string, unknown>).start;
+    if (!raw || typeof raw !== 'object') return null;
+    const record = raw as Record<string, unknown>;
+    const asString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+    return {
+      tagline: asString(record.tagline),
+      explore: asString(record.explore),
+      signup: asString(record.signup),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Charge la version PUBLIÉE de l'onboarding (clé 'onboarding') dans la langue
  * active (content = FR, content_en = EN). Retourne null si rien d'exploitable

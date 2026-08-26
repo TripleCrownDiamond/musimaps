@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Linking, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureRuntime } from '@musimaps/shared';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider } from './src/context/AuthContext';
@@ -17,6 +18,7 @@ import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/share
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
 import { Toast } from './src/components/Toast';
+import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { ArtistJoinScreen } from './src/screens/ArtistJoinScreen';
 import { BadgesScreen } from './src/screens/BadgesScreen';
@@ -26,7 +28,7 @@ import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
-import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { OnboardingScreen, ONBOARDING_SEEN_KEY } from './src/screens/OnboardingScreen';
 import { ProfileEditScreen } from './src/screens/ProfileEditScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SavedScreen } from './src/screens/SavedScreen';
@@ -35,7 +37,7 @@ import { SignupScreen } from './src/screens/SignupScreen';
 import { ConfirmationScreen } from './src/screens/ConfirmationScreen';
 import { ArtistProfileScreen } from './src/screens/ArtistProfileScreen';
 import { StartScreen } from './src/screens/StartScreen';
-import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { WelcomeScreen, ONBOARDED_KEY } from './src/screens/WelcomeScreen';
 import { supabase } from './src/lib/supabase';
 import { nativeStorage } from './src/lib/storage';
 import { MAPBOX_TOKEN } from './src/lib/mapbox';
@@ -49,6 +51,7 @@ configureRuntime({
   storage: nativeStorage,
   // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.
   resetPasswordUrl: 'musimaps://reset-password',
+  signUpConfirmationUrl: 'musimaps://login',
 });
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
@@ -60,11 +63,12 @@ const Tabs = createBottomTabNavigator<MainTabParamList>();
 // ne coupe que sur '?', donc un fragment resterait dans le path et le lien ne matcherait pas.
 // L'écran ResetPassword relit l'URL complète (avec token) via Linking.getInitialURL().
 const linking = {
-  prefixes: ['musimaps://', 'https://musimaps.app', ...(__DEV__ ? ['http://localhost:8090'] : [])],
+  prefixes: ['musimaps://', 'https://musimaps.com', ...(__DEV__ ? ['http://localhost:8090'] : [])],
   config: {
     screens: {
       ResetPassword: 'reset-password',
       ForgotPassword: 'forgot-password',
+      Login: 'login',
     },
   },
   getInitialURL: async () => {
@@ -127,6 +131,38 @@ function MainTabs() {
 
 function AppNavigator() {
   const { colors, theme } = useAppTheme();
+  /**
+   * Route de départ déduite de l'avancement réel.
+   *
+   * `initialRouteName` valait « Start » en dur : l'écran d'accueil réapparaissait
+   * à CHAQUE lancement, même pour quelqu'un qui avait déjà tout franchi. Le
+   * WelcomeScreen rattrapait ensuite le coup par un `replace` — d'où un
+   * clignotement Start → Welcome → carte à chaque ouverture.
+   *
+   * `null` tant que le stockage n'a pas répondu : afficher un écran pour le
+   * remplacer aussitôt est exactement ce qu'on cherche à supprimer.
+   */
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [onboarded, seen] = await AsyncStorage.multiGet([
+          ONBOARDED_KEY,
+          ONBOARDING_SEEN_KEY,
+        ]);
+        if (cancelled) return;
+        if (onboarded[1] === 'true') return setInitialRoute('Main');
+        setInitialRoute(seen[1] === 'true' ? 'Welcome' : 'Start');
+      } catch {
+        // Stockage indisponible : on repart du parcours complet.
+        if (!cancelled) setInitialRoute('Start');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const baseTheme = theme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
     ...baseTheme,
@@ -140,6 +176,10 @@ function AppNavigator() {
     },
   };
 
+  // Rien tant que la route de départ est inconnue : monter le navigateur
+  // puis le rediriger produirait le clignotement qu'on supprime.
+  if (!initialRoute) return null;
+
   return (
     <AppProvider>
       <AuthProvider>
@@ -147,7 +187,7 @@ function AppNavigator() {
           <NavigationContainer theme={navigationTheme} linking={linking}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
           <RootStack.Navigator
-            initialRouteName="Start"
+            initialRouteName={initialRoute}
             screenOptions={{
               headerShown: false,
               animation: 'slide_from_right',
@@ -171,6 +211,9 @@ function AppNavigator() {
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
+        {/* Au-dessus de la navigation : une mise à jour imposée doit
+            couvrir tout l'écran, quel que soit l'écran affiché. */}
+        <UpdateGate />
         <AchievementToast />
         <Toast />
         </LanguageProvider>

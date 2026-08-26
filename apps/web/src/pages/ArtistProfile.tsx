@@ -18,7 +18,7 @@ import {
 import Footer from '../components/Footer'
 import { artists, compactCount, findArtist, type Artist } from '@musimaps/shared'
 import { fetchMapArtists, toArtist } from '@musimaps/shared'
-import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
+import { appleMusicSearchUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import {
   fetchArtistFollowers,
   fetchArtistLikes,
@@ -105,18 +105,16 @@ export default function ArtistProfile() {
           album: '',
           duration: tr.duration,
           artwork: '',
-          url: `https://music.apple.com/search?term=${encodeURIComponent(artist.name + ' ' + tr.title)}`,
+          url: appleMusicSearchUrl(artist.name, tr.title),
         })),
       )
       return
     }
-    const controller = new AbortController()
     setTracksLoading(true)
-    void fetchArtistTracks(artist.name, controller.signal).then((list) => {
+    return loadArtistTracks(artist.name, (list) => {
       setTracks(list)
       setTracksLoading(false)
     })
-    return () => controller.abort()
   }, [artist])
 
   // Id inconnu (ni catalogue ni carte) : on renvoie vers le globe.
@@ -216,7 +214,7 @@ export default function ArtistProfile() {
                       </span>
                       <span className="text-sm text-secondary-text">{track.duration}</span>
                       <a
-                        href={track.url}
+                        href={trackListenUrl(track, artist)}
                         target="_blank"
                         rel="noreferrer"
                         aria-label={t('profile.listen', { title: track.title })}

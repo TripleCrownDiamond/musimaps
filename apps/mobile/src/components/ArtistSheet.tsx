@@ -27,7 +27,7 @@ import {
   toggleFollow,
 } from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
-import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared';
+import { artistUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared';
 import { requestClaim } from '@musimaps/shared';
 import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
@@ -69,7 +69,6 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
   const { t, lang } = useI18n();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [tab, setTab] = useState<Tab>('About');
-  const [playing, setPlaying] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
@@ -150,15 +149,15 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
   }, [artist.id]);
 
   // Peuplement automatique de l'onglet Musiques depuis Apple Music/iTunes.
+  // `loadArtistTracks` ignore une réponse annulée : changer d'artiste via
+  // À proximité ne fait plus effacer ses titres par la réponse du précédent.
   useEffect(() => {
     if (artist.tracks.length > 0) return;
-    const controller = new AbortController();
     setTracksLoading(true);
-    void fetchArtistTracks(artist.name, controller.signal).then((list) => {
+    return loadArtistTracks(artist.name, (list) => {
       setAutoTracks(list);
       setTracksLoading(false);
     });
-    return () => controller.abort();
   }, [artist.id, artist.name, artist.tracks.length]);
 
   /** Revendique le profil (l'artiste prouve que c'est bien lui). */
@@ -325,15 +324,25 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
               )}
               {!tracksLoading && artist.tracks.length === 0 && autoTracks.length === 0 && (
                 <View style={styles.emptyBlock}>
-                  <Text style={styles.emptyText}>
-                    {platforms.spotify ? t('sheet.listenSpotify') : t('sheet.noTracks')}
-                  </Text>
+                  {platforms.spotify ? (
+                    <Pressable onPress={() => Linking.openURL(platforms.spotify!).catch(() => {})}>
+                      <Text style={[styles.emptyText, styles.emptyLink]}>
+                        {t('sheet.listenSpotify')}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.emptyText}>{t('sheet.noTracks')}</Text>
+                  )}
                 </View>
               )}
               {artist.tracks.map((track, index) => (
                 <Pressable
                   key={track.title}
-                  onPress={() => setPlaying(playing === track.title ? null : track.title)}
+                  accessibilityRole="link"
+                  accessibilityLabel={t('profile.listen', { title: track.title })}
+                  onPress={() =>
+                    Linking.openURL(trackListenUrl(track, artist)).catch(() => {})
+                  }
                   style={styles.track}
                 >
                   <Text style={styles.trackIndex}>{String(index + 1).padStart(2, '0')}</Text>
@@ -342,12 +351,8 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                     <Text style={styles.trackMeta}>{artist.name}</Text>
                   </View>
                   <Text style={styles.trackDuration}>{track.duration}</Text>
-                  <View style={[styles.playMini, playing === track.title && styles.playMiniActive]}>
-                    <Ionicons
-                      name={playing === track.title ? 'pause' : 'play'}
-                      size={16}
-                      color={playing === track.title ? colors.black : colors.ink}
-                    />
+                  <View style={styles.playMini}>
+                    <Ionicons name="play" size={16} color={colors.ink} />
                   </View>
                 </Pressable>
               ))}
@@ -355,11 +360,9 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                 <Pressable
                   key={track.url}
                   style={styles.track}
-                  onPress={() =>
-                    track.previewUrl
-                      ? setPlaying(playing === track.url ? null : track.url)
-                      : Linking.openURL(track.url).catch(() => {})
-                  }
+                  accessibilityRole="link"
+                  accessibilityLabel={t('profile.listen', { title: track.title })}
+                  onPress={() => Linking.openURL(trackListenUrl(track, artist)).catch(() => {})}
                 >
                   {track.artwork ? (
                     <Image source={{ uri: track.artwork }} style={styles.trackArt} />
@@ -379,12 +382,8 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                     ) : null}
                   </View>
                   <Text style={styles.trackDuration}>{track.duration}</Text>
-                  <View style={[styles.playMini, playing === track.url && styles.playMiniActive]}>
-                    <Ionicons
-                      name={playing === track.url ? 'pause' : 'play'}
-                      size={16}
-                      color={playing === track.url ? colors.black : colors.brandDeep}
-                    />
+                  <View style={styles.playMini}>
+                    <Ionicons name="play" size={16} color={colors.brandDeep} />
                   </View>
                 </Pressable>
               ))}
@@ -549,16 +548,21 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
           <Pressable
             accessibilityLabel={t('sheet.shareAria')}
             style={styles.iconBtn}
-            onPress={() =>
-              Share.share({
+            onPress={() => {
+              // Sans URL, le destinataire recevait un texte sans aucun moyen
+              // de revenir sur Musimaps. iOS lit `url`, Android ne lit que
+              // `message` : on met le lien dans les deux.
+              const url = artistUrl(artist.slug || artist.id);
+              void Share.share({
                 title: artist.name,
-                message: t('sheet.shareMessage', {
+                message: `${t('sheet.shareMessage', {
                   name: artist.name,
                   genre: artist.genre,
                   city: artist.city,
-                }),
-              })
-            }
+                })} ${url}`,
+                url,
+              }).catch(() => undefined);
+            }}
           >
             <Ionicons name="share-outline" size={23} color={colors.ink} />
           </Pressable>
@@ -651,6 +655,7 @@ const createStyles = (colors: AppColors) =>
     loadingRow: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 22 },
     emptyBlock: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 26, paddingHorizontal: 8, gap: 12 },
     emptyText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
+    emptyLink: { color: colors.brandDeep, fontFamily: fonts.medium, textDecorationLine: 'underline' as const },
     seeDates: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 24, backgroundColor: colors.brandDeep, paddingHorizontal: 18, paddingVertical: 10 },
     seeDatesText: { color: colors.white, fontFamily: fonts.bold, fontSize: 13 },
     track: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
@@ -662,7 +667,6 @@ const createStyles = (colors: AppColors) =>
     trackMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 2 },
     trackDuration: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12 },
     playMini: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
-    playMiniActive: { backgroundColor: colors.brand },
     event: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 18, borderWidth: 1, borderColor: colors.line, padding: 14, marginBottom: 10 },
     eventDate: { width: 48, height: 48, borderRadius: 12, backgroundColor: colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
     eventDatePart: { color: colors.ink, fontFamily: fonts.bold, fontSize: 12, lineHeight: 14 },

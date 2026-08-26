@@ -6,10 +6,10 @@
  * try/catch dont le web manquait : `checkin` et `fetchAllArtistPopularity`
  * laissaient remonter une erreur réseau côté web.
  *
- * ⚠️ Les favoris passent par la table Supabase `favorites` (liée au compte).
- * Le mobile utilise encore un stockage LOCAL (AsyncStorage) et ne consomme
- * donc pas `toggleFavorite`/`fetchFavorites` : les favoris ne se
- * synchronisent pas entre les deux plateformes. Voir docs/PLAN-COHERENCE-WEB-MOBILE.md.
+ * Les favoris vivent dans la table Supabase `favorites`, liée au compte : les
+ * deux plateformes lisent et écrivent au même endroit. Le mobile garde un
+ * cache AsyncStorage pour l'usage déconnecté, et `mergeLocalFavorites` reprend
+ * ces favoris hors ligne dans le compte au moment de la connexion.
  */
 import { getStorage, getSupabase } from '../runtime'
 
@@ -310,6 +310,30 @@ export async function fetchFavorites(): Promise<string[]> {
   const { data, error } = await supabase.from('favorites').select('artist_id')
   if (error) return []
   return (data ?? []).map((row) => row.artist_id)
+}
+
+/**
+ * Reprend dans le compte connecté des favoris posés hors ligne, sans écraser
+ * ceux déjà en base, et retourne la liste fusionnée.
+ *
+ * Le mobile a longtemps stocké ses favoris uniquement dans AsyncStorage :
+ * cette fonction est le chemin de reprise de ces données à la première
+ * connexion. Elle est idempotente — un favori déjà en base est ignoré — et ne
+ * supprime jamais rien : la fusion ne peut que gagner des artistes.
+ */
+export async function mergeLocalFavorites(localIds: string[]): Promise<string[]> {
+  const supabase = getSupabase()
+  if (!supabase) return localIds
+  const remote = await fetchFavorites()
+  const missing = localIds.filter((id) => id && !remote.includes(id))
+  if (missing.length === 0) return remote
+  const { error } = await supabase
+    .from('favorites')
+    .insert(missing.map((artist_id) => ({ artist_id })))
+  // Échec d'écriture : on rend l'union quand même, l'utilisateur garde ses
+  // favoris à l'écran et la reprise sera retentée à la prochaine connexion.
+  if (error) return [...new Set([...remote, ...localIds])]
+  return [...remote, ...missing]
 }
 
 /** Détails des artistes de la carte pour une liste d'ids (favoris, suivis…). */

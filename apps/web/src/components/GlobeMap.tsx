@@ -8,6 +8,7 @@ import {
   clusterBy,
   countryByCode,
   declump,
+  PIN_LAYOUT_ZOOM,
   firstRenderedPosition,
   flagFor,
   geoConsistent,
@@ -218,7 +219,8 @@ export default function GlobeMap({
    *   - sub     : sous-groupes ~2 km — les artistes géocodés au même point
    *               (ville-centre) se chevaucheraient → une pin compacte ×N.
    *   - spread  : pins individuels, décalés en spirale pour ne pas s'empiler.
-   */  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
+   */
+  const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
   // Zoom vivant : mis à jour à chaque `zoom` (pas seulement aux seuils de
   // cluster). Sert à rouvrir la spirale de dés-empilement quand on zoome
   // profondément (quartier/rue) — sinon les pins resteraient figés au
@@ -337,7 +339,7 @@ export default function GlobeMap({
       focusArtist: (id) => {
         // Vole vers la position AFFICHÉE du pin, dés-empilement recalculé au
         // zoom cible : le point brut peut être à des centaines de px du pin.
-        const rendered = renderedPosition(artistsRef.current, id, CAMERA.artist.zoom)
+        const rendered = renderedPosition(artistsRef.current, id, PIN_LAYOUT_ZOOM)
         if (!rendered) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
@@ -350,7 +352,9 @@ export default function GlobeMap({
         })
       },
       focusFirst: (artists, zoom = CAMERA.artist.zoom) => {
-        const first = firstRenderedPosition(artists, zoom)
+        // La position vient du zoom de MISE EN PAGE, jamais de la destination :
+        // `zoom` ne pilote que la camera.
+        const first = firstRenderedPosition(artists, PIN_LAYOUT_ZOOM)
         if (!first) return
         spinRef.current = false
         onRotateChangeRef.current?.(false)
@@ -475,20 +479,33 @@ export default function GlobeMap({
       content.className = 'artist-pin__cluster-content'
       const main = document.createElement('span')
       main.className = 'artist-pin__cluster-main'
-      // Pays : drapeau + code ISO lisible (« 🇳🇬 NG ») ; sous-cluster : compte.
-      main.textContent = variant === 'sub' ? `${count}` : `${flag} ${label} · ${count}`
+      // Pays : code ISO court uniquement. Une ville garde son contexte et
+      // son compteur ; les longues pilules pays gênaient surtout sur mobile.
+      main.textContent = variant === 'sub'
+        ? `${count}`
+        : place?.kind === 'country'
+          ? label
+          : `${flag} ${label} · ${count}`
       content.appendChild(main)
       el.appendChild(content)
-      // Pin de cluster lumineux : couleur par DENSITÉ (tier le plus élevé de
-      // ses membres) — fond + halo, comme les pins individuels.
+      // Les lieux ont une couleur de TYPE stable (bleu Musimaps), distincte
+      // des anneaux de popularité des artistes. Les sous-clusters locaux,
+      // eux, gardent la couleur de densité puisqu'ils représentent plusieurs
+      // artistes empilés au même point.
       if (members && members.length > 0) {
-        const tier = Math.max(
-          ...members.map((a) => tierOf(a, popularityRef.current)),
-        ) as PopularityTier
-        const tierVars = pinTierVars(tier, liveZoom)
-        el.style.setProperty('--pin-tier-color', tierVars.bg)
-        el.style.setProperty('--pin-tier-glow', tierVars.glow)
-        el.style.setProperty('--pin-ink', tierVars.ink)
+        if (place) {
+          el.style.setProperty('--pin-tier-color', '#2F52E0')
+          el.style.setProperty('--pin-tier-glow', 'rgba(47, 82, 224, 0.42)')
+          el.style.setProperty('--pin-ink', '#FFFFFF')
+        } else {
+          const tier = Math.max(
+            ...members.map((a) => tierOf(a, popularityRef.current)),
+          ) as PopularityTier
+          const tierVars = pinTierVars(tier, liveZoom)
+          el.style.setProperty('--pin-tier-color', tierVars.bg)
+          el.style.setProperty('--pin-tier-glow', tierVars.glow)
+          el.style.setProperty('--pin-ink', tierVars.ink)
+        }
       }
       wrapper.appendChild(el)
       const onClick = () => {
@@ -507,7 +524,7 @@ export default function GlobeMap({
         if (members && members.length > 0) {
           const firstMember = members[0]
           if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-            const spread = declump(members, CAMERA.artist.zoom)
+            const spread = declump(members, PIN_LAYOUT_ZOOM)
             const rendered = spread.get(firstMember.id)
             if (rendered) {
               targetCoords = rendered
@@ -750,9 +767,9 @@ export default function GlobeMap({
 
     // Coordonnées d'affichage : spirale déterministe quand plusieurs artistes
     // partagent la même localisation (≈2 km) — chaque pin reste cliquable et
-    // visible au lieu d'être écrasé sous les autres. La spirale s'ouvre avec
-    // le zoom courant (quartier/rue) pour des pins détachés.
-    const spread = declump(allArtists, liveZoom)
+    // visible au lieu d'être écrasé sous les autres. La position reste fixe
+    // pendant le zoom : seule la caméra et la taille visuelle évoluent.
+    const spread = declump(allArtists, PIN_LAYOUT_ZOOM)
     const seenIds = new Set<string>()
     for (const artist of allArtists) {
       if (seenIds.has(artist.id)) continue

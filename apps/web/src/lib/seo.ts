@@ -62,7 +62,7 @@ export function applySeo(seo: SeoContent, lang: Lang = 'fr', cacheVersion = 1) {
   setMeta(
     'property',
     'og:image',
-    new URL(withCacheQuery(ogImage, cacheVersion), 'https://musimaps.app').toString(),
+    new URL(withCacheQuery(ogImage, cacheVersion), 'https://musimaps.com').toString(),
   )
   setMeta('property', 'og:image:width', '1200')
   setMeta('property', 'og:image:height', '630')
@@ -86,7 +86,7 @@ export function applySeo(seo: SeoContent, lang: Lang = 'fr', cacheVersion = 1) {
   setMeta(
     'name',
     'twitter:image',
-    new URL(withCacheQuery(twitterImage, cacheVersion), 'https://musimaps.app').toString(),
+    new URL(withCacheQuery(twitterImage, cacheVersion), 'https://musimaps.com').toString(),
   )
 
   // Canonical : URL de la page courante dans la locale active (le préfixe
@@ -97,7 +97,7 @@ export function applySeo(seo: SeoContent, lang: Lang = 'fr', cacheVersion = 1) {
 /** URL canonique absolue de la page courante, préfixée par la locale. */
 function currentUrl(lang: Lang): string {
   const path = localizePath(window.location.pathname, lang)
-  return path === '/' ? 'https://musimaps.app/' : `https://musimaps.app${path}`
+  return path === '/' ? 'https://musimaps.com/' : `https://musimaps.com${path}`
 }
 
 /**

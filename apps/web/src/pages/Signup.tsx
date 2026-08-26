@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarHeart, Eye, EyeOff, Headphones, Loader2, LocateFixed, MailCheck, MicVocal, Music, UserPlus } from 'lucide-react'
+import { CalendarHeart, ChevronLeft, ChevronRight, Eye, EyeOff, Headphones, Loader2, LocateFixed, MailCheck, MicVocal, Music, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import type { AccountRole } from '@musimaps/shared'
 import { countryByCode, countryByName } from '@musimaps/shared'
+import {
+  SIGNUP_STEPS,
+  SIGNUP_STEP_TITLES,
+  firstIncompleteStep,
+  signupProgress,
+  validateSignup,
+  validateSignupStep,
+  type SignupDraft,
+  type SignupStep,
+} from '@musimaps/shared'
 import { LocationSelect, type LocationValue } from '../components/LocationSelect'
 import { PasswordGauge } from '../components/PasswordGauge'
 import { reverseGeocodeBrowser } from '../lib/geolocate'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 interface SignupPrefill {
   role?: AccountRole
@@ -44,6 +53,11 @@ export default function Signup() {
   // le compte au lieu de créer un nouveau.
   const editing = Boolean(user)
   const [role, setRole] = useState<AccountRole | null>(prefill.role ?? null)
+  /**
+   * Étape courante du parcours d'inscription. Le mode ÉDITION de profil
+   * réutilise ce formulaire et n'a pas d'étapes : tout s'affiche d'un coup.
+   */
+  const [step, setStep] = useState<SignupStep>('role')
   const [name, setName] = useState(user?.displayName ?? prefill.displayName ?? '')
   const [city, setCity] = useState(user?.city ?? prefill.city ?? '')
   const [country, setCountry] = useState(user?.country ?? prefill.country ?? '')
@@ -68,6 +82,24 @@ export default function Signup() {
     setGenres((current) => (current.trim() ? current : (user.favoriteGenres ?? []).join(', ')))
   }, [user])
 
+  /** Vue du formulaire attendue par la validation partagée. */
+  const draft: SignupDraft = { role, name, city, country, email, password, confirm }
+
+  /** Valide l'étape courante et avance ; signale le premier champ manquant. */
+  const goNext = () => {
+    const invalid = validateSignupStep(step, draft)
+    if (invalid) return toast.error(t(invalid))
+    const next = SIGNUP_STEPS[SIGNUP_STEPS.indexOf(step) + 1]
+    if (next) setStep(next)
+  }
+
+  const goBack = () => {
+    const previous = SIGNUP_STEPS[SIGNUP_STEPS.indexOf(step) - 1]
+    if (previous) setStep(previous)
+  }
+
+  const isLastStep = step === SIGNUP_STEPS[SIGNUP_STEPS.length - 1]
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (editing) {
@@ -88,13 +120,15 @@ export default function Signup() {
       navigate(localize('/dashboard'), { replace: true })
       return
     }
-    if (!role) return toast.error(t('auth.missingRole'))
-    if (!name.trim()) return toast.error(t('auth.missingName'))
-    if (!city.trim()) return toast.error(t('auth.missingCity'))
-    if (!country.trim()) return toast.error(t('auth.missingCountry'))
-    if (!EMAIL_RE.test(email.trim())) return toast.error(t('auth.invalidEmail'))
-    if (password.length < 8) return toast.error(t('auth.passwordShort'))
-    if (password !== confirm) return toast.error(t('auth.passwordMismatch'))
+    // Garde-fou : même si la navigation par étapes a été contournée, un
+    // brouillon incomplet ne part jamais au serveur.
+    const invalid = validateSignup(draft)
+    if (invalid) {
+      setStep(firstIncompleteStep(draft))
+      return toast.error(t(invalid))
+    }
+    // `validateSignup` garantit le rôle ; ce garde-fou l'affirme au compilateur.
+    if (!role) return
     setBusy(true)
     const result = await signUp({
       email,
@@ -152,7 +186,7 @@ export default function Signup() {
   const signupClosed = !content.settings.openSignup && !user && !prefill.email
   if (signupClosed) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
         <div className="w-full max-w-md">
           <div className="rounded-[2rem] border border-hairline bg-surface p-8 text-center shadow-xl">
             <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-black">
@@ -172,7 +206,7 @@ export default function Signup() {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -184,7 +218,7 @@ export default function Signup() {
 
   if (sent) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
         <div className="w-full max-w-md">
           <div className="rounded-[2rem] border border-hairline bg-surface p-8 text-center shadow-xl">
             <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-brand text-black">
@@ -203,12 +237,12 @@ export default function Signup() {
             </Link>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
       <div className="w-full max-w-md">
         <div className="rounded-[2rem] border border-hairline bg-surface p-8 shadow-xl">
           <div className="mb-5 flex flex-col items-center">
@@ -223,8 +257,36 @@ export default function Signup() {
             </p>
           </div>
 
+          {/* Progression — masquée en édition de profil, qui n'a pas d'étapes. */}
+          {!editing && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between text-xs font-medium text-secondary-text">
+                <span>{t(SIGNUP_STEP_TITLES[step])}</span>
+                <span>
+                  {t('auth.stepOf', {
+                    current: SIGNUP_STEPS.indexOf(step) + 1,
+                    total: SIGNUP_STEPS.length,
+                  })}
+                </span>
+              </div>
+              <div
+                role="progressbar"
+                aria-valuenow={SIGNUP_STEPS.indexOf(step) + 1}
+                aria-valuemin={1}
+                aria-valuemax={SIGNUP_STEPS.length}
+                aria-label={t(SIGNUP_STEP_TITLES[step])}
+                className="h-1.5 overflow-hidden rounded-full bg-secondary-bg"
+              >
+                <div
+                  className="h-full rounded-full bg-brand-deep transition-[width] duration-300"
+                  style={{ width: `${signupProgress(step) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <form onSubmit={(e) => void submit(e)} className="grid gap-4" noValidate>
-            {!editing && (
+            {!editing && step === 'role' && (
               <div className="grid gap-3">
                 <span className="text-sm font-medium">{t('auth.role')}</span>
                 {roles.map(({ value, label, hint, icon: Icon }) => (
@@ -257,6 +319,7 @@ export default function Signup() {
               </div>
             )}
 
+            {(editing || step === 'identity') && (
             <div className="grid gap-4">
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium">{t('auth.name')}</span>
@@ -299,7 +362,9 @@ export default function Signup() {
                 />
               </div>
             </div>
+            )}
 
+            {(editing || step === 'credentials') && (
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium">{t('auth.email')}</span>
               <input
@@ -312,6 +377,7 @@ export default function Signup() {
                 className={`${field} ${editing ? 'cursor-not-allowed opacity-60' : ''}`}
               />
             </label>
+            )}
             {editing && (
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium">{t('auth.genres')}</span>
@@ -324,7 +390,7 @@ export default function Signup() {
                 <span className="mt-1 block text-xs text-secondary-text">{t('auth.genresHint')}</span>
               </label>
             )}
-            {!editing && (() => {
+            {!editing && step === 'credentials' && (() => {
               return (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
@@ -374,14 +440,38 @@ export default function Signup() {
               )
             })()}
 
-            <button
-              type="submit"
-              disabled={busy}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-deep py-4 font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-            >
-              {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
-              {editing ? t('dash.saveProfile') : t('auth.signup')}
-            </button>
+            <div className="flex items-center gap-3">
+              {!editing && step !== SIGNUP_STEPS[0] && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-full border border-hairline-strong px-6 py-4 font-medium transition-colors hover:bg-secondary-bg"
+                >
+                  <ChevronLeft className="h-5 w-5" /> {t('auth.stepBack')}
+                </button>
+              )}
+              {/* Tant qu'il reste une étape, le bouton avance au lieu de
+                  soumettre : `type="button"` évite un envoi au clic ET à la
+                  touche Entrée. */}
+              {!editing && !isLastStep ? (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand-deep py-4 font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02]"
+                >
+                  {t('auth.stepNext')} <ChevronRight className="h-5 w-5" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand-deep py-4 font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
+                >
+                  {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <UserPlus className="h-5 w-5" />}
+                  {editing ? t('dash.saveProfile') : t('auth.signup')}
+                </button>
+              )}
+            </div>
           </form>
 
           {!editing && (
@@ -394,6 +484,6 @@ export default function Signup() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   )
 }

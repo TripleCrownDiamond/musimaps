@@ -5,8 +5,11 @@ import {
   fetchArtistBooking,
   fetchArtistFollowers,
   fetchArtistLikes,
-  fetchArtistTracks,
+  appleMusicSearchUrl,
+  artistUrl,
+  trackListenUrl,
   fetchFollowing,
+  loadArtistTracks,
   fetchMapArtists,
   hexToRgba,
   radii,
@@ -116,20 +119,16 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
           album: '',
           duration: track.duration,
           artwork: '',
-          url: `https://music.apple.com/search?term=${encodeURIComponent(`${artist.name} ${track.title}`)}`,
+          url: appleMusicSearchUrl(artist.name, track.title),
         })),
       );
       return;
     }
-    const controller = new AbortController();
     setTracksLoading(true);
-    void fetchArtistTracks(artist.name, controller.signal).then((items) => {
-      if (!controller.signal.aborted) {
-        setTracks(items);
-        setTracksLoading(false);
-      }
+    return loadArtistTracks(artist.name, (items) => {
+      setTracks(items);
+      setTracksLoading(false);
     });
-    return () => controller.abort();
   }, [artist]);
 
   const links = useMemo(
@@ -261,7 +260,14 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
               size="icon"
               variant="outline"
               accessibilityLabel={t('sheet.shareAria')}
-              onPress={() => void Share.share({ title: artist.name, message: t('sheet.shareMessage', { name: artist.name, genre: artist.genre, city: artist.city }) })}
+              onPress={() => {
+                const url = artistUrl(artist.slug || artist.id);
+                void Share.share({
+                  title: artist.name,
+                  message: `${t('sheet.shareMessage', { name: artist.name, genre: artist.genre, city: artist.city })} ${url}`,
+                  url,
+                }).catch(() => undefined);
+              }}
               icon={<Ionicons name="share-outline" size={22} color={colors.ink} />}
             />
           </View>
@@ -295,7 +301,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
             ) : (
               <Card style={styles.listCard}>
                 {tracks.map((track, index) => (
-                  <Pressable key={`${track.title}-${index}`} style={[styles.row, { borderBottomColor: colors.line }]} onPress={() => Linking.openURL(track.url).catch(() => {})}>
+                  <Pressable key={`${track.title}-${index}`} style={[styles.row, { borderBottomColor: colors.line }]} onPress={() => Linking.openURL(trackListenUrl(track, artist)).catch(() => {})}>
                     {track.artwork ? <Image source={{ uri: track.artwork }} style={styles.trackArt} /> : (
                       <View style={[styles.trackTile, { backgroundColor: colors.brandSoft }]}><Text style={[styles.trackIndex, { color: colors.brandPrimary }]}>{index + 1}</Text></View>
                     )}

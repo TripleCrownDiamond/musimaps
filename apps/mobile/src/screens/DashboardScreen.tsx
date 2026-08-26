@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
-import { fetchBookings, type BookingRecord, type BookingStatus } from '@musimaps/shared';
+import { fetchBookings, getLevelInfo, type BookingRecord, type BookingStatus } from '@musimaps/shared';
 import {
   fetchArtistIdByName,
   fetchArtistStatsDetail,
@@ -30,7 +30,7 @@ export function DashboardScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
   const { user, loading } = useAuth();
-  const { favorites } = useApp();
+  const { favorites, visitedCities, points, earnedBadges } = useApp();
   const [bookings, setBookings] = useState<BookingRecord[] | null>(null);
   const [detailStats, setDetailStats] = useState<ArtistStatsDetail | null>(null);
   const [followingCount, setFollowingCount] = useState(0);
@@ -78,7 +78,10 @@ export function DashboardScreen({ navigation }: Props) {
   if (!user) {
     return (
       <View style={[styles.root, styles.center, styles.gap]}>
-        <Text style={styles.emptyText}>{t('booking.loginText')}</Text>
+        {/* Mêmes libellés que le tableau de bord web : l'état invité parlait
+            de réservation d'artistes (`booking.loginText`), hors sujet ici. */}
+        <Text style={styles.emptyTitle}>{t('dash.loginTitle')}</Text>
+        <Text style={styles.emptyText}>{t('dash.loginText')}</Text>
         <Pressable style={styles.primaryCta} onPress={() => navigation.navigate('Login')}>
           <Text style={styles.primaryCtaText}>{t('auth.login')}</Text>
         </Pressable>
@@ -87,6 +90,9 @@ export function DashboardScreen({ navigation }: Props) {
   }
 
   const isArtist = user.role === 'artist';
+  const level = getLevelInfo(points);
+  /** Aucune activité : l'utilisateur vient d'arriver. */
+  const isNewcomer = visitedCities.length === 0 && favorites.length === 0;
   const month = new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
     month: 'long',
     day: 'numeric',
@@ -125,6 +131,48 @@ export function DashboardScreen({ navigation }: Props) {
       </View>
 
       {/* Graphiques — artiste : audience 14 jours, top pays, engagement */}
+      {/* Progression — l'écran d'arrivée après inscription n'affichait qu'un
+          graphique de zéros et « aucune réservation ». Ces chiffres existaient
+          déjà dans le contexte, ils n'étaient simplement jamais montrés. */}
+      <View style={styles.progressCard}>
+        <Text style={styles.sectionTitle}>{t('dash.progressTitle')}</Text>
+        <View style={styles.progressRow}>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressValue}>{visitedCities.length}</Text>
+            <Text style={styles.progressLabel}>{t('dash.progressCities')}</Text>
+          </View>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressValue}>{favorites.length}</Text>
+            <Text style={styles.progressLabel}>{t('dash.progressSaved')}</Text>
+          </View>
+          <View style={styles.progressItem}>
+            <Text style={styles.progressValue}>{earnedBadges.length}</Text>
+            <Text style={styles.progressLabel}>{t('dash.progressBadges')}</Text>
+          </View>
+        </View>
+        <Text style={styles.progressNext}>
+          {level.nextMin === null
+            ? t('dash.progressMax')
+            : t('dash.progressNext', { points: level.nextMin - points })}
+        </Text>
+      </View>
+
+      {/* Un compte tout neuf n'a rien à montrer : on dit quoi faire plutôt que
+          d'afficher des compteurs à zéro. */}
+      {isNewcomer && (
+        <View style={styles.firstSteps}>
+          <Text style={styles.sectionTitle}>{t('dash.firstStepsTitle')}</Text>
+          <Text style={styles.emptyText}>{t('dash.firstStepsText')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.actionPrimary}
+            onPress={() => navigation.navigate('Main', { screen: 'Explore' })}
+          >
+            <Text style={styles.actionPrimaryText}>{t('dash.firstStepsCta')}</Text>
+          </Pressable>
+        </View>
+      )}
+
       {isArtist && detailStats && (
         <>
           <Text style={styles.sectionTitle}>{t('dash.chartAudience')}</Text>
@@ -336,6 +384,14 @@ const createStyles = (colors: AppColors) =>
       marginTop: 7,
     },
     cardContact: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
+    emptyTitle: { color: colors.ink, fontFamily: fonts.display, fontSize: 24, textAlign: 'center' },
+    progressCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 16, padding: 16 },
+    progressRow: { flexDirection: 'row', justifyContent: 'space-between' },
+    progressItem: { alignItems: 'center', flex: 1 },
+    progressValue: { color: colors.ink, fontFamily: fonts.display, fontSize: 26 },
+    progressLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, textAlign: 'center' },
+    progressNext: { color: colors.inkSoft, fontFamily: fonts.medium, fontSize: 13, textAlign: 'center' },
+    firstSteps: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 16, padding: 16 },
     emptyText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, textAlign: 'center' },
     primaryCta: {
       minHeight: 54,

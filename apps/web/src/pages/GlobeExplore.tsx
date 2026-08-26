@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronLeft, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, X } from 'lucide-react'
+import { Check, ChevronLeft, CircleHelp, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, X } from 'lucide-react'
 import GlobeMap, { type GlobeMapHandle } from '../components/GlobeMap'
 import ArtistSheet from '../components/ArtistSheet'
 import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
@@ -23,6 +23,7 @@ import {
   addOrUpdateMapArtist,
   fetchMapArtists,
   locateArtist,
+  rankArtistResults,
   searchArtistOnline,
   searchNeighborhoods,
   toArtist,
@@ -113,6 +114,7 @@ export default function GlobeExplore() {
   // de clustering par ville), la barre de recherche se replie en icône dans
   // le coin haut droit — la carte reprend toute la place.
   const [mapZoom, setMapZoom] = useState(GLOBE_VIEW.zoom)
+  const [guideOpen, setGuideOpen] = useState(false)
   // La searchbar centrale a été supprimée : seule l'icône en haut à droite
   // reste visible pour ouvrir le panneau de recherche.
 
@@ -209,7 +211,11 @@ export default function GlobeExplore() {
         // Requête dépassée (l'utilisateur a effacé ou changé de terme) : on
         // ignore les résultats tardifs pour ne jamais réafficher du périmé.
         if (controller.signal.aborted) return
-        setOnlineResults(results)
+        // MusicBrainz et Wikipedia rendent leurs résultats dans leur ordre à
+        // eux : « Booba Paris » pouvait remonter un homonyme d'un autre pays
+        // en tête. On classe par pertinence — nom, cohérence ville/pays, et
+        // capacité à être posé sur la carte.
+        setOnlineResults(rankArtistResults(results, q).map((r) => r.artist))
         setSearchingWeb(false)
       })
     }, 450)
@@ -859,17 +865,65 @@ export default function GlobeExplore() {
 
       {/* Icône recherche — coin haut droit, ouvre le panneau de recherche. */}
       {!searchOpen && !selected && (
-        <button
-          type="button"
-          onClick={() => {
-            setSelected(null)
-            setSearchOpen(true)
-          }}
-          aria-label={t('globe.searchPlaceholder')}
-          className="absolute right-4 top-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:right-6"
-        >
-          <Search className="h-5 w-5" />
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setGuideOpen((open) => !open)}
+            aria-label={t('globe.guideOpen')}
+            aria-expanded={guideOpen}
+            className="absolute right-20 top-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-surface sm:right-24"
+          >
+            <CircleHelp className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setGuideOpen(false)
+              setSelected(null)
+              setSearchOpen(true)
+            }}
+            aria-label={t('globe.searchPlaceholder')}
+            className="absolute right-4 top-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:right-6"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+        </>
+      )}
+
+      {guideOpen && !searchOpen && !selected && (
+        <aside className="absolute right-4 top-20 z-40 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-hairline bg-surface/95 shadow-2xl backdrop-blur-2xl sm:right-6">
+          <div className="flex items-start justify-between border-b border-hairline px-5 py-4">
+            <div>
+              <p className="font-display text-xl font-extrabold tracking-tight text-ink">{t('globe.guideTitle')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-secondary-text">{t('globe.guideIntro')}</p>
+            </div>
+            <button type="button" onClick={() => setGuideOpen(false)} aria-label={t('globe.guideClose')} className="rounded-full p-2 text-secondary-text transition hover:bg-secondary-bg hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="space-y-4 px-5 py-4 text-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex min-w-16 items-center justify-center rounded-2xl bg-brand-deep px-3 py-2 text-xs font-bold text-white shadow-[0_0_18px_rgba(47,82,224,.35)]">🇧🇯 BJ · 8</span>
+              <div><p className="font-bold text-ink">{t('globe.guidePlaceTitle')}</p><p className="text-xs leading-relaxed text-secondary-text">{t('globe.guidePlaceText')}</p></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[3px] border-[#A8FF35] bg-[#111827] text-xs font-bold text-white shadow-[0_0_16px_rgba(168,255,53,.35)]">AY</span>
+              <div><p className="font-bold text-ink">{t('globe.guideArtistTitle')}</p><p className="text-xs leading-relaxed text-secondary-text">{t('globe.guideArtistText')}</p></div>
+            </div>
+            <div className="rounded-2xl bg-secondary-bg p-3">
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-secondary-text">{t('globe.guidePopularity')}</p>
+              <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-semibold text-secondary-text">
+                {[
+                  ['#7C8698', t('globe.guideTierNew')],
+                  ['#2F52E0', t('globe.guideTierKnown')],
+                  ['#1E3AA8', t('globe.guideTierPopular')],
+                  ['#A8FF35', t('globe.guideTierStar')],
+                ].map(([color, label]) => <div key={color}><span className="mx-auto mb-1 block h-3 w-3 rounded-full ring-2 ring-white/70" style={{ backgroundColor: color }} />{label}</div>)}
+              </div>
+            </div>
+            <p className="border-t border-hairline pt-3 text-xs leading-relaxed text-secondary-text">{t('globe.guideZoom')}</p>
+          </div>
+        </aside>
       )}
 
       {/* Panneau « lieu » : stats de la ville/pays + nav artiste-à-artiste */}
@@ -1645,11 +1699,16 @@ export default function GlobeExplore() {
         <button
           type="button"
           onClick={() => {
+            if (selectedPlace) {
+              setVisiblePins(selectedPlace.artists)
+              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
+              if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
+              setHighlightedId(selected.id)
+            } else {
+              setVisiblePins([])
+              setHighlightedId(null)
+            }
             setSelected(null)
-            setHighlightedId(null)
-            setSelectedPlace(null)
-            setVisiblePins([])
-            mapRef.current?.flyTo([2.2, 6.4], 4)
           }}
           className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full bg-surface/85 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
         >
@@ -1664,9 +1723,15 @@ export default function GlobeExplore() {
             type="button"
             aria-label={t('globe.closeSheet')}
             onClick={() => {
-              setHighlightedId(null)
-              if (selectedPlace) setVisiblePins(selectedPlace.artists)
-              else setVisiblePins([])
+              if (selectedPlace) {
+                setVisiblePins(selectedPlace.artists)
+                const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
+                if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
+                setHighlightedId(selected.id)
+              } else {
+                setVisiblePins([])
+                setHighlightedId(null)
+              }
               setSelected(null)
             }}
             className="absolute inset-0 z-20"
@@ -1678,13 +1743,16 @@ export default function GlobeExplore() {
               // Retour à la zone : on redéploie les pins du lieu si un lieu
               // est actif, sinon on vide visiblePins pour que le clustering
               // reprenne le relais et affiche TOUS les artistes de la carte.
-              setHighlightedId(null)
               if (selectedPlace) {
                 setVisiblePins(selectedPlace.artists)
+                const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
+                if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
+                setHighlightedId(selected.id)
               } else {
                 // Pas de lieu contextuel : on relâche le cadrage pour que
                 // tous les pins du globe réapparaissent (clustering actif).
                 setVisiblePins([])
+                setHighlightedId(null)
               }
               setSelected(null)
             }}

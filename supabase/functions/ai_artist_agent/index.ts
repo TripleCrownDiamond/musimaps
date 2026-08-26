@@ -23,7 +23,7 @@ const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') ?? ''
 const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') ?? ''
 const MODEL = Deno.env.get('MISTRAL_MODEL') ?? 'mistral-small-latest'
-const UA = 'Musimaps/1.0 (https://musimaps.app; ai-artist-agent)'
+const UA = 'Musimaps/1.0 (https://musimaps.com; ai-artist-agent)'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',

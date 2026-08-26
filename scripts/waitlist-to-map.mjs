@@ -291,7 +291,7 @@ async function main() {
       }
     } else {
       // Le lien doit pointer vers le site public, pas vers le projet Supabase.
-      const invite = `https://musimaps.app/signup?email=${encodeURIComponent(row.email)}&role=melomane`
+      const invite = `https://musimaps.com/signup?email=${encodeURIComponent(row.email)}&role=melomane`
       if (dryRun) {
         console.log(`  ➜ [amateur] ${row.email} → invitation ${invite}`)
         amateurs += 1

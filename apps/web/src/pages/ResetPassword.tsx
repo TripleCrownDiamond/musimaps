@@ -56,7 +56,7 @@ export default function ResetPassword() {
     'w-full rounded-2xl border border-hairline-strong px-5 py-3.5 outline-none focus:ring-2 focus:ring-brand-deep'
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
       <div className="w-full max-w-md">
         <div className="rounded-[2rem] border border-hairline bg-surface p-8 shadow-xl">
           {ready === 'checking' && (
@@ -170,6 +170,6 @@ export default function ResetPassword() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   )
 }

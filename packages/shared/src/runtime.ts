@@ -46,6 +46,7 @@ function memoryStorage(): Storage {
 let client: SupabaseClient | null = null;
 let storage: Storage = memoryStorage();
 let resetPasswordUrl = '';
+let signUpConfirmationUrl = '';
 let mapboxToken = '';
 let configured = false;
 
@@ -60,6 +61,8 @@ export interface RuntimeConfig {
    * (`musimaps://reset-password`).
    */
   resetPasswordUrl?: string;
+  /** Cible ouverte après validation de l'adresse email. */
+  signUpConfirmationUrl?: string;
   /**
    * Jeton public Mapbox (géocodage, suggestions de villes et de quartiers).
    * Lu différemment selon la plateforme — `import.meta.env.VITE_MAPBOX_TOKEN`
@@ -73,6 +76,7 @@ export function configureRuntime(config: RuntimeConfig): void {
   client = config.supabase;
   storage = config.storage;
   resetPasswordUrl = config.resetPasswordUrl ?? '';
+  signUpConfirmationUrl = config.signUpConfirmationUrl ?? '';
   mapboxToken = config.mapboxToken ?? '';
   configured = true;
 }
@@ -80,6 +84,11 @@ export function configureRuntime(config: RuntimeConfig): void {
 /** Cible du lien de réinitialisation, injectée par l'app. */
 export function getResetPasswordUrl(): string {
   return resetPasswordUrl;
+}
+
+/** Cible du lien de confirmation d'inscription, injectée par l'app. */
+export function getSignUpConfirmationUrl(): string {
+  return signUpConfirmationUrl;
 }
 
 /** Jeton Mapbox injecté par l'app. Chaîne vide si non configuré. */

@@ -424,6 +424,26 @@ export const CAMERA: Record<
   globe: { zoom: 0.75, duration: 2000 },
 };
 
+/**
+ * Zoom de RÉFÉRENCE auquel les positions dés-empilées sont calculées.
+ *
+ * `declump` produit un décalage géographique dont le rayon dépend du zoom.
+ * Deux règles en découlent, et les enfreindre se voit à l'écran :
+ *
+ *  1. Ne JAMAIS recalculer avec le zoom courant. La position de chaque pin
+ *     changerait à chaque frame d'un pinch — les artistes glisseraient sur la
+ *     carte pendant le zoom.
+ *  2. Toujours utiliser la MÊME valeur pour le rendu et pour la caméra. Voler
+ *     vers une position calculée au zoom de destination (14 pour un quartier,
+ *     12 pour un pays) alors que les pins sont dessinés à ce zoom-ci, c'est
+ *     centrer l'écran sur un point où il n'y a pas de pin.
+ *
+ * D'où cette constante : une seule valeur, partagée par les deux plateformes
+ * et par les deux usages. Elle est indépendante des zooms de `CAMERA`, qui
+ * décrivent une destination de vol, pas une mise en page.
+ */
+export const PIN_LAYOUT_ZOOM = 13;
+
 /** Zoom au-delà duquel la barre de recherche se replie en icône. */
 export const SEARCH_COLLAPSE_ZOOM = 3.2;
 
@@ -465,11 +485,23 @@ export const GLOBE_CENTER: [number, number] = [2.4, 8];
 export const GLOBE_SPIN_DEG_PER_SEC = 3.6;
 
 /**
- * Intervalle cible entre deux pas de rotation sur mobile, en millisecondes.
- * 120 ms donnait 8 images par seconde — visiblement saccadé à côté des 60 fps
- * du web. 33 ms vise 30 fps, fluide sans épuiser la batterie.
+ * Intervalle entre deux ordres de rotation sur mobile, en millisecondes.
+ *
+ * Consommé par le mobile UNIQUEMENT : le web anime en `requestAnimationFrame`
+ * et n'a rien à cadencer.
+ *
+ * L'histoire de cette valeur explique son choix. 120 ms donnait 8 images par
+ * seconde — saccadé. 33 ms visait 30 fps, mais chaque pas était un SAUT
+ * instantané envoyé au natif : trente traversées du pont JS par seconde, avec
+ * la gigue du minuteur JavaScript par-dessus. Plus rapide, toujours saccadé.
+ *
+ * On ne cadence donc plus des sauts, on confie l'INTERPOLATION au natif : un
+ * ordre toutes les 250 ms, animé linéairement sur ces mêmes 250 ms. Mapbox
+ * interpole à 60 fps de son côté, et le JS n'intervient plus que quatre fois
+ * par seconde. Assez court, aussi, pour qu'un toucher n'ait jamais plus d'un
+ * quart de seconde d'animation résiduelle à annuler.
  */
-export const GLOBE_SPIN_TICK_MS = 33;
+export const GLOBE_SPIN_TICK_MS = 250;
 
 /** Déplacement de longitude pour un intervalle écoulé donné. */
 export function spinDeltaFor(elapsedMs: number): number {

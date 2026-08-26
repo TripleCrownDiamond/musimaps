@@ -10,8 +10,13 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { DEFAULT_BADGES, appliesToRole, getLevelInfo, parseBadges, satisfiesRule, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
-import { updateProfile } from '@musimaps/shared';
+import { DEFAULT_BADGES, appliesToRole, computeBadges, parseBadges, satisfiesRule, syncGamification, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
+import {
+  getSessionProfile,
+  mergeLocalFavorites,
+  toggleFavorite as sharedToggleFavorite,
+  updateProfile,
+} from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
 const FAVORITES_KEY = 'musimaps.mobile.favorites';
@@ -77,6 +82,65 @@ export function AppProvider({ children }: PropsWithChildren) {
   const loadedRef = useRef(false);
   const firstAwardRef = useRef(true);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Un compte est connecté : les favoris passent par Supabase, pas AsyncStorage. */
+  const [signedIn, setSignedIn] = useState(false);
+
+  // Synchronisation des favoris avec le compte.
+  //
+  // `AppProvider` enveloppe `AuthProvider` (App.tsx) : on ne peut pas lire le
+  // contexte d'authentification ici, on écoute donc Supabase directement.
+  // À la connexion, les favoris posés hors ligne sont repris dans le compte,
+  // puis le cache local est vidé — sans quoi ils seraient réinjectés dans le
+  // compte suivant qui se connecterait sur le même appareil.
+  useEffect(() => {
+    let cancelled = false;
+
+    const sync = async (hasSession: boolean) => {
+      if (cancelled) return;
+      setSignedIn(hasSession);
+      if (!hasSession) return;
+      const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+      const local: string[] = raw ? JSON.parse(raw) : [];
+      const merged = await mergeLocalFavorites(local);
+      if (cancelled) return;
+      setFavorites(merged);
+      if (local.length > 0) await AsyncStorage.removeItem(FAVORITES_KEY);
+
+      // Profil : le COMPTE fait autorité. `saveProfile` poussait déjà le
+      // profil local vers le compte, mais rien ne faisait le chemin inverse —
+      // après une inscription, l'app redemandait un nom et une ville que
+      // l'utilisateur venait de saisir.
+      const account = await getSessionProfile();
+      if (cancelled || !account) return;
+      setProfile((current) => {
+        const next: LocalProfile = {
+          displayName: account.displayName ?? current?.displayName ?? '',
+          city: account.city ?? current?.city ?? '',
+          district: account.district ?? current?.district ?? '',
+          // La bio ne vit que sur l'appareil : le compte ne la porte pas, on
+          // ne l'écrase donc jamais avec du vide.
+          bio: current?.bio ?? '',
+          favoriteGenres: account.favoriteGenres?.length
+            ? account.favoriteGenres
+            : (current?.favoriteGenres ?? []),
+        };
+        AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    };
+
+    void supabase?.auth.getSession().then(({ data }) => {
+      void sync(Boolean(data.session));
+    });
+    const listener = supabase?.auth.onAuthStateChange((_event, session) => {
+      void sync(Boolean(session));
+    });
+
+    return () => {
+      cancelled = true;
+      listener?.data.subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -86,6 +150,8 @@ export function AppProvider({ children }: PropsWithChildren) {
       AsyncStorage.getItem(BADGES_KEY),
     ])
       .then(([savedFavorites, savedProfile, savedCities, savedBadges]) => {
+        // Affichage immédiat depuis le cache local ; dès qu'un compte est
+        // connecté, l'effet de synchronisation ci-dessous fait autorité.
         if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
         if (savedProfile) setProfile(JSON.parse(savedProfile));
         if (savedCities) setVisitedCities(JSON.parse(savedCities));
@@ -193,15 +259,33 @@ export function AppProvider({ children }: PropsWithChildren) {
     });
   }, []);
 
-  const toggleFavorite = useCallback(async (artistId: string) => {
-    setFavorites((current) => {
-      const next = current.includes(artistId)
-        ? current.filter((id) => id !== artistId)
-        : [...current, artistId];
-      AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
+  const toggleFavorite = useCallback(
+    async (artistId: string) => {
+      // Connecté : la table `favorites` fait autorité, comme sur le web —
+      // un artiste sauvé ici apparaît sur l'autre plateforme.
+      if (signedIn) {
+        const result = await sharedToggleFavorite(artistId);
+        if (!result.ok) return;
+        setFavorites((current) =>
+          result.liked
+            ? current.includes(artistId)
+              ? current
+              : [...current, artistId]
+            : current.filter((id) => id !== artistId),
+        );
+        return;
+      }
+      // Déconnecté : cache local, repris en base à la prochaine connexion.
+      setFavorites((current) => {
+        const next = current.includes(artistId)
+          ? current.filter((id) => id !== artistId)
+          : [...current, artistId];
+        AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    },
+    [signedIn],
+  );
 
   const applyAsArtist = useCallback(async (application: ArtistApplication) => {
     if (!supabase) return 'Supabase n’est pas configuré. La demande n’a pas pu être envoyée.';
@@ -313,25 +397,23 @@ export function AppProvider({ children }: PropsWithChildren) {
     if (!client || !deviceId || !loadedRef.current) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      const levelInfo = getLevelInfo(points);
-      client
-        .from('gamification')
-        .upsert(
-          {
-            user_key: deviceId,
-            display_name: profile?.displayName ?? null,
-            points,
-            level: levelInfo.level,
-            level_title: levelInfo.title,
-            badges: earnedBadges,
-            badge_count: earnedBadges.length,
-            visited_cities: visitedCities.length,
-            favorites: favorites.length,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_key' },
-        )
-        .then(() => {}, () => {});
+      // `syncGamification` est la MÊME écriture que celle du dashboard web.
+      // Le mobile la réécrivait à la main : deux payloads concurrents sur la
+      // même table, voués à diverger à la première colonne ajoutée.
+      void syncGamification({
+        userKey: deviceId,
+        displayName: profile?.displayName ?? null,
+        badges: computeBadges(badgeDefs, {
+          role: 'audience',
+          cities: visitedCities.length,
+          favorites: favorites.length,
+          hasProfile: profile !== null,
+        }),
+        cities: visitedCities.length,
+        favorites: favorites.length,
+        // Les dates d'obtention déjà connues, pour ne pas les réinitialiser.
+        earnedAt: Object.fromEntries(earnedBadges.map((b) => [b.id, b.earnedAt])),
+      });
     }, 900);
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);

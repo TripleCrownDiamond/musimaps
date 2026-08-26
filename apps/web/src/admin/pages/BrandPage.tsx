@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Info, Languages, Moon, Sun } from 'lucide-react'
 import type { BrandContent } from '@/lib/cms'
-import { isLegacyBrandUrl, resolveBrandLogo } from '@musimaps/shared'
+import { resolveBrandLogo, stripLegacyBrandUrls } from '@musimaps/shared'
 import logoBlack from '@/assets/brand/logo-black.png'
 import logoWhite from '@/assets/brand/logo-white.png'
 import { useSection } from '../useSection'
@@ -223,9 +223,20 @@ export default function BrandPage() {
   const section = useSection('brand')
   const [draft, setDraft] = useState<BrandContent | null>(null)
   const [preview, setPreview] = useState<PreviewTheme>('light')
+  /** Le CMS contenait encore d'anciennes URLs au chargement : reste à publier. */
+  const [legacyRemoved, setLegacyRemoved] = useState(false)
 
   useEffect(() => {
-    if (section.draft) setDraft(structuredClone(section.draft as BrandContent))
+    if (!section.draft) return
+    // Les anciens logos cyan, encore stockés dans le CMS, étaient déjà ignorés
+    // par le site : on les retire aussi du brouillon pour que l'admin cesse
+    // d'afficher des logos morts. Enregistrer rend la suppression définitive.
+    const raw = structuredClone(section.draft as BrandContent)
+    const cleaned = stripLegacyBrandUrls(raw)
+    setLegacyRemoved(
+      (Object.keys(cleaned) as (keyof BrandContent)[]).some((k) => cleaned[k] !== raw[k]),
+    )
+    setDraft(cleaned)
   }, [section.draft])
 
   const save = async () => {
@@ -246,10 +257,6 @@ export default function BrandPage() {
   const palette = PREVIEW_PALETTE[preview]
   const navLogo = resolveLogo(draft.navbarLogoLight, draft.navbarLogoDark, preview)
   const footerLogo = resolveLogo(draft.footerLogoLight, draft.footerLogoDark, preview)
-  const navLegacy =
-    isLegacyBrandUrl(draft.navbarLogoLight) || isLegacyBrandUrl(draft.navbarLogoDark)
-  const footerLegacy =
-    isLegacyBrandUrl(draft.footerLogoLight) || isLegacyBrandUrl(draft.footerLogoDark)
   const navIsFallback = navLogo === PACKAGED_LOGO[preview]
   const footerIsFallback = footerLogo === PACKAGED_LOGO[preview]
   const themeLabel = preview === 'light' ? 'mode clair' : 'mode sombre'
@@ -275,16 +282,17 @@ export default function BrandPage() {
         />
       </div>
 
-      {/* Anciens logos encore publiés dans le CMS : ignorés par le site. */}
-      {(navLegacy || footerLegacy) && (
+      {/* Anciens logos retirés du brouillon : reste à publier pour les purger. */}
+      {legacyRemoved && (
         <div className="flex items-start gap-3 rounded-2xl border border-hairline bg-amber-50 p-4 dark:bg-amber-950/30">
           <Info className="text-amber-600 mt-0.5 size-5 shrink-0 dark:text-amber-400" />
           <div className="grid gap-0.5">
-            <p className="text-sm font-medium">Anciens logos encore publiés</p>
+            <p className="text-sm font-medium">Anciens logos retirés</p>
             <p className="text-muted-foreground text-sm">
-              Les anciens logos cyan déjà publiés sont ignorés par le site, qui affiche le
-              wordmark officiel embarqué. Téléversez de nouveaux logos (mode clair et sombre)
-              pour les remplacer, puis publiez.
+              Les anciens logos cyan qui traînaient encore dans le CMS ont été retirés de ce
+              brouillon — le site affichait déjà le wordmark officiel embarqué à leur place.
+              Téléversez vos logos (mode clair et sombre) si vous en voulez d’autres, puis
+              <strong> publiez</strong> pour rendre la suppression définitive.
             </p>
           </div>
         </div>
@@ -340,10 +348,7 @@ export default function BrandPage() {
             </div>
             <p className="mt-3 text-xs" style={{ color: palette.muted }}>
               Barre de navigation — {themeLabel}
-              {navIsFallback &&
-                (navLegacy
-                  ? ' · anciens logos ignorés — wordmark officiel affiché'
-                  : ' · wordmark officiel (aucun logo renseigné)')}
+              {navIsFallback && ' · wordmark officiel (aucun logo renseigné)'}
             </p>
           </div>
 
@@ -365,10 +370,7 @@ export default function BrandPage() {
               </div>
               <p className="mt-4 text-center text-xs" style={{ color: palette.muted }}>
                 Pied de page — {themeLabel}
-                {footerIsFallback &&
-                  (footerLegacy
-                    ? ' · anciens logos ignorés — wordmark officiel affiché'
-                    : ' · wordmark officiel (aucun logo renseigné)')}
+                {footerIsFallback && ' · wordmark officiel (aucun logo renseigné)'}
               </p>
             </div>
           </div>

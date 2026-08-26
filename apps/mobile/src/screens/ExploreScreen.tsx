@@ -30,6 +30,7 @@ import {
   clusterBy,
   compactCount,
   countryByName,
+  PIN_LAYOUT_ZOOM,
   declump,
   firstRenderedPosition,
   flagFor,
@@ -47,7 +48,6 @@ import {
   type MapStyleDocument,
   type MapTheme,
   type StyleLayer,
-  isInRegion,
   isScopeArmed,
   isValidCoordinate,
   shouldReleaseScope,
@@ -157,7 +157,6 @@ export function ExploreScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
-  useEffect(() => { console.log('[PIN-DEBUG] MOUNT: HAS_MAPBOX=', HAS_MAPBOX, 'token=', !!MAPBOX_TOKEN, 'theme=', theme); }, []);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
 
   // --- État (miroir de la page globe web) ---
@@ -170,7 +169,6 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState('');
   const [spinning, setSpinning] = useState(true);
   const [mapZoom, setMapZoom] = useState(GLOBE_ZOOM);
-  const [region, setRegion] = useState<{ east: number; north: number; west: number; south: number } | null>(null);
   const [visiblePins, setVisiblePins] = useState<Artist[]>([]);
   /**
    * Le cadrage ne devient relâchable qu'une fois la caméra arrivée au niveau
@@ -240,13 +238,10 @@ export function ExploreScreen({ navigation, route }: Props) {
       void fetchMapArtists().then((rows) => {
         if (cancelled) return;
         const artists = rows.map((row) => toArtist(row));
-        console.log('[PIN-DEBUG] fetchMapArtists returned', rows.length, 'rows,', artists.length, 'artists');
-        if (artists.length > 0) {
-          console.log('[PIN-DEBUG] first artist:', artists[0].name, 'coords:', artists[0].coordinates, 'city:', artists[0].city);
-        }
         setMapArtists(artists);
-      }).catch((err) => {
-        console.log('[PIN-DEBUG] fetchMapArtists ERROR:', err?.message ?? err);
+      }).catch(() => {
+        /* Carte indisponible : on garde la liste courante plutot que de vider
+           l'ecran. L'utilisateur reverra les pins au prochain chargement. */
       });
       void fetchAllArtistPopularity().then((map) => {
         if (!cancelled) setPopularityById(map);
@@ -289,7 +284,6 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
   const allArtists = useMemo(() => mapArtists, [mapArtists]);
-  useEffect(() => { console.log('[PIN-DEBUG] allArtists count:', allArtists.length, 'mapArtists:', mapArtists.length, 'locState:', locState, 'showMap:', locState === 'granted' || locState === 'skipped', 'MAPBOX_TOKEN set:', !!MAPBOX_TOKEN); }, [allArtists.length, locState]);
 
   // --- Résultats typés (nom / lieux / pays / genres), miroir du web ---
   const artistResults = useMemo(() => {
@@ -481,7 +475,7 @@ export function ExploreScreen({ navigation, route }: Props) {
    */
   const flyToArtist = (artist: Artist) => {
     const rendered =
-      renderedPosition(allArtists, artist.id, CAMERA.artist.zoom) ?? artist.coordinates;
+      renderedPosition(allArtists, artist.id, PIN_LAYOUT_ZOOM) ?? artist.coordinates;
     flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
   };
 
@@ -577,8 +571,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = cityArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(cityArtists, 13);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(cityArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.city.zoom, CAMERA.city.duration);
           return;
         }
@@ -619,8 +612,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = nearArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(nearArtists, 14);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(nearArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.place.zoom, CAMERA.place.duration);
           return;
         }
@@ -655,8 +647,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const firstArtist = countryArtists[0];
         if (firstArtist && isValidCoordinate(firstArtist.coordinates)) {
           setHighlightedId(firstArtist.id);
-          const spread = declump(countryArtists, 12);
-          const rendered = spread.get(firstArtist.id);
+          const rendered = renderedPosition(countryArtists, firstArtist.id, PIN_LAYOUT_ZOOM);
           flyTo(rendered ?? firstArtist.coordinates, CAMERA.country.zoom, CAMERA.country.duration);
           return;
         }
@@ -678,8 +669,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         setHighlightedId(artist.id);
         // Vole vers la position AFFICHÉE du pin (dés-empilement inclus) pour
         // qu'il arrive au centre de l'écran — pas dans un coin au zoom.
-        const spread = declump(selectedPlace.artists, 13);
-        const rendered = spread.get(artist.id) ?? artist.coordinates;
+        const rendered =
+          renderedPosition(selectedPlace.artists, artist.id, PIN_LAYOUT_ZOOM) ?? artist.coordinates;
         flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
       }
     },
@@ -813,19 +804,6 @@ export function ExploreScreen({ navigation, route }: Props) {
       .map(({ artist }) => artist);
   }, [selected, allArtists]);
 
-  // --- Région visible + zoom (pins par niveau de cluster) ---
-  const regionArtists = useMemo(() => {
-    if (!region) { console.log('[PIN-DEBUG] regionArtists: region=null, returning all', allArtists.length); return allArtists; }
-    // `isInRegion` élargit le cadrage de la marge de dés-empilement : le
-    // filtre porte sur la coordonnée BRUTE alors que le pin est dessiné
-    // jusqu'à 1,5 km plus loin. Sans cette marge, un artiste au bord se
-    // retrouvait affiché hors de la zone, et un autre juste dehors
-    // n'apparaissait jamais alors que son pin aurait été visible.
-    const filtered = allArtists.filter((artist) => isInRegion(artist.coordinates, region));
-    console.log('[PIN-DEBUG] regionArtists:', filtered.length, '/', allArtists.length, 'in region');
-    return filtered;
-  }, [region, allArtists]);
-
   const pins = useMemo(() => {
     // Au dézoom, on relâche le cadrage posé par un clic sur cluster ou une
     // recherche : sinon la carte restait figée sur ce seul groupe et les
@@ -838,9 +816,11 @@ export function ExploreScreen({ navigation, route }: Props) {
     } else if (searchOpen && query.trim()) {
       base = [];
     } else {
-      base = regionArtists;
+      // Mapbox masque déjà les MarkerView hors écran. Garder ici un second
+      // filtre par viewport rendait la liste dépendante de bounds parfois
+      // périmées après un vol ou un dézoom (et pouvait vider tous les pays).
+      base = allArtists;
     }
-    console.log('[PIN-DEBUG] pins calc: target=', target.length, 'scopeReleased=', scopeReleased, 'searchOpen=', searchOpen, 'query=', query.slice(0, 20), 'base=', base.length, 'mapZoom=', mapZoom.toFixed(2), 'level=', levelFor(mapZoom));
     if (base.length === 0) return [];
     const valid = base.filter((a) => isValidCoordinate(a.coordinates));
     const level = levelFor(mapZoom);
@@ -926,14 +906,15 @@ export function ExploreScreen({ navigation, route }: Props) {
         out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: [cLng, cLat], zoomTo: CAMERA.sub.zoom, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier });
       }
     } else {
-      const spread = declump(valid, mapZoom);
+      // Coordonnées stables pendant tout le zoom : recalculer la spirale avec
+      // `mapZoom` faisait glisser les artistes à chaque frame du pinch.
+      const spread = declump(valid, PIN_LAYOUT_ZOOM);
       for (const artist of valid) {
         out.push({ key: `a-${artist.id}`, kind: 'artist', artist, coords: spread.get(artist.id) ?? artist.coordinates, tier: tierOf(artist, popularityById) });
       }
     }
-    console.log('[PIN-DEBUG] pins RESULT:', out.length, 'items (' + out.filter(p => p.kind === 'cluster').length + ' clusters, ' + out.filter(p => p.kind === 'artist').length + ' artists)');
     return out;
-  }, [regionArtists, visiblePins, searchOpen, query, allArtists, mapZoom, popularityById]);
+  }, [visiblePins, searchOpen, query, allArtists, mapZoom, popularityById, scopeReleased]);
 
   /**
    * Taille d'un pin : zoom ET notoriété — même formule que le web.
@@ -957,7 +938,6 @@ export function ExploreScreen({ navigation, route }: Props) {
       return aSelected - bSelected;
     });
   }, [pins, highlightedId]);
-  useEffect(() => { console.log('[PIN-DEBUG] orderedPins:', orderedPins.length, 'highlightedId:', highlightedId); }, [orderedPins.length, highlightedId]);
 
   // Source unique de vérité du zoom : les événements Mapbox v10. Pendant le
   // mouvement, un rendu n'est déclenché qu'au changement de niveau de cluster ;
@@ -976,11 +956,6 @@ export function ExploreScreen({ navigation, route }: Props) {
     const z = properties.zoom;
     centerRef.current = [(west + east) / 2, (south + north) / 2];
     syncMapZoom(z, true);
-    setRegion((prev) =>
-      prev && Math.abs(prev.east - east) < 1 && Math.abs(prev.north - north) < 1
-        ? prev
-        : { east, north, west, south },
-    );
   };
 
   // Rotation automatique (intervalle, comme le flyTo jumpTo du web). Coupe
@@ -1011,12 +986,14 @@ export function ExploreScreen({ navigation, route }: Props) {
       centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
       cameraRef.current?.setCamera({
         centerCoordinate: centerRef.current,
-        animationDuration: 0,
-        // moveTo = saut INSTANTANÉ (équivalent du jumpTo web). Surtout pas
-        // 'flyTo' : même avec duration 0, le mode FLIGHT lance une animation
-        // caméra native qui bloque / reprend le dessus sur les gestes de
-        // l'utilisateur — le globe semble figé au toucher pendant la rotation.
-        animationMode: 'moveTo',
+        // Le natif interpole ces 250 ms à 60 fps. Avec `animationDuration: 0`
+        // et 30 ticks/seconde, chaque pas était un saut discret : la gigue du
+        // minuteur JS se voyait directement à l'écran.
+        animationDuration: GLOBE_SPIN_TICK_MS,
+        // `linearTo` = interpolation à vitesse constante, indispensable pour
+        // une rotation continue. Surtout pas 'flyTo' : le mode FLIGHT lance
+        // une animation caméra qui reprend le dessus sur les gestes.
+        animationMode: 'linearTo',
       });
     }, GLOBE_SPIN_TICK_MS);
     spinIntervalRef.current = interval;
@@ -1182,6 +1159,55 @@ export function ExploreScreen({ navigation, route }: Props) {
     ? JSON.stringify(tintedStyle)
     : undefined;
 
+  // L'adaptateur web de @rnmapbox/maps 10.3.5 ne transmet ni
+  // `onCameraChanged` ni `onMapIdle`. Sans ce pont, mapZoom restait à 0,75 :
+  // les clusters pays ne se scindaient jamais en pins artistes sur Expo Web.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || (locState !== 'granted' && locState !== 'skipped')) return;
+
+    type WebMap = {
+      getZoom: () => number;
+      getCenter: () => { lng: number; lat: number };
+      on: (event: 'zoom' | 'moveend', listener: () => void) => void;
+      off: (event: 'zoom' | 'moveend', listener: () => void) => void;
+    };
+
+    let disposed = false;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let webMap: WebMap | null = null;
+
+    const onZoom = () => {
+      if (webMap) syncMapZoom(webMap.getZoom());
+    };
+    const onMoveEnd = () => {
+      if (!webMap) return;
+      const center = webMap.getCenter();
+      centerRef.current = [center.lng, center.lat];
+      syncMapZoom(webMap.getZoom(), true);
+    };
+    const attach = () => {
+      if (disposed) return;
+      webMap = (mapViewRef.current as unknown as { map?: WebMap } | null)?.map ?? null;
+      if (!webMap) {
+        retry = setTimeout(attach, 50);
+        return;
+      }
+      webMap.on('zoom', onZoom);
+      webMap.on('moveend', onMoveEnd);
+      onMoveEnd();
+    };
+
+    attach();
+    return () => {
+      disposed = true;
+      if (retry) clearTimeout(retry);
+      if (webMap) {
+        webMap.off('zoom', onZoom);
+        webMap.off('moveend', onMoveEnd);
+      }
+    };
+  }, [locState, mapTheme, tintedStyle, syncMapZoom]);
+
   return (
     <View style={styles.container}>
       {!showMap ? (
@@ -1265,10 +1291,16 @@ export function ExploreScreen({ navigation, route }: Props) {
         attributionEnabled={false}
         onPress={() => {
           setSpinning(false);
-          setHighlightedId(null);
           if (selected) {
-            if (selectedPlace) setVisiblePins(selectedPlace.artists);
-            else setVisiblePins([]);
+            if (selectedPlace) {
+              setVisiblePins(selectedPlace.artists);
+              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id);
+              if (restoredIndex >= 0) setPlaceIndex(restoredIndex);
+              setHighlightedId(selected.id);
+            } else {
+              setVisiblePins([]);
+              setHighlightedId(null);
+            }
           }
           setSelected(null);
         }}
@@ -1284,12 +1316,22 @@ export function ExploreScreen({ navigation, route }: Props) {
           if (gestures?.isGestureActive && spinRef.current) {
             stopSpinImmediate();
           }
+          // Le centre suit le geste EN CONTINU. Il n'était rafraîchi qu'à
+          // `onMapIdle` : en relançant la rotation, on repartait de la position
+          // d'avant le déplacement et le globe sautait en arrière — le fameux
+          // « sens contraire ».
+          const center = properties.center;
+          if (Array.isArray(center) && center.length === 2) {
+            centerRef.current = [center[0], center[1]];
+          }
           syncMapZoom(properties.zoom)
         }}
       >
         <Mapbox.Camera
           ref={cameraRef}
           defaultSettings={{ centerCoordinate: GLOBE_CENTER, zoomLevel: GLOBE_ZOOM, pitch: 0, heading: 0 }}
+          centerCoordinate={Platform.OS === 'web' ? GLOBE_CENTER : undefined}
+          zoomLevel={Platform.OS === 'web' ? GLOBE_ZOOM : undefined}
           minZoomLevel={0.45}
           maxZoomLevel={MAX_ZOOM}
         />
@@ -1307,10 +1349,11 @@ export function ExploreScreen({ navigation, route }: Props) {
         )}
         {orderedPins.map((pin) =>
           pin.kind === 'cluster' ? (
-            <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
+            <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap stopGesturePropagation>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${pin.label} — ${pin.count} artistes`}
+                hitSlop={18}
                 style={[
                   styles.clusterPin,
                   pin.variant === 'sub' && styles.clusterPinSub,
@@ -1319,11 +1362,11 @@ export function ExploreScreen({ navigation, route }: Props) {
                   // comme sur le web — le halo lumineux suit la couleur.
                   !globeView && pin.variant !== 'sub'
                     ? {
-                        backgroundColor: POPULARITY_RING_COLORS[pin.tier],
-                        borderColor: POPULARITY_RING_COLORS[pin.tier],
+                        backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier],
+                        borderColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier],
                       }
                     : globeView
-                      ? { backgroundColor: POPULARITY_RING_COLORS[pin.tier] }
+                      ? { backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier] }
                       : null,
                   { transform: [{ scale: clusterScale }] },
                 ]}
@@ -1351,8 +1394,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                   if (pin.members.length > 0) {
                     const firstMember = pin.members[0];
                     if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-                      const spread = declump(pin.members, 13);
-                      const rendered = spread.get(firstMember.id);
+                      const rendered = renderedPosition(pin.members, firstMember.id, PIN_LAYOUT_ZOOM);
                       if (rendered) {
                         targetCoords = rendered;
                         targetZoom = 13;
@@ -1367,7 +1409,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                   style={[
                     styles.popRing,
                     {
-                      borderColor: POPULARITY_RING_COLORS[pin.tier as 0 | 1 | 2 | 3],
+                      borderColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier as 0 | 1 | 2 | 3],
                     },
                   ]}
                 />
@@ -1379,11 +1421,15 @@ export function ExploreScreen({ navigation, route }: Props) {
                       style={[
                         styles.clusterPinMain,
                         pin.variant !== 'sub' && {
-                          color: pin.tier === 3 ? overlay.pinInk : overlay.pinInkInverse,
+                          color: pin.place || pin.tier !== 3 ? overlay.pinInkInverse : overlay.pinInk,
                         },
                       ]}
                     >
-                      {pin.variant === 'sub' ? `${pin.count}` : `${pin.flag} ${pin.label} · ${pin.count}`}
+                      {pin.variant === 'sub'
+                        ? `${pin.count}`
+                        : pin.place?.kind === 'country'
+                          ? pin.label
+                          : `${pin.flag} ${pin.label} · ${pin.count}`}
                     </Text>
                     {/* Le pin de cluster ne porte que le lieu et le NOMBRE
                         D'ARTISTES. Il affichait aussi un total d'abonnés
@@ -1958,9 +2004,15 @@ export function ExploreScreen({ navigation, route }: Props) {
           artist={selected}
           nearby={nearby}
           onClose={() => {
-            setHighlightedId(null);
-            if (selectedPlace) setVisiblePins(selectedPlace.artists);
-            else setVisiblePins([]);
+            if (selectedPlace) {
+              setVisiblePins(selectedPlace.artists);
+              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id);
+              if (restoredIndex >= 0) setPlaceIndex(restoredIndex);
+              setHighlightedId(selected.id);
+            } else {
+              setVisiblePins([]);
+              setHighlightedId(null);
+            }
             setSelected(null);
           }}
           onSelectArtist={goToArtist}
@@ -2120,9 +2172,8 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     pinName: {
       position: 'absolute',
       top: -30,
-      left: -(mapUi.pinLabelWidth - mapUi.markerTouchWidth) / 2,
-      width: mapUi.pinLabelWidth,
-      alignItems: 'center',
+      alignSelf: 'center',
+      maxWidth: mapUi.pinLabelWidth,
       backgroundColor: overlay.labelSurface,
       color: overlay.pinInkInverse,
       fontFamily: fonts.medium,
@@ -2139,7 +2190,6 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       color: overlay.pinInk,
       fontFamily: fonts.bold,
       fontSize: 12,
-      width: mapUi.pinLabelWidth,
     },
     appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 1500 },
     rotateBtn: {

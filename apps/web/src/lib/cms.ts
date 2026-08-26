@@ -183,6 +183,19 @@ export interface SettingsContent {
   openSignup: boolean
   /** Message affiché sur l'inscription quand elle est fermée. */
   closedSignupMessage: string
+  /**
+   * Version minimale de l'app mobile encore acceptée. En dessous, l'app
+   * BLOQUE et impose la mise à jour — à ne renseigner que lorsqu'une version
+   * ancienne ne peut réellement plus fonctionner. Vide = ne bloque jamais.
+   */
+  minAppVersion?: string
+  /**
+   * Dernière version publiée sur les stores. Au-dessus de la version
+   * installée, l'app propose la mise à jour sans l'imposer. Vide = silence.
+   */
+  latestAppVersion?: string
+  /** Ce qui change dans cette version, affiché dans la fenêtre. */
+  updateMessage?: string
 }
 
 /** Une slide de l'onboarding mobile (icône lucide + textes, par langue). */
@@ -194,8 +207,29 @@ export interface OnboardingSlide {
   text: string
 }
 
+/**
+ * Écran d'entrée de l'app mobile — le tout premier écran vu, avant même
+ * l'onboarding. Seul l'éditorial est exposé : la phrase d'accroche et les
+ * deux boutons.
+ *
+ * La mention légale n'est volontairement PAS éditable : c'est une phrase
+ * découpée en morceaux autour de deux liens (« En continuant, vous acceptez
+ * les CONDITIONS et la CONFIDENTIALITÉ »). La rendre modifiable champ par
+ * champ inviterait à casser la grammaire de la phrase.
+ */
+export interface StartScreenContent {
+  /** Phrase d'accroche, en capitales sur l'écran. Courte : 3 lignes maximum. */
+  tagline: string
+  /** Bouton principal — entre dans l'app. */
+  explore: string
+  /** Bouton secondaire — crée un compte. */
+  signup: string
+}
+
 export interface OnboardingContent {
   slides: OnboardingSlide[]
+  /** Textes de l'écran d'entrée. Absent = textes embarqués dans l'app. */
+  start?: StartScreenContent
 }
 
 export interface CmsContent {
@@ -375,7 +409,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'navigate',
       label: 'Premier pas',
       description: 'Visiter sa première ville',
-      points: 10,role: 'all',
+      points: 10,
+role: 'all',
       condition: { metric: 'cities', min: 1 },
     },
     {
@@ -383,7 +418,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'compass',
       label: 'Curieux',
       description: 'Visiter 3 villes',
-      points: 25,role: 'all',
+      points: 25,
+role: 'all',
       condition: { metric: 'cities', min: 3 },
     },
     {
@@ -391,7 +427,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'earth',
       label: 'Globe-trotter',
       description: 'Visiter 8 villes',
-      points: 60,role: 'all',
+      points: 60,
+role: 'all',
       condition: { metric: 'cities', min: 8 },
     },
     {
@@ -399,7 +436,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'planet',
       label: 'Explorateur',
       description: 'Visiter 15 villes',
-      points: 120,role: 'all',
+      points: 120,
+role: 'all',
       condition: { metric: 'cities', min: 15 },
     },
     {
@@ -407,7 +445,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'heart',
       label: 'Coup de cœur',
       description: 'Sauvegarder un artiste',
-      points: 10,role: 'all',
+      points: 10,
+role: 'all',
       condition: { metric: 'favorites', min: 1 },
     },
     {
@@ -415,7 +454,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'music',
       label: 'Mélomane',
       description: 'Sauvegarder 5 artistes',
-      points: 30,role: 'all',
+      points: 30,
+role: 'all',
       condition: { metric: 'favorites', min: 5 },
     },
     {
@@ -423,7 +463,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'sparkles',
       label: 'Collectionneur',
       description: 'Sauvegarder 12 artistes',
-      points: 80,role: 'all',
+      points: 80,
+role: 'all',
       condition: { metric: 'favorites', min: 12 },
     },
     {
@@ -431,7 +472,8 @@ export const DEFAULT_CONTENT: CmsContent = {
       icon: 'person',
       label: 'Ambassadeur',
       description: 'Créer son profil',
-      points: 20,role: 'all',
+      points: 20,
+role: 'all',
       condition: { metric: 'profile', min: 1 },
     },
   ],
@@ -493,6 +535,13 @@ export const DEFAULT_CONTENT: CmsContent = {
         text: 'Visite des villes et sauvegarde des artistes pour gagner des points, monter de niveau et débloquer des badges.',
       },
     ],
+    // Miroir des cles i18n `start.*` embarquees dans l'app : tant que rien
+    // n'est publie, l'app affiche exactement ces valeurs.
+    start: {
+      tagline: 'DÉCOUVREZ LES ARTISTES AUTOUR DE VOUS',
+      explore: 'Explorer maintenant',
+      signup: 'Créer un compte',
+    },
   },
 }
 

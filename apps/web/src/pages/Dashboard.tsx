@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   BadgeCheck,
   Bell,
+  BookOpenCheck,
   Briefcase,
   CalendarCheck,
   ChevronDown,
@@ -77,6 +78,7 @@ import { toast } from 'sonner'
 import { useRef } from 'react'
 import { BarChart, ChartCard, Donut, HBarList, TrendArea } from '../components/charts'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
+import HelpHint from '../components/HelpHint'
 
 /** Palette de la marque pour les graphiques (light/dark via variables CSS). */
 const DEEP = 'var(--color-brand-deep)'
@@ -185,6 +187,8 @@ export default function Dashboard() {
     pinViews: 0,
   })
   const [switching, setSwitching] = useState(false)
+  /** Guide d'utilisation replie par defaut : utile au debut, encombrant ensuite. */
+  const [guideOpen, setGuideOpen] = useState(false)
   // Profil revendiqué (carte) — l'artiste gère photo, cover, bio, liens.
   const [claimed, setClaimed] = useState<ClaimedArtistProfile | null>(null)
   const [claimedFollowers, setClaimedFollowers] = useState(0)
@@ -508,6 +512,37 @@ export default function Dashboard() {
           </Link>
         </div>
 
+        {/* Guide d'utilisation — le contenu dépend du rôle et du type de
+            compte : un artiste et un mélomane ne cherchent pas la même chose.
+            Repliable et fermé par défaut pour ne pas encombrer les habitués. */}
+        <div className="mb-8 rounded-3xl border border-hairline bg-secondary-bg p-5">
+          <button
+            type="button"
+            onClick={() => setGuideOpen((v) => !v)}
+            aria-expanded={guideOpen}
+            aria-controls="dash-guide"
+            className="flex w-full items-center justify-between gap-3 text-left"
+          >
+            <span className="flex items-center gap-2 font-bold">
+              <BookOpenCheck className="h-5 w-5 text-brand-deep" />
+              {t('dash.guideTitle')}
+            </span>
+            <span className="shrink-0 text-sm font-medium text-brand-deep">
+              {guideOpen ? t('dash.guideHide') : t('dash.guideToggle')}
+            </span>
+          </button>
+          {guideOpen && (
+            <div
+              id="dash-guide"
+              className="mt-4 grid gap-3 text-sm leading-relaxed text-secondary-text"
+            >
+              <p>{isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}</p>
+              {isArtist && <p>{t('dash.guideArtistTracks')}</p>}
+              <p>{isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal')}</p>
+            </div>
+          )}
+        </div>
+
         {/* Onboarding : rappel de complétion du profil */}
         {needsOnboarding && (
           <div className="mb-8 rounded-3xl border border-brand-deep/20 bg-gradient-to-br from-brand-soft to-surface p-6">
@@ -764,6 +799,7 @@ export default function Dashboard() {
               <div>
                 <h3 className="display-font flex items-center gap-2 text-lg font-bold">
                   <CalendarCheck className="h-5 w-5 text-brand-deep" /> {t('dash.bookingTitle')}
+                  <HelpHint text={t('dash.helpBooking')} label={t('dash.helpBookingAria')} />
                 </h3>
                 <p className="mt-1 text-sm text-secondary-text">{t('dash.bookingDesc')}</p>
               </div>
@@ -937,7 +973,10 @@ export default function Dashboard() {
                     <Flame className="h-7 w-7" />
                   </span>
                   <div>
-                    <p className="font-bold">{t('dash.streakTitle')}</p>
+                    <p className="font-bold">
+                      {t('dash.streakTitle')}
+                      <HelpHint text={t('dash.helpStreak')} label={t('dash.helpStreakAria')} />
+                    </p>
                     <p className="text-xs text-secondary-text">{t('dash.streakHint')}</p>
                   </div>
                 </div>
@@ -970,7 +1009,10 @@ export default function Dashboard() {
                       <Trophy className="h-5 w-5" />
                     </span>
                     <div>
-                      <h2 className="display-font text-xl font-bold sm:text-2xl">{t('dash.rewardsTitle')}</h2>
+                      <h2 className="display-font text-xl font-bold sm:text-2xl">
+                        {t('dash.rewardsTitle')}
+                        <HelpHint text={t('dash.helpRewards')} label={t('dash.helpRewardsAria')} />
+                      </h2>
                       <p className="text-xs text-secondary-text">{t('dash.rewardsSub')}</p>
                     </div>
                   </div>
@@ -1053,6 +1095,7 @@ export default function Dashboard() {
             >
               <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
                 <Eye className="h-5 w-5 text-brand-deep" /> {t('dash.analyticsTitle')}
+                <HelpHint text={t('dash.helpAnalytics')} label={t('dash.helpAnalyticsAria')} />
               </h2>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-secondary-text">
@@ -1233,7 +1276,10 @@ export default function Dashboard() {
         {!isArtist && (
           <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="display-font text-2xl font-bold">{t('dash.myArtists')}</h2>
+              <h2 className="display-font text-2xl font-bold">
+                {t('dash.myArtists')}
+                <HelpHint text={t('dash.helpMyArtists')} label={t('dash.helpMyArtistsAria')} />
+              </h2>
               <div className="flex rounded-full bg-secondary-bg p-1">
                 <button
                   type="button"
@@ -1304,6 +1350,7 @@ export default function Dashboard() {
             <button type="button" onClick={() => setShowNotifications((v) => !v)} className="flex w-full items-center justify-between gap-3">
               <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
                 <Bell className="h-5 w-5 text-brand-deep" /> {t('dash.notifications')}
+                <HelpHint text={t('dash.helpNotifications')} label={t('dash.helpNotificationsAria')} />
                 <span className="ml-2 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand-deep">{notifications.filter((n) => !n.read).length || notifications.length}</span>
               </h2>
               <ChevronDown className={`h-5 w-5 text-secondary-text transition-transform ${showNotifications ? 'rotate-180' : ''}`} />
@@ -1346,7 +1393,10 @@ export default function Dashboard() {
 
           <aside className="space-y-6">
             <div className="rounded-3xl border border-hairline bg-surface p-6">
-              <h2 className="mb-4 font-bold">{t('dash.accountInfo')}</h2>
+              <h2 className="mb-4 font-bold">
+                {t('dash.accountInfo')}
+                <HelpHint text={t('dash.helpAccount')} label={t('dash.helpAccountAria')} />
+              </h2>
               <ul className="space-y-3 text-sm">
                 <li className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-brand-deep" /> {user.email}

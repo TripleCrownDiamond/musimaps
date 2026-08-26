@@ -36,6 +36,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -164,18 +165,29 @@ export function OnboardingScreen({ navigation }: Props) {
   const goTo = (next: number) => {
     const clamped = Math.max(0, Math.min(slides.length - 1, next));
     const target = clamped * width;
-    // Natif : le ScrollView défile via scrollTo.
+    // Natif : le ScrollView défile via scrollTo. Suffisant, et sans risque.
     scrollRef.current?.scrollTo({ x: target, animated: true });
-    // react-native-web 0.21 : la ref EST le nœud DOM mais son scrollTo patché
-    // ne scrolle pas (branche dépréciée). On force scrollLeft directement.
-    type ScrollableLike = { scrollLeft?: number; getScrollableNode?: () => ScrollableLike | null };
-    const raw = scrollRef.current as unknown as ScrollableLike | null;
-    const scrollNode =
-      raw && typeof raw.scrollLeft === 'number'
-        ? raw
-        : (raw?.getScrollableNode?.() ?? null);
-    if (scrollNode && typeof scrollNode.scrollLeft === 'number') {
-      scrollNode.scrollLeft = target;
+
+    // Contournement react-native-web UNIQUEMENT — et c'est tout l'enjeu de ce
+    // garde : sur le web 0.21, la ref EST le nœud DOM mais son `scrollTo`
+    // patché ne défile pas, il faut forcer `scrollLeft`.
+    //
+    // Ce bloc s'exécutait AUSSI en natif, où `getScrollableNode()` passe par
+    // `findNodeHandle` — déprécié, et qui lève sous la Nouvelle Architecture
+    // (activée par défaut depuis le SDK 57). L'exception remontait d'un
+    // `onPress` sans capture : en build de production, l'app se fermait.
+    // Le swipe, lui, n'appelle jamais ce chemin — d'où un plantage au seul
+    // bouton « suivant ».
+    if (Platform.OS === 'web') {
+      type ScrollableLike = { scrollLeft?: number; getScrollableNode?: () => ScrollableLike | null };
+      const raw = scrollRef.current as unknown as ScrollableLike | null;
+      const scrollNode =
+        raw && typeof raw.scrollLeft === 'number'
+          ? raw
+          : (raw?.getScrollableNode?.() ?? null);
+      if (scrollNode && typeof scrollNode.scrollLeft === 'number') {
+        scrollNode.scrollLeft = target;
+      }
     }
     setIndex(clamped);
   };

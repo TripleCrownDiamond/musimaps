@@ -156,6 +156,37 @@ export default function SettingsPage() {
               rows={3}
             />
           </Field>
+
+          {/* Mise à jour de l'app mobile — publier suffit, aucun nouveau build
+              n'est nécessaire pour prévenir les utilisateurs. */}
+          <Field
+            label="Dernière version de l’app mobile"
+            hint="Ex. 1.2.0. Au-dessus de la version installée, l’app PROPOSE la mise à jour (fenêtre refermable). Laissez vide pour ne rien afficher."
+          >
+            <TextInput
+              value={draft.latestAppVersion ?? ''}
+              onChange={(v) => set({ latestAppVersion: v })}
+            />
+          </Field>
+          <Field
+            label="Version minimale acceptée"
+            hint="⚠️ En dessous, l’app BLOQUE et impose la mise à jour. À ne renseigner que si une version ancienne ne peut réellement plus fonctionner — un utilisateur bloqué ne peut plus rien faire tant que le store n’a pas livré."
+          >
+            <TextInput
+              value={draft.minAppVersion ?? ''}
+              onChange={(v) => set({ minAppVersion: v })}
+            />
+          </Field>
+          <Field
+            label="Message de mise à jour"
+            hint="Ce qui change dans cette version. Vide = texte générique."
+          >
+            <TextAreaInput
+              value={draft.updateMessage ?? ''}
+              onChange={(v) => set({ updateMessage: v })}
+              rows={2}
+            />
+          </Field>
         </CardContent>
       </Card>
 

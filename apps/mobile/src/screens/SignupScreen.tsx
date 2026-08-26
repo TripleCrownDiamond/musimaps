@@ -39,7 +39,7 @@ export function SignupScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
-  const { signUp } = useAuth();
+  const { signUp, resendSignUpConfirmation } = useAuth();
   const { showToast } = useApp();
   const [role, setRole] = useState<AccountRole | null>(route.params?.role ?? null);
   const [name, setName] = useState('');
@@ -49,6 +49,7 @@ export function SignupScreen({ navigation, route }: Props) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [sent, setSent] = useState(false);
   const [countryOpen, setCountryOpen] = useState(false);
   const [cityOpen, setCityOpen] = useState(false);
@@ -168,6 +169,21 @@ export function SignupScreen({ navigation, route }: Props) {
         subtitle={t('auth.checkEmailText')}
       >
         <Text style={[styles.sentEmail, { color: colors.ink }]}>{email.trim()}</Text>
+        <Button
+          block
+          variant="secondary"
+          size="lg"
+          loading={resending}
+          label={t('auth.resendConfirmation')}
+          onPress={() => {
+            setResending(true);
+            void resendSignUpConfirmation(email).then((error) => {
+              setResending(false);
+              showToast(error ? error.message : t('auth.confirmationResent'), error ? 'alert-circle' : 'mail-outline', error ? 'error' : undefined);
+            });
+          }}
+          icon={<Ionicons name="mail-outline" size={20} color={colors.brandDeep} />}
+        />
         <Button
           block
           size="lg"

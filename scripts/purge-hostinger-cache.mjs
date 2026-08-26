@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Purge le cache Hostinger (serveur + hCDN) pour musimaps.app.
+ * Purge le cache Hostinger (serveur + hCDN) pour musimaps.com.
  *
  * Le cache CDN de Hostinger (hCDN) garde les anciens logos/visuels jusqu'à un
  * an à cause de l'en-tête `immutable` : après un redéploiement, l'ancien logo
@@ -38,7 +38,7 @@ async function main() {
   // Le nom de compte hPanel ressemble au login FTP (u123456789) ; on en déduit
   // le compte si HOSTINGER_ACCOUNT_USERNAME n'est pas défini.
   const username = env.HOSTINGER_ACCOUNT_USERNAME || env.HOSTINGER_FTP_USERNAME
-  const domain = env.HOSTINGER_DOMAIN || 'musimaps.app'
+  const domain = env.HOSTINGER_DOMAIN || 'musimaps.com'
 
   if (!token) {
     console.error(
@@ -67,7 +67,7 @@ async function main() {
   const body = await res.text().catch(() => '')
   if (!res.ok) {
     console.error(`Échec (HTTP ${res.status}) : ${body.slice(0, 300)}`)
-    console.error('Vérifiez le jeton API et que musimaps.app est bien rattaché à ce compte.')
+    console.error('Vérifiez le jeton API et que musimaps.com est bien rattaché à ce compte.')
     process.exit(1)
   }
   console.log('Cache purgé ✓', body ? body.slice(0, 200) : '')

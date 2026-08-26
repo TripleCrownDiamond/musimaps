@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { radii, spacing, waitlistPositionFor } from '@musimaps/shared';
+import { SITE_URL, radii, spacing, waitlistPositionFor } from '@musimaps/shared';
 import { Share, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -12,7 +12,7 @@ import { Button, Card, Section } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Confirmation'>;
 
-const SHARE_URL = 'https://musimaps.app';
+const SHARE_URL = SITE_URL;
 
 export function ConfirmationScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();

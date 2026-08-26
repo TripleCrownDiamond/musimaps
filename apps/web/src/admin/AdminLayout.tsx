@@ -9,6 +9,8 @@ import {
   Mic2,
   ListChecks,
   Trophy,
+  BookOpen,
+  BookOpenCheck,
   HelpCircle,
   Medal,
   History,
@@ -57,6 +59,8 @@ const nav = [
   { to: '/admin/history', label: 'Historique', icon: History },
   { to: '/admin/cache', label: 'Cache', icon: RefreshCw },
   { to: '/admin/settings', label: 'Réglages', icon: Settings },
+  { to: '/admin/guide', label: 'Guide d’édition', icon: BookOpenCheck },
+  { to: '/admin/docs', label: 'Documentation', icon: BookOpen },
 ]
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {

@@ -31,7 +31,7 @@ import {
   toggleFollow,
   viewerCountryFromCity,
 } from '@musimaps/shared'
-import { fetchArtistTracks, type StreamedTrack } from '@musimaps/shared'
+import { loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import { saveMapArtist } from '../lib/mapAdmin'
@@ -122,15 +122,15 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
   }, [artist.id, user?.city])
 
   // Peuplement automatique de l'onglet Musiques depuis Apple Music/iTunes.
+  // `loadArtistTracks` ignore une réponse annulée : changer d'artiste via
+  // Nearby ne fait plus effacer ses titres par la réponse du précédent.
   useEffect(() => {
     if (artist.tracks.length > 0) return
-    const controller = new AbortController()
     setTracksLoading(true)
-    void fetchArtistTracks(artist.name, controller.signal).then((list) => {
+    return loadArtistTracks(artist.name, (list) => {
       setAutoTracks(list)
       setTracksLoading(false)
     })
-    return () => controller.abort()
   }, [artist.id, artist.name, artist.tracks.length])
 
   const toggleSave = async () => {
@@ -281,7 +281,18 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
               )}
               {!tracksLoading && artist.tracks.length === 0 && autoTracks.length === 0 && (
                 <li className="py-6 text-center text-sm text-secondary-text">
-                  {artist.platforms?.spotify ? t('sheet.listenSpotify') : t('sheet.noTracks')}
+                  {artist.platforms?.spotify ? (
+                    <a
+                      href={artist.platforms.spotify}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-brand-deep underline-offset-4 hover:underline"
+                    >
+                      {t('sheet.listenSpotify')}
+                    </a>
+                  ) : (
+                    t('sheet.noTracks')
+                  )}
                 </li>
               )}
               {artist.tracks.map((track, i) => (
@@ -289,13 +300,17 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   <span className="w-5 text-sm text-secondary-text">{i + 1}</span>
                   <span className="flex-1 font-medium">{track.title}</span>
                   <span className="text-sm text-secondary-text">{track.duration}</span>
-                  <button
-                    type="button"
+                  {/* Les titres du catalogue n'ont pas d'URL : on renvoie vers
+                      la recherche Apple Music, comme la page profil complète. */}
+                  <a
+                    href={trackListenUrl(track, artist)}
+                    target="_blank"
+                    rel="noreferrer"
                     aria-label={t('profile.listen', { title: track.title })}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-soft text-brand-deep transition-colors hover:bg-brand hover:text-black"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep transition-colors hover:bg-brand hover:text-black"
                   >
-                    <Play className="h-4 w-4" />
-                  </button>
+                    <Play className="h-4 w-4 fill-current" />
+                  </a>
                 </li>
               ))}
               {autoTracks.map((track) => (
@@ -322,7 +337,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   </span>
                   <span className="text-sm text-secondary-text">{track.duration}</span>
                   <a
-                    href={track.url}
+                    href={trackListenUrl(track, artist)}
                     target="_blank"
                     rel="noreferrer"
                     aria-label={t('profile.listen', { title: track.title })}

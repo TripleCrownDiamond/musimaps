@@ -8,9 +8,9 @@ import {
   type PropsWithChildren,
 } from 'react';
 import {
-  fetchProfile,
-  getSessionProfile,
-  resetPasswordForEmail as apiResetPasswordForEmail,
+getSessionProfile,
+resetPasswordForEmail as apiResetPasswordForEmail,
+resendSignUpConfirmation as apiResendSignUpConfirmation,
   signIn as apiSignIn,
   signOut as apiSignOut,
   signUp as apiSignUp,
@@ -35,6 +35,7 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   /** Envoie l'email de réinitialisation de mot de passe. */
   resetPasswordForEmail: (email: string) => Promise<AuthError | null>;
+  resendSignUpConfirmation: (email: string) => Promise<AuthError | null>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -44,6 +45,7 @@ const AuthContext = createContext<AuthContextValue>({
   signIn: async () => null,
   signOut: async () => {},
   resetPasswordForEmail: async () => null,
+  resendSignUpConfirmation: async () => null,
 });
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -59,9 +61,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     const authListener = supabase?.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        void fetchProfile(session.user.id, session.user.email ?? null).then((profile) => {
+        void getSessionProfile().then((profile) => {
           if (cancelled) return;
-          setUser(profile);
+          // Une session existe : un profil momentanément illisible (réseau, ou
+          // trigger `profiles` pas encore passé juste après l'inscription) ne
+          // doit pas repasser l'utilisateur en invité — sinon l'écran
+          // « connectez-vous » s'affiche à celui qui vient de le faire.
+          if (profile) setUser(profile);
           setLoading(false);
         });
       } else {
@@ -98,10 +104,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     async (email) => (await apiResetPasswordForEmail(email)).error,
     [],
   );
+  const resendSignUpConfirmation = useCallback<AuthContextValue['resendSignUpConfirmation']>(
+    async (email) => (await apiResendSignUpConfirmation(email)).error,
+    [],
+  );
 
   const value = useMemo(
-    () => ({ user, loading, signUp, signIn, signOut, resetPasswordForEmail }),
-    [user, loading, signUp, signIn, signOut, resetPasswordForEmail],
+    () => ({ user, loading, signUp, signIn, signOut, resetPasswordForEmail, resendSignUpConfirmation }),
+    [user, loading, signUp, signIn, signOut, resetPasswordForEmail, resendSignUpConfirmation],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
