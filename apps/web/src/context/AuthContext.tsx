@@ -73,7 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         void getSessionProfile().then((profile) => {
           if (cancelled) return
-          setUser(profile)
+          // Une session existe : un profil momentanément illisible ne doit pas
+          // repasser l'utilisateur en invité (même garde que sur mobile).
+          if (profile) setUser(profile)
           setLoading(false)
         })
       } else {

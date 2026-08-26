@@ -81,7 +81,11 @@ export default function Landing() {
   // (« Bientôt disponible ») plutôt qu'une disponibilité immédiate.
 
   const mapBgRef = useRef<HTMLDivElement>(null)
-  const { user } = useAuth()
+  // `loading` compte autant que `user` : `fetchProfile` réessaie jusqu'à
+  // ~2 s avant de retomber sur la session. Sans ce garde, un utilisateur
+  // connecté voyait les appels à l'inscription pendant tout ce délai.
+  const { user, loading: authLoading } = useAuth()
+  const showGuestCta = !authLoading && !user
   const [email, setEmail] = useState('')
   const [profile, setProfile] = useState<'artiste' | 'amateur'>('amateur')
   const [error, setError] = useState<string | null>(null)
@@ -158,7 +162,7 @@ export default function Landing() {
                 {hero.ctaPrimary} <ArrowRight className="w-5 h-5" />
               </Link>
               {/* CTA secondaire (waitlist) : réservé aux visiteurs non connectés */}
-              {!user && (
+              {showGuestCta && (
                 <a
                   href={localize(hero.ctaSecondaryTo)}
                   className="w-full sm:w-auto px-10 py-5 bg-brand text-black rounded-full text-lg font-medium hover:scale-105 transition-transform flex items-center justify-center"
@@ -413,7 +417,7 @@ export default function Landing() {
         )}
 
         {/* Waitlist — masquée pour les utilisateurs connectés */}
-        {!user && (
+        {showGuestCta && (
         <section
           id="waitlist"
           className="py-48 px-6 bg-surface flex flex-col items-center text-center"
