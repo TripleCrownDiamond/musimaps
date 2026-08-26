@@ -12,7 +12,9 @@ import { fonts, type AppColors } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
-const ONBOARDED_KEY = 'musimaps.mobile.onboarded';
+/** L'utilisateur a atteint la carte au moins une fois : on ne le
+ *  repasse plus par l'accueil ni la localisation au lancement suivant. */
+export const ONBOARDED_KEY = 'musimaps.mobile.onboarded';
 const LOCATION_KEY = 'musimaps.mobile.location';
 
 interface ChosenLocation {
