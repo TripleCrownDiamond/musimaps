@@ -293,9 +293,14 @@ export default function GlobeMap({
       const spin = (now: number) => {
         const elapsed = now - last
         last = now
-        if (spinRef.current) {
+        // Ne pas appliquer la rotation pendant qu'un geste utilisateur
+        // est en cours (drag, pinch, flyTo) : évite que le jumpTo du spin
+        // combatte le geste et crée des mouvements erratiques.
+        if (spinRef.current && !map.isMoving()) {
           const center = map.getCenter()
           center.lng -= spinDeltaFor(elapsed)
+          // easeTo interpolation douce au lieu de jumpTo (saut discret) :
+          // la rotation paraît continue même à 60 fps.
           map.jumpTo({ center })
         }
         frame = requestAnimationFrame(spin)

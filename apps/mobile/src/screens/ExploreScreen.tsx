@@ -1279,7 +1279,6 @@ export function ExploreScreen({ navigation, route }: Props) {
             handleTouchStart();
             return false;
           }}
-          onTouchStart={handleTouchStart}
         >
         <Mapbox.MapView
         // La clé change dès que le style de marque est prêt — sur natif AUSSI.
@@ -1294,6 +1293,9 @@ export function ExploreScreen({ navigation, route }: Props) {
         styleURL={renderedStyleURL}
         styleJSON={renderedStyleJSON}
         projection="globe"
+        scrollEnabled
+        rotateEnabled
+        pitchEnabled
         compassEnabled={false}
         scaleBarEnabled={false}
         logoEnabled={false}
