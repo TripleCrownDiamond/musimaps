@@ -15,6 +15,7 @@ import {
   radii,
   recordProfileView,
   spacing,
+  viewerCountryFromCity,
   toArtist,
   toggleFollow,
   type Artist,
@@ -91,7 +92,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
     let cancelled = false;
     void recordProfileView(artist.id, {
       viewerKey: deviceId ?? undefined,
-      country: user?.city ? user.city.split(',').pop()?.trim() : null,
+      country: viewerCountryFromCity(user?.city),
     });
     void Promise.all([
       fetchArtistFollowers(artist.id),

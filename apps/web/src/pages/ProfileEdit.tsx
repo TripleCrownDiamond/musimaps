@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Camera, Check, Loader2, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { uploadArtistPhoto } from '../lib/waitlist'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
+import { deleteAccount } from '@musimaps/shared'
 
 /**
  * Complétion / modification du PROFIL DE COMPTE (table profiles) :
@@ -13,7 +14,7 @@ import { AnimatedAvatar } from '../components/AnimatedAvatar'
  * liste d'attente / demander le référencement sur la carte.
  */
 export default function ProfileEdit() {
-  const { user, loading, updateProfile } = useAuth()
+  const { user, loading, updateProfile, signOut } = useAuth()
   const { t } = useLanguage()
   const localize = useLocalizedPath()
   const navigate = useNavigate()
@@ -193,6 +194,30 @@ export default function ProfileEdit() {
               {saved ? t('pedit.saved') : t('pedit.saveEdit')}
             </button>
           </form>
+
+          {/* Suppression de compte */}
+          <div className="mt-8 border-t border-hairline pt-6">
+            <h3 className="text-sm font-bold text-red-600">{t('account.deleteTitle')}</h3>
+            <p className="mt-1 text-xs text-secondary-text">{t('account.deleteMessage')}</p>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!user) return
+                const ok = window.confirm(t('account.deleteTitle'))
+                if (!ok) return
+                const res = await deleteAccount(user.email)
+                if (res.ok) {
+                  await signOut()
+                  navigate(localize('/'))
+                } else {
+                  alert(res.error ?? 'Erreur')
+                }
+              }}
+              className="mt-3 flex items-center gap-2 rounded-full border border-red-300 px-5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" /> {t('account.deleteBtn')}
+            </button>
+          </div>
 
           {/* Progression de complétion */}
           <div className="mt-6 flex items-center gap-3">

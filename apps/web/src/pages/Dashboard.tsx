@@ -38,7 +38,7 @@ import {
   updateMyArtistProfile,
   uploadArtistImage,
   type ClaimedArtistProfile,
-} from '../lib/profile'
+} from '@musimaps/shared'
 import {
   fetchArtistBooking,
   type ArtistBooking,
@@ -56,7 +56,7 @@ import {
   type ArtistSummary,
   type StreakInfo,
 } from '@musimaps/shared'
-import { fetchMyReferralRequest, type MyReferralRequest } from '../lib/waitlist'
+import { fetchMyReferralRequest, type MyReferralRequest } from '@musimaps/shared'
 import {
   DEFAULT_BADGES,
   computeBadges,

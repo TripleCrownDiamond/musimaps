@@ -25,6 +25,7 @@ import {
   fetchFollowing,
   recordProfileView,
   toggleFollow,
+  viewerCountryFromCity,
 } from '@musimaps/shared';
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared';
 import { artistUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared';
@@ -110,7 +111,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
   useEffect(() => {
     void recordProfileView(artist.id, {
       viewerKey: deviceId ?? undefined,
-      country: user?.city ? user.city.split(',').pop()?.trim() : null,
+      country: viewerCountryFromCity(user?.city),
     });
   }, [artist.id, deviceId, user?.city]);
 

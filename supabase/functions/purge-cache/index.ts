@@ -18,37 +18,49 @@ const TOKEN = Deno.env.get('HOSTINGER_API_TOKEN') ?? ''
 const ACCOUNT = Deno.env.get('HOSTINGER_ACCOUNT_USERNAME') ?? ''
 const DOMAIN = Deno.env.get('HOSTINGER_DOMAIN') ?? 'musimaps.com'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGIN = 'https://musimaps.com'
+
+/**
+ * CORS strict : le web (`https://musimaps.com`) est la seule origine acceptée
+ * quand le navigateur envoie un en-tête Origin. Les appels mobiles (React
+ * Native) n'envoient pas Origin — la vérification admin JWT suffit.
+ */
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowed = origin === ALLOWED_ORIGIN ? origin : ''
+  return {
+    ...(allowed ? { 'Access-Control-Allow-Origin': allowed } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
-function json(payload: Record<string, unknown>, status = 200) {
+function json(payload: Record<string, unknown>, status = 200, cors: Record<string, string> = {}) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', ...cors },
   })
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const cors = corsHeaders(req)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
     const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
-    if (!jwt) return json({ ok: false, error: 'Non connecté' }, 401)
+    if (!jwt) return json({ ok: false, error: 'Non connecté' }, 401, cors)
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
     const { data: userData } = await supabase.auth.getUser(jwt)
     const email = userData?.user?.email
-    if (!email) return json({ ok: false, error: 'Session invalide' }, 401)
+    if (!email) return json({ ok: false, error: 'Session invalide' }, 401, cors)
 
     const { data: admin } = await supabase
       .from('admins')
       .select('email')
       .eq('email', email)
       .maybeSingle()
-    if (!admin) return json({ ok: false, error: 'Accès refusé : compte non administrateur' }, 403)
+    if (!admin) return json({ ok: false, error: 'Accès refusé : compte non administrateur' }, 403, cors)
 
     if (!TOKEN || !ACCOUNT) {
       return json({
@@ -57,7 +69,7 @@ Deno.serve(async (req) => {
         error:
           'Jeton API Hostinger non configuré. Créez un jeton dans hPanel (en bas à gauche → API), puis : ' +
           'npx supabase secrets set HOSTINGER_API_TOKEN=… HOSTINGER_ACCOUNT_USERNAME=…',
-      })
+      }, 200, cors)
     }
 
     const url =
@@ -72,11 +84,11 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       return json(
         { ok: false, error: `Échec (HTTP ${res.status}) : ${body.slice(0, 300)}` },
-        502,
+        502, cors,
       )
     }
-    return json({ ok: true, purged: true, detail: body.slice(0, 200) })
+    return json({ ok: true, purged: true, detail: body.slice(0, 200) }, 200, cors)
   } catch (err) {
-    return json({ ok: false, error: err instanceof Error ? err.message : 'Erreur inconnue' }, 500)
+    return json({ ok: false, error: err instanceof Error ? err.message : 'Erreur inconnue' }, 500, cors)
   }
 })

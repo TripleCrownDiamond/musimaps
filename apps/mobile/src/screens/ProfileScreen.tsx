@@ -143,55 +143,62 @@ export function ProfileScreen({ navigation }: Props) {
         </Card>
       )}
 
-      <Card
-        accessibilityLabel={t('profile.seeBadgesAria')}
-        style={styles.progressCard}
-        onPress={() => navigation.navigate('Badges')}
-      >
-        <View style={styles.progressHeader}>
-          <View style={styles.levelBadge}>
-            <Ionicons name="trophy" size={20} color={colors.black} />
-            <Text style={styles.levelTitle}>{t('profile.level', { level: level.level, title: level.title })}</Text>
-          </View>
-          <View style={styles.pointsChip}>
-            <Text style={styles.pointsValue}>{points}</Text>
-            <Text style={styles.pointsLabel}>{t('common.pts')}</Text>
-          </View>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${level.progress * 100}%` }]} />
-        </View>
-        <Text style={styles.progressHint}>
-          {level.nextMin !== null
-            ? t('profile.progressHint', { n: level.nextMin - points, m: level.level + 1 })
-            : t('profile.maxLevel')}
-        </Text>
-        <View style={styles.badgeRow}>
-          {earnedBadgesList.map((badge) => (
-            <View key={badge.id} style={styles.badgeItemEarned}>
-              <Ionicons name={badgeIcon(badge.icon)} size={17} color={colors.black} />
+      {/*
+        La gamification (badges, niveaux, points) est réservée aux comptes
+        connectés. Avant connexion, la carte de progression est masquée pour
+        éviter de montrer des grades qui évoluent sans compte.
+      */}
+      {user && (
+        <Card
+          accessibilityLabel={t('profile.seeBadgesAria')}
+          style={styles.progressCard}
+          onPress={() => navigation.navigate('Badges')}
+        >
+          <View style={styles.progressHeader}>
+            <View style={styles.levelBadge}>
+              <Ionicons name="trophy" size={20} color={colors.black} />
+              <Text style={styles.levelTitle}>{t('profile.level', { level: level.level, title: level.title })}</Text>
             </View>
-          ))}
-          {lockedCount > 0 && (
-            <View style={styles.badgeItemMore}>
-              {earnedBadgesList.length === 0 ? (
-                <Ionicons name="lock-closed-outline" size={15} color={colors.muted} />
-              ) : (
-                <Text style={styles.badgeMoreText}>+{lockedCount}</Text>
-              )}
+            <View style={styles.pointsChip}>
+              <Text style={styles.pointsValue}>{points}</Text>
+              <Text style={styles.pointsLabel}>{t('common.pts')}</Text>
             </View>
-          )}
-        </View>
-        <View style={styles.badgesRow}>
-          <Text style={styles.badgesLabel}>
-            {t('profile.badgesUnlocked', { earned: earnedCount, total: badges.length })}
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${level.progress * 100}%` }]} />
+          </View>
+          <Text style={styles.progressHint}>
+            {level.nextMin !== null
+              ? t('profile.progressHint', { n: level.nextMin - points, m: level.level + 1 })
+              : t('profile.maxLevel')}
           </Text>
-          <View style={styles.seeAll}>
-            <Text style={styles.seeAllText}>{t('profile.seeAll')}</Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.brandPrimary} />
+          <View style={styles.badgeRow}>
+            {earnedBadgesList.map((badge) => (
+              <View key={badge.id} style={styles.badgeItemEarned}>
+                <Ionicons name={badgeIcon(badge.icon)} size={17} color={colors.black} />
+              </View>
+            ))}
+            {lockedCount > 0 && (
+              <View style={styles.badgeItemMore}>
+                {earnedBadgesList.length === 0 ? (
+                  <Ionicons name="lock-closed-outline" size={15} color={colors.muted} />
+                ) : (
+                  <Text style={styles.badgeMoreText}>+{lockedCount}</Text>
+                )}
+              </View>
+            )}
           </View>
-        </View>
-      </Card>
+          <View style={styles.badgesRow}>
+            <Text style={styles.badgesLabel}>
+              {t('profile.badgesUnlocked', { earned: earnedCount, total: badges.length })}
+            </Text>
+            <View style={styles.seeAll}>
+              <Text style={styles.seeAllText}>{t('profile.seeAll')}</Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.brandPrimary} />
+            </View>
+          </View>
+        </Card>
+      )}
 
       <View style={styles.menu}>
         <Card style={styles.primaryCard} onPress={() => navigation.navigate('ProfileEdit')}>
@@ -207,16 +214,18 @@ export function ProfileScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={21} color={colors.white} />
         </Card>
 
-        <Card style={styles.menuItem} onPress={() => navigation.navigate('Badges')}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="trophy-outline" size={22} color={colors.brandPrimary} />
-          </View>
-          <View style={styles.menuCopy}>
-            <Text style={styles.menuTitle}>{t('badges.title')}</Text>
-            <Text style={styles.menuText}>{t('profile.badgesHint')}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-        </Card>
+        {user && (
+          <Card style={styles.menuItem} onPress={() => navigation.navigate('Badges')}>
+            <View style={styles.menuIcon}>
+              <Ionicons name="trophy-outline" size={22} color={colors.brandPrimary} />
+            </View>
+            <View style={styles.menuCopy}>
+              <Text style={styles.menuTitle}>{t('badges.title')}</Text>
+              <Text style={styles.menuText}>{t('profile.badgesHint')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Card>
+        )}
 
         <Card style={styles.menuItem} onPress={() => navigation.navigate('ArtistJoin')}>
           <View style={styles.menuIcon}>

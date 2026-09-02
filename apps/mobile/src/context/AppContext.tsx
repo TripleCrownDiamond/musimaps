@@ -12,6 +12,9 @@ import {
 } from 'react';
 import { DEFAULT_BADGES, appliesToRole, computeBadges, parseBadges, satisfiesRule, syncGamification, type BadgeDef, type BadgeState, type EarnedBadge } from '@musimaps/shared';
 import {
+  checkin,
+  fetchBookings,
+  fetchFollowing,
   getSessionProfile,
   mergeLocalFavorites,
   toggleFavorite as sharedToggleFavorite,
@@ -84,6 +87,23 @@ export function AppProvider({ children }: PropsWithChildren) {
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Un compte est connecté : les favoris passent par Supabase, pas AsyncStorage. */
   const [signedIn, setSignedIn] = useState(false);
+  /** ID Supabase du compte connecté (UUID). Utilisé comme userKey pour
+   *  la synchro gamification — même compte sur web et mobile écrit la
+   *  même ligne en base. */
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  /** Rôle du compte connecté ('artist' | 'melomane'). Utilisé pour la
+   *  gamification : les artistes débloquent les badges artistes, les
+   *  mélomanes les badges audience. Synchronisé avec le web. */
+  const [userRole, setUserRole] = useState<'artist' | 'melomane'>('melomane');
+  /** Rôle gamification : mappe 'melomane' → 'audience' (BadgeState.role). */
+  const gamRole = userRole === 'artist' ? 'artist' as const : 'audience' as const;
+  // Métriques gamification partagées web + mobile.
+  // Récupérées depuis Supabase quand le compte est connecté, pour
+  // que les badges (streak, following, bookings…) soient identiques
+  // sur les deux plateformes.
+  const [streakCount, setStreakCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [bookingsCount, setBookingsCount] = useState(0);
 
   // Synchronisation des favoris avec le compte.
   //
@@ -95,10 +115,17 @@ export function AppProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let cancelled = false;
 
-    const sync = async (hasSession: boolean) => {
+    const sync = async (hasSession: boolean, userId?: string) => {
       if (cancelled) return;
       setSignedIn(hasSession);
-      if (!hasSession) return;
+      setAuthUserId(userId ?? null);
+      if (!hasSession) {
+        // Déconnexion : reset des métriques partagées.
+        setStreakCount(0);
+        setFollowingCount(0);
+        setBookingsCount(0);
+        return;
+      }
       const raw = await AsyncStorage.getItem(FAVORITES_KEY);
       const local: string[] = raw ? JSON.parse(raw) : [];
       const merged = await mergeLocalFavorites(local);
@@ -112,6 +139,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       // l'utilisateur venait de saisir.
       const account = await getSessionProfile();
       if (cancelled || !account) return;
+      setUserRole(account.role);
       setProfile((current) => {
         const next: LocalProfile = {
           displayName: account.displayName ?? current?.displayName ?? '',
@@ -130,10 +158,10 @@ export function AppProvider({ children }: PropsWithChildren) {
     };
 
     void supabase?.auth.getSession().then(({ data }) => {
-      void sync(Boolean(data.session));
+      void sync(Boolean(data.session), data.session?.user?.id);
     });
     const listener = supabase?.auth.onAuthStateChange((_event, session) => {
-      void sync(Boolean(session));
+      void sync(Boolean(session), session?.user?.id);
     });
 
     return () => {
@@ -141,6 +169,27 @@ export function AppProvider({ children }: PropsWithChildren) {
       listener?.data.subscription.unsubscribe();
     };
   }, []);
+
+  // Métriques gamification partagées : streak, following, bookings.
+  // Mêmes appels RPC que le web (Dashboard.tsx) — garantit que les badges
+  // débloqués sont identiques quel que soit le terminal utilisé.
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    const load = async () => {
+      const [streakInfo, followIds, bookings] = await Promise.all([
+        checkin().catch(() => null),
+        fetchFollowing().catch(() => [] as string[]),
+        fetchBookings().catch(() => [] as Awaited<ReturnType<typeof fetchBookings>>),
+      ]);
+      if (cancelled) return;
+      setStreakCount(streakInfo?.current ?? 0);
+      setFollowingCount(followIds.length);
+      setBookingsCount(bookings.length);
+    };
+    void load();
+    return () => { cancelled = true; };
+  }, [signedIn]);
 
   useEffect(() => {
     Promise.all([
@@ -288,7 +337,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   );
 
   const applyAsArtist = useCallback(async (application: ArtistApplication) => {
-    if (!supabase) return 'Supabase n’est pas configuré. La demande n’a pas pu être envoyée.';
+    if (!supabase) return 'Supabase n\'est pas configuré. La demande n\'a pas pu être envoyée.';
     const enriched = {
       email: application.email.trim(),
       profile: 'artiste',
@@ -325,18 +374,25 @@ export function AppProvider({ children }: PropsWithChildren) {
   }, []);
 
   // Gamification : calcule les badges à débloquer dès que l'état évolue.
+  // ⚠️ La gamification est réservée aux comptes connectés : sans
+  // authentification, les badges ne se déclenchent pas (ni le toast, ni
+  // la sync Supabase). Les villes visitées et favoris restent enregistrés
+  // localement pour être repris à l'inscription.
+  //
+  // Les métriques streak, following, bookings sont les MÊMES que celles du
+  // web (Dashboard.tsx) : même appel RPC, même clé de synchro (user.id).
+  // Les badges débloqués sont donc identiques sur les deux plateformes.
   useEffect(() => {
-    if (!loadedRef.current) return;
-    // Le rôle vient du compte quand il y en a un ; sinon on reste « mélomane ».
-    // Les métriques non mesurées sur mobile (streak, vues…) valent 0 : les
-    // badges correspondants ne se déclenchent simplement jamais ici.
+    if (!loadedRef.current || !signedIn) return;
     const conditions: BadgeState = {
-      role: 'audience',
+      role: gamRole,
       cities: visitedCities.length,
       favorites: favorites.length,
       hasProfile: profile !== null,
+      streak: streakCount,
+      following: followingCount,
+      bookingsSent: bookingsCount,
     };
-    // Les badges d'un autre rôle sont écartés avant évaluation.
     const applicable = badgeDefs.filter((badge) => appliesToRole(badge, conditions.role));
     const earnedIds = earnedBadges.map((badge) => badge.id);
     const nextEarned = applicable
@@ -362,7 +418,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       setEarnedBadges(next);
       AsyncStorage.setItem(BADGES_KEY, JSON.stringify(next)).catch(() => {});
     }
-  }, [visitedCities, favorites, profile, earnedBadges, badgeDefs]);
+  }, [signedIn, gamRole, visitedCities, favorites, profile, streakCount, followingCount, bookingsCount, earnedBadges, badgeDefs]);
 
   const clearLastEarnedBadge = useCallback(() => setLastEarnedBadge(null), []);
 
@@ -390,35 +446,37 @@ export function AppProvider({ children }: PropsWithChildren) {
     [earnedBadges, badgeDefs],
   );
 
-  // Synchro anonyme vers Supabase (table gamification) pour le dashboard admin.
-  // Debounce court : on n'écrit que quand la gamification se stabilise.
+  // Synchro vers Supabase (table gamification) pour le dashboard admin.
+  // Uniquement pour les comptes connectés — l'écriture anonyme par deviceId
+  // est supprimée : les grades ne vivent que pour un compte authentifié.
+  // Les métriques sont les mêmes que le web pour que la ligne en base
+  // soit unique et complète.
   useEffect(() => {
     const client = supabase;
-    if (!client || !deviceId || !loadedRef.current) return;
+    if (!client || !loadedRef.current || !signedIn) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
-      // `syncGamification` est la MÊME écriture que celle du dashboard web.
-      // Le mobile la réécrivait à la main : deux payloads concurrents sur la
-      // même table, voués à diverger à la première colonne ajoutée.
       void syncGamification({
-        userKey: deviceId,
+        userKey: authUserId ?? deviceId ?? 'unknown',
         displayName: profile?.displayName ?? null,
         badges: computeBadges(badgeDefs, {
-          role: 'audience',
+          role: gamRole,
           cities: visitedCities.length,
           favorites: favorites.length,
           hasProfile: profile !== null,
+          streak: streakCount,
+          following: followingCount,
+          bookingsSent: bookingsCount,
         }),
         cities: visitedCities.length,
         favorites: favorites.length,
-        // Les dates d'obtention déjà connues, pour ne pas les réinitialiser.
         earnedAt: Object.fromEntries(earnedBadges.map((b) => [b.id, b.earnedAt])),
       });
     }, 900);
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [deviceId, points, earnedBadges, profile, visitedCities, favorites]);
+  }, [signedIn, gamRole, authUserId, deviceId, points, earnedBadges, profile, visitedCities, favorites, streakCount, followingCount, bookingsCount]);
 
   const value = useMemo(
     () => ({

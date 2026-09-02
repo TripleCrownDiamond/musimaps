@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
-import { fetchBookings, getLevelInfo, type BookingRecord, type BookingStatus } from '@musimaps/shared';
+import { fetchBookings, fetchMyReferralRequest, getLevelInfo, type BookingRecord, type BookingStatus, type MyReferralRequest } from '@musimaps/shared';
 import {
   fetchArtistIdByName,
   fetchArtistStatsDetail,
@@ -34,6 +34,8 @@ export function DashboardScreen({ navigation }: Props) {
   const [bookings, setBookings] = useState<BookingRecord[] | null>(null);
   const [detailStats, setDetailStats] = useState<ArtistStatsDetail | null>(null);
   const [followingCount, setFollowingCount] = useState(0);
+  const [myReferral, setMyReferral] = useState<MyReferralRequest | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -56,6 +58,9 @@ export function DashboardScreen({ navigation }: Props) {
           const detail = await fetchArtistStatsDetail(artistId);
           if (detail && !cancelled) setDetailStats(detail);
         }
+        // Demande de référencement (en attente ou validée).
+        const referral = await fetchMyReferralRequest();
+        if (referral && !cancelled) setMyReferral(referral);
       } else if (user.role !== 'artist') {
         const following = await fetchFollowing();
         if (!cancelled) setFollowingCount(following.length);
@@ -128,9 +133,67 @@ export function DashboardScreen({ navigation }: Props) {
           <Ionicons name="create-outline" size={20} color={colors.ink} />
           <Text style={styles.actionGhostText}>{t('dash.editProfile')}</Text>
         </Pressable>
+        {isArtist && (
+          <Pressable style={styles.actionGhost} onPress={() => navigation.navigate('ClaimedProfile')}>
+            <Ionicons name="mic-outline" size={20} color={colors.ink} />
+            <Text style={styles.actionGhostText}>{t('dash.claimedProfile')}</Text>
+          </Pressable>
+        )}
       </View>
 
-      {/* Graphiques — artiste : audience 14 jours, top pays, engagement */}
+      {/* Demande de référencement — même carte que le web Dashboard. */}
+      {isArtist && myReferral && (
+        <View style={styles.referralCard}>
+          <View style={styles.referralHeader}>
+            {myReferral.photo ? (
+              <Image source={{ uri: myReferral.photo }} style={styles.referralPhoto} />
+            ) : (
+              <View style={[styles.referralPhoto, { backgroundColor: colors.brand, alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="mic" size={18} color={colors.white} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.referralName, { color: colors.ink }]} numberOfLines={1}>
+                {myReferral.artistName ?? user.displayName}
+              </Text>
+              <View style={[styles.referralStatus, { backgroundColor: myReferral.convertedAt ? '#E8F5E9' : '#FFF8E1' }]}>
+                <Text style={[styles.referralStatusText, { color: myReferral.convertedAt ? '#1B7F45' : '#8A5B00' }]}>
+                  {myReferral.convertedAt ? t('dash.referralValidated') : t('dash.referralPending')}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {myReferral.city && <Text style={[styles.referralMeta, { color: colors.inkSoft }]}>{t('dash.referralCity')} {myReferral.city}</Text>}
+          {myReferral.genre && <Text style={[styles.referralMeta, { color: colors.inkSoft }]}>{t('dash.referralGenre')} {myReferral.genre}</Text>}
+          <Text style={[styles.referralHint, { color: colors.muted }]}>{t('dash.referralHint')}</Text>
+        </View>
+      )}
+
+      {/* Guide d'utilisation — contenu dépendant du rôle, repliable par défaut (comme le web). */}
+      <Pressable
+        style={[styles.guideCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.line }]}
+        onPress={() => setGuideOpen((v) => !v)}
+      >
+        <View style={styles.guideHeader}>
+          <Ionicons name="help-circle-outline" size={20} color={colors.brandDeep} />
+          <Text style={[styles.guideTitle, { color: colors.ink }]}>{t('dash.guideTitle')}</Text>
+          <Ionicons name={guideOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.brandDeep} />
+        </View>
+        {guideOpen && (
+          <View style={styles.guideBody}>
+            <Text style={[styles.guideText, { color: colors.inkSoft }]}>
+              {isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}
+            </Text>
+            {isArtist && (
+              <Text style={[styles.guideText, { color: colors.inkSoft }]}>{t('dash.guideArtistTracks')}</Text>
+            )}
+            <Text style={[styles.guideText, { color: colors.inkSoft }]}>
+              {user.accountType === 'business' ? t('dash.guideBusiness') : t('dash.guidePersonal')}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+
       {/* Progression — l'écran d'arrivée après inscription n'affichait qu'un
           graphique de zéros et « aucune réservation ». Ces chiffres existaient
           déjà dans le contexte, ils n'étaient simplement jamais montrés. */}
@@ -402,4 +465,19 @@ const createStyles = (colors: AppColors) =>
       paddingHorizontal: 28,
     },
     primaryCtaText: { color: colors.white, fontFamily: fonts.bold, fontSize: 16 },
+    // Referral card
+    referralCard: { backgroundColor: colors.surface, borderColor: colors.line, borderRadius: 16, borderWidth: 1, gap: 8, marginBottom: 16, padding: 16 },
+    referralHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    referralPhoto: { width: 44, height: 44, borderRadius: 22 },
+    referralName: { fontFamily: fonts.bold, fontSize: 15 },
+    referralStatus: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
+    referralStatusText: { fontFamily: fonts.bold, fontSize: 11 },
+    referralMeta: { fontFamily: fonts.body, fontSize: 13 },
+    referralHint: { fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
+    // Guide card
+    guideCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+    guideHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    guideTitle: { flex: 1, fontFamily: fonts.bold, fontSize: 14 },
+    guideBody: { marginTop: 12, gap: 8 },
+    guideText: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   });

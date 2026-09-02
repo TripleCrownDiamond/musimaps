@@ -25,10 +25,21 @@ const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') ?? ''
 const MODEL = Deno.env.get('MISTRAL_MODEL') ?? 'mistral-small-latest'
 const UA = 'Musimaps/1.0 (https://musimaps.com; ai-artist-agent)'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGIN = 'https://musimaps.com'
+
+/**
+ * CORS strict : le web (`https://musimaps.com`) est la seule origine acceptée
+ * quand le navigateur envoie un en-tête Origin. Les appels mobiles (React
+ * Native) n'envoient pas Origin — la validation du JWT suffit.
+ */
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowed = origin === ALLOWED_ORIGIN ? origin : ''
+  return {
+    ...(allowed ? { 'Access-Control-Allow-Origin': allowed } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -47,10 +58,10 @@ async function getJson(url: string, retries = 2): Promise<any> {
   throw new Error('HTTP échec')
 }
 
-function json(payload: Record<string, unknown>, status = 200) {
+function json(payload: Record<string, unknown>, status = 200, cors: Record<string, string> = {}) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', ...cors },
   })
 }
 
@@ -487,18 +498,19 @@ async function runAgent(query: string, maxSteps: number) {
 /* Entry point                                                       */
 /* ---------------------------------------------------------------- */
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const cors = corsHeaders(req)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
     // Garde anti-abus : seule une clé JWT valide du projet (client web/mobile
     // via supabase-js) est acceptée — jamais un tiers externe.
     const apikey = (req.headers.get('apikey') ?? '').trim()
     if (!validProjectKey(apikey)) {
-      return json({ ok: false, error: 'Accès refusé' }, 401)
+      return json({ ok: false, error: 'Accès refusé' }, 401, cors)
     }
     const body = await req.json().catch(() => null)
     const query = String(body?.query ?? '').trim().slice(0, 120)
-    if (!query) return json({ ok: false, error: 'query manquante' }, 400)
+    if (!query) return json({ ok: false, error: 'query manquante' }, 400, cors)
     const maxSteps = Math.min(12, Math.max(1, Number(body?.maxSteps ?? 8) || 8))
 
     const state = await runAgent(query, maxSteps)
@@ -522,11 +534,11 @@ Deno.serve(async (req) => {
         : null,
       verdict: state.verdict,
       log: state.log,
-    })
+    }, 200, cors)
   } catch (err) {
     return json(
       { ok: false, error: err instanceof Error ? err.message : 'Erreur inconnue' },
-      500,
+      500, cors,
     )
   }
 })

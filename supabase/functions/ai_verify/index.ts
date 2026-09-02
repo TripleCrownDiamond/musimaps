@@ -21,10 +21,21 @@ const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') ?? ''
 const MODEL = Deno.env.get('MISTRAL_MODEL') ?? 'mistral-small-latest'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const ALLOWED_ORIGIN = 'https://musimaps.com'
+
+/**
+ * CORS strict : le web (`https://musimaps.com`) est la seule origine acceptée
+ * quand le navigateur envoie un en-tête Origin. Les appels mobiles (React
+ * Native) n'envoient pas Origin — la validation du JWT suffit.
+ */
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? ''
+  const allowed = origin === ALLOWED_ORIGIN ? origin : ''
+  return {
+    ...(allowed ? { 'Access-Control-Allow-Origin': allowed } : {}),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  }
 }
 
 const SYSTEM_PROMPT = `Tu es l'agent de qualité de données musicales de Musimaps, une carte mondiale des artistes musicaux.
@@ -44,10 +55,10 @@ Réponds UNIQUEMENT en JSON valide avec cette structure :
 {"results":[{"id":"<id exact>","verdict":"keep|review|reject","reason":"<1 ligne, fr>","genre":"<genre corrigé ou ''>","bio":"<bio corrigée ou ''>","is_musician":true|false}]}
 Un objet par entrée reçue, sans en omettre. Ne mets aucun texte hors JSON.`
 
-function json(payload: Record<string, unknown>, status = 200) {
+function json(payload: Record<string, unknown>, status = 200, cors: Record<string, string> = {}) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', ...cors },
   })
 }
 
@@ -88,7 +99,8 @@ function extractJson(content: string): unknown {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const cors = corsHeaders(req)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
 
   try {
     // Garde anti-abus : l'endpoint consomme du budget Mistral. Seul un appelant
@@ -96,14 +108,14 @@ Deno.serve(async (req) => {
     // accepté — jamais un tiers externe.
     const apikey = (req.headers.get('apikey') ?? '').trim()
     if (!validProjectKey(apikey)) {
-      return json({ ok: false, error: 'Accès refusé' }, 401)
+      return json({ ok: false, error: 'Accès refusé' }, 401, cors)
     }
     if (!MISTRAL_KEY) {
-      return json({ ok: false, error: 'MISTRAL_API_KEY non configurée (npx supabase secrets set MISTRAL_API_KEY=…)' }, 503)
+      return json({ ok: false, error: 'MISTRAL_API_KEY non configurée (npx supabase secrets set MISTRAL_API_KEY=…)' }, 503, cors)
     }
     const body = await req.json().catch(() => null)
     const artists = Array.isArray(body?.artists) ? body.artists : []
-    if (artists.length === 0) return json({ ok: true, results: [] })
+    if (artists.length === 0) return json({ ok: true, results: [] }, 200, cors)
 
     const payload = artists.map((a: Record<string, unknown>) => ({
       id: String(a.id ?? ''),
@@ -136,17 +148,17 @@ Deno.serve(async (req) => {
     })
     if (!res.ok) {
       const detail = (await res.text()).slice(0, 200)
-      return json({ ok: false, error: `Mistral HTTP ${res.status} : ${detail}` }, 502)
+      return json({ ok: false, error: `Mistral HTTP ${res.status} : ${detail}` }, 502, cors)
     }
     const data = await res.json()
     const content = data?.choices?.[0]?.message?.content ?? ''
     const parsed = extractJson(content)
     const results = Array.isArray(parsed) ? parsed : (parsed as { results?: unknown })?.results
     if (!Array.isArray(results)) {
-      return json({ ok: false, error: 'Réponse IA illisible' }, 502)
+      return json({ ok: false, error: 'Réponse IA illisible' }, 502, cors)
     }
-    return json({ ok: true, results })
+    return json({ ok: true, results }, 200, cors)
   } catch (err) {
-    return json({ ok: false, error: err instanceof Error ? err.message : 'Erreur inconnue' }, 500)
+    return json({ ok: false, error: err instanceof Error ? err.message : 'Erreur inconnue' }, 500, cors)
   }
 })

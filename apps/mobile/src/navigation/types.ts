@@ -35,5 +35,6 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: undefined;
   Dashboard: undefined;
+  ClaimedProfile: undefined;
   Notifications: undefined;
 };

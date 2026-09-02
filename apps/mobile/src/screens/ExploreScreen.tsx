@@ -555,15 +555,18 @@ export function ExploreScreen({ navigation, route }: Props) {
       setHighlightedId(null);
       setVisiblePins(cityArtists.length > 0 ? cityArtists : []);
       // Panneau « lieu » : stats de la ville + nav artiste-à-artiste.
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
       const code = geoCountryOf(c.city, c.country);
-      setSelectedPlace({
-        kind: 'city',
-        name: c.city,
-        code,
-        flag: flagFor(code),
-        artists: cityArtists,
-      });
-      setPlaceIndex(0);
+      if (cityArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'city',
+          name: c.city,
+          code,
+          flag: flagFor(code),
+          artists: cityArtists,
+        });
+        setPlaceIndex(0);
+      }
       recordCityVisit(`${c.city}, ${c.country}`).catch(() => {});
       // Atterrit sur le PREMIER pin de la ville (position dés-empilée) :
       // comme un clic sur cluster, on ne tombe pas dans le vide.
@@ -597,15 +600,18 @@ export function ExploreScreen({ navigation, route }: Props) {
       setHighlightedId(null);
       setVisiblePins(nearArtists.length > 0 ? nearArtists : []);
       // Panneau « lieu » : stats + nav artiste-à-artiste (comme une ville).
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
       const code = n.countryCode ?? '';
-      setSelectedPlace({
-        kind: 'city',
-        name: n.name,
-        code,
-        flag: flagFor(code),
-        artists: nearArtists,
-      });
-      setPlaceIndex(0);
+      if (nearArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'city',
+          name: n.name,
+          code,
+          flag: flagFor(code),
+          artists: nearArtists,
+        });
+        setPlaceIndex(0);
+      }
       recordCityVisit(`${n.name}, ${n.city}`).catch(() => {});
       // Atterrit sur le PREMIER pin du quartier (position dés-empilée).
       if (nearArtists.length > 0) {
@@ -634,14 +640,17 @@ export function ExploreScreen({ navigation, route }: Props) {
       setHighlightedId(null);
       setVisiblePins(countryArtists.length > 0 ? countryArtists : []);
       // Panneau « lieu » : stats du pays + nav artiste-à-artiste.
-      setSelectedPlace({
-        kind: 'country',
-        name: c.name,
-        code: c.code,
-        flag: c.flag,
-        artists: countryArtists,
-      });
-      setPlaceIndex(0);
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
+      if (countryArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'country',
+          name: c.name,
+          code: c.code,
+          flag: c.flag,
+          artists: countryArtists,
+        });
+        setPlaceIndex(0);
+      }
       // Atterrit sur le PREMIER pin du pays (position dés-empilée).
       if (countryArtists.length > 0) {
         const firstArtist = countryArtists[0];

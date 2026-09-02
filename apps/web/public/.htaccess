@@ -1,5 +1,22 @@
 Options -MultiViews
 
+# ---------------------------------------------------------------
+# Security headers
+# ---------------------------------------------------------------
+<IfModule mod_headers.c>
+  # Prevent the site from being embedded in an iframe (clickjacking protection).
+  Header set X-Frame-Options "SAMEORIGIN"
+
+  # Force browsers to respect the Content-Type header (MIME sniffing protection).
+  Header set X-Content-Type-Options "nosniff"
+
+  # Limit referrer information to same-origin only.
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Restrict browser features: allow geolocation for self only.
+  Header set Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /

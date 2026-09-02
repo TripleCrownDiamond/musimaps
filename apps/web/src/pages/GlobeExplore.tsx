@@ -135,6 +135,21 @@ export default function GlobeExplore() {
    * cherché disparaissait aussitôt.
    */
   const scopeArmedRef = useRef(false)
+  /** Clé d'appareil stable pour les vues pin (déduplication par appareil, comme mobile). */
+  const viewerKeyRef = useRef<string | null>(null)
+  if (viewerKeyRef.current === null) {
+    try {
+      const KEY = 'musimaps.web.viewer-key'
+      let key = localStorage.getItem(KEY)
+      if (!key) {
+        key = `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+        localStorage.setItem(KEY, key)
+      }
+      viewerKeyRef.current = key
+    } catch {
+      viewerKeyRef.current = 'web-unknown'
+    }
+  }
   useEffect(() => {
     scopeArmedRef.current = false
   }, [visiblePins])
@@ -421,7 +436,7 @@ export default function GlobeExplore() {
       mapRef.current?.focusArtist(artist.id)
       // Statistiques : une ouverture de fiche depuis la carte = vue pin
       // (clé d'appareil incluse : vues uniques par user / par appareil).
-      void recordPinView(artist.id)
+      void recordPinView(artist.id, { viewerKey: viewerKeyRef.current ?? undefined })
     },
     [query, rememberQuery],
   )
@@ -443,15 +458,18 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(cityArtists.length > 0 ? cityArtists : [])
       // Panneau « lieu » : stats de la ville + nav artiste-à-artiste.
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
       const code = geoCountryOf(c.city, c.country)
-      setSelectedPlace({
-        kind: 'city',
-        name: c.city,
-        code,
-        flag: flagFor(code),
-        artists: cityArtists,
-      })
-      setPlaceIndex(0)
+      if (cityArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'city',
+          name: c.city,
+          code,
+          flag: flagFor(code),
+          artists: cityArtists,
+        })
+        setPlaceIndex(0)
+      }
       // Atterrit sur le PREMIER pin de la ville (position dés-empilée) :
       // comme un clic sur cluster, on ne tombe jamais dans le vide.
       if (cityArtists.length > 0) {
@@ -485,15 +503,18 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(nearArtists.length > 0 ? nearArtists : [])
       // Panneau « lieu » : stats + nav artiste-à-artiste (comme une ville).
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
       const code = n.countryCode ?? ''
-      setSelectedPlace({
-        kind: 'city',
-        name: n.name,
-        code,
-        flag: flagFor(code),
-        artists: nearArtists,
-      })
-      setPlaceIndex(0)
+      if (nearArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'city',
+          name: n.name,
+          code,
+          flag: flagFor(code),
+          artists: nearArtists,
+        })
+        setPlaceIndex(0)
+      }
       // 14 = niveau rue : les pins du quartier sont bien détachés.
       mapRef.current?.flyTo([n.lng, n.lat], CAMERA.place.zoom)
     },
@@ -513,14 +534,17 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(countryArtists.length > 0 ? countryArtists : [])
       // Panneau « lieu » : stats du pays + nav artiste-à-artiste.
-      setSelectedPlace({
-        kind: 'country',
-        name: c.name,
-        code: c.code,
-        flag: c.flag,
-        artists: countryArtists,
-      })
-      setPlaceIndex(0)
+      // Pas de panneau si 0 artiste : évite l'affichage « 1/0 » trompeur.
+      if (countryArtists.length > 0) {
+        setSelectedPlace({
+          kind: 'country',
+          name: c.name,
+          code: c.code,
+          flag: c.flag,
+          artists: countryArtists,
+        })
+        setPlaceIndex(0)
+      }
       // Barycentre des artistes du pays (plus précis que la première
       // coordonnée, surtout pour les grands pays). Repli : coordonnée du
       // premier résultat.

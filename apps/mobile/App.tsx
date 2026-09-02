@@ -22,6 +22,7 @@ import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { ArtistJoinScreen } from './src/screens/ArtistJoinScreen';
 import { BadgesScreen } from './src/screens/BadgesScreen';
+import { ClaimedProfileScreen } from './src/screens/ClaimedProfileScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
@@ -208,6 +209,7 @@ function AppNavigator() {
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="Dashboard" component={DashboardScreen} />
+            <RootStack.Screen name="ClaimedProfile" component={ClaimedProfileScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>
         </NavigationContainer>

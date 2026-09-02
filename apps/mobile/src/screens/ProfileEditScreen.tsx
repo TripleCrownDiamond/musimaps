@@ -99,6 +99,9 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   };
 
   const upgrade = async (type: 'premium' | 'business') => {
+    // Un compte premium n'est pas concerné par cette bascule : la faire jouer
+    // écrirait 'business' et détruirait le palier (même garde-fou que le web).
+    if (user?.accountType === 'premium') return;
     setAccountBusy(type);
     const res = await setAccountType(type);
     setAccountBusy(null);
@@ -252,23 +255,27 @@ export function ProfileEditScreen({ navigation, route }: Props) {
                   <Text style={styles.accountBtnText}>{t('account.emailBtn')}</Text>
                 </Pressable>
 
-                <Pressable
-                  style={[
-                    styles.accountBtn,
-                    styles.accountBtnBrand,
-                    accountBusy === 'premium' && styles.accountBtnDisabled,
-                  ]}
-                  disabled={accountBusy === 'premium'}
-                  onPress={() => void upgrade('premium')}
-                >
-                  <Ionicons name="diamond-outline" size={18} color={colors.white} />
-                  <Text style={[styles.accountBtnText, styles.accountBtnBrandText]}>
-                    {t('account.premiumTitle')}
-                  </Text>
-                </Pressable>
-                <Text style={styles.accountHint}>{t('account.premiumText')}</Text>
+                {user.accountType !== 'premium' && (
+                  <>
+                    <Pressable
+                      style={[
+                        styles.accountBtn,
+                        styles.accountBtnBrand,
+                        accountBusy === 'premium' && styles.accountBtnDisabled,
+                      ]}
+                      disabled={accountBusy === 'premium'}
+                      onPress={() => void upgrade('premium')}
+                    >
+                      <Ionicons name="diamond-outline" size={18} color={colors.white} />
+                      <Text style={[styles.accountBtnText, styles.accountBtnBrandText]}>
+                        {t('account.premiumTitle')}
+                      </Text>
+                    </Pressable>
+                    <Text style={styles.accountHint}>{t('account.premiumText')}</Text>
+                  </>
+                )}
 
-                {user.role === 'artist' && (
+                {user.role === 'artist' && user.accountType !== 'premium' && (
                   <>
                     <Pressable
                       style={[
