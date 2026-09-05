@@ -47,6 +47,15 @@ test('les pins artistes gardent des coordonnées stables pendant le zoom sur mob
   assert.doesNotMatch(webMapSource, /declump\(allArtists, liveZoom\)/);
 });
 
+test('le zoom web ne reconstruit pas tous les markers à chaque frame', () => {
+  // La reconstruction complète des DOM markers pendant `zoom` provoquait
+  // des ralentissements visibles avec un catalogue dense. Le halo est
+  // désormais mis à jour par variables CSS, sans état React intermédiaire.
+  assert.doesNotMatch(webMapSource, /liveZoom|setLiveZoom/);
+  assert.match(webMapSource, /markersRef\.current\.forEach\(\(marker\) =>/);
+  assert.doesNotMatch(webMapSource, /\}, \[[^\]]*liveZoom/);
+});
+
 test('la caméra vise la position DESSINÉE, jamais une position calculée au zoom de destination', () => {
   // Le mobile calculait ses cibles de vol à 12, 13 ou 14 selon le contexte,
   // alors que les pins sont toujours dessinés à PIN_LAYOUT_ZOOM : la caméra

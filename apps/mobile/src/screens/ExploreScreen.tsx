@@ -30,6 +30,7 @@ import {
   clusterBy,
   compactCount,
   countryByName,
+  distanceKm,
   PIN_LAYOUT_ZOOM,
   declump,
   firstRenderedPosition,
@@ -54,6 +55,7 @@ import {
   levelFor,
   mapOverlays,
   mapUi,
+  NEIGHBORHOOD_RADIUS_DEG,
   type MapOverlay,
   MAX_ZOOM,
   PIN_LABEL_ZOOM,
@@ -111,20 +113,6 @@ const norm = (value: string | null | undefined) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
-
-/** Distance approximative en km entre deux points (haversine). */
-function distanceKm([lng1, lat1]: [number, number], [lng2, lat2]: [number, number]) {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-
 
 // Géométrie, clustering, échelles de pins et cibles de caméra vivent
 // désormais dans `@musimaps/shared/map` : ce fichier en avait une copie
@@ -523,7 +511,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   // (pendingLoc n'est posé que quand locState devient 'granted').
   useEffect(() => {
     if (!pendingLoc) return;
-    flyTo(pendingLoc, 10, 1100);
+    flyTo(pendingLoc, CAMERA.location.zoom, CAMERA.location.duration);
     setPendingLoc(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingLoc]);
@@ -588,7 +576,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     (n: NeighborhoodSuggestion) => {
       rememberQuery(n.name);
       // Quartier : artistes « proches » (≤ ~4,4 km) de ce quartier.
-      const radius = 0.04;
+      const radius = NEIGHBORHOOD_RADIUS_DEG;
       const nearArtists = allArtists.filter((a) => {
         const dLng = Math.abs(a.coordinates[0] - n.lng);
         const dLat = Math.abs(a.coordinates[1] - n.lat);
@@ -695,7 +683,10 @@ export function ExploreScreen({ navigation, route }: Props) {
       setSelected(null);
       setHighlightedId(null);
       setVisiblePins(genreArtists);
-      if (genreArtists.length > 0) flyTo(genreArtists[0].coordinates, CAMERA.genre.zoom, CAMERA.genre.duration);
+      if (genreArtists.length > 0) {
+        const rendered = renderedPosition(genreArtists, genreArtists[0].id, PIN_LAYOUT_ZOOM);
+        flyTo(rendered ?? genreArtists[0].coordinates, CAMERA.genre.zoom, CAMERA.genre.duration);
+      }
     },
     [allArtists, rememberQuery],
   );
@@ -1080,7 +1071,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     setVisiblePins(cityArtists);
     const visited = city ? `${city.city}, ${city.country}` : catalogCity ? `${catalogCity.city}, ${catalogCity.country}` : requestedPlace;
     recordCityVisit(visited).catch(() => {});
-    flyTo(target, 10, 950);
+    flyTo(target, CAMERA.city.zoom, CAMERA.city.duration);
   }, [
     route.params?.city,
     route.params?.coordinates?.[0],
@@ -1402,17 +1393,24 @@ export function ExploreScreen({ navigation, route }: Props) {
                   // sur un pin visible et mis en évidence.
                   let targetCoords = pin.coords;
                   let targetZoom = pin.zoomTo;
+                  const targetDuration = pin.place?.kind === 'country'
+                    ? CAMERA.country.duration
+                    : pin.place?.kind === 'city'
+                      ? CAMERA.city.duration
+                      : pin.variant === 'sub'
+                        ? CAMERA.sub.duration
+                        : CAMERA.artist.duration;
                   if (pin.members.length > 0) {
                     const firstMember = pin.members[0];
                     if (firstMember && isValidCoordinate(firstMember.coordinates)) {
                       const rendered = renderedPosition(pin.members, firstMember.id, PIN_LAYOUT_ZOOM);
                       if (rendered) {
                         targetCoords = rendered;
-                        targetZoom = 13;
+                        targetZoom = CAMERA.artist.zoom;
                       }
                     }
                   }
-                  flyTo(targetCoords, targetZoom);
+                  flyTo(targetCoords, targetZoom, targetDuration);
                 }}
               >
                 <View

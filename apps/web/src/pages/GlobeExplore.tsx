@@ -9,7 +9,7 @@ import RotateToggle from '../components/RotateToggle'
 import AdminArtistEditor from '../components/AdminArtistEditor'
 import { currentUserEmail, isAdminUser } from '../lib/admin'
 import type { Artist } from '@musimaps/shared'
-import { CAMERA, COUNTRIES, countryByName, flagFor, geoCountryOf, isScopeArmed, shouldReleaseScope } from '@musimaps/shared'
+import { CAMERA, COUNTRIES, countryByName, distanceKm, flagFor, geoCountryOf, isScopeArmed, NEIGHBORHOOD_RADIUS_DEG, renderedPosition, shouldReleaseScope, PIN_LAYOUT_ZOOM } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -38,18 +38,6 @@ import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
-
-/** Distance approximative en km entre deux points (formule de haversine). */
-function distanceKm([lng1, lat1]: [number, number], [lng2, lat2]: [number, number]) {
-  const toRad = (d: number) => (d * Math.PI) / 180
-  const R = 6371
-  const dLat = toRad(lat2 - lat1)
-  const dLng = toRad(lng2 - lng1)
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(a))
-}
 
 /** Normalise une chaîne : minuscules + accents retirés (recherche tolérante).
  *  Tolère null/undefined (certains artistes n'ont pas de ville ni de pays). */
@@ -480,7 +468,7 @@ export default function GlobeExplore() {
           return
         }
       }
-      mapRef.current?.flyTo(c.coordinates, CAMERA.city.zoom)
+      mapRef.current?.flyTo(c.coordinates, CAMERA.city.zoom, CAMERA.city.duration)
     },
     [allArtists, rememberQuery],
   )
@@ -489,7 +477,7 @@ export default function GlobeExplore() {
     (n: NeighborhoodSuggestion) => {
       rememberQuery(n.name)
       // Quartier : les artistes « proches » (≤ ~4,5 km) de ce quartier.
-      const radius = 0.04 // degrés (~4,4 km) — quartier ≠ ville
+      const radius = NEIGHBORHOOD_RADIUS_DEG // degrés (~4,4 km) — quartier ≠ ville
       const qLng = n.lng
       const qLat = n.lat
       const nearArtists = allArtists.filter((a) => {
@@ -516,7 +504,7 @@ export default function GlobeExplore() {
         setPlaceIndex(0)
       }
       // 14 = niveau rue : les pins du quartier sont bien détachés.
-      mapRef.current?.flyTo([n.lng, n.lat], CAMERA.place.zoom)
+      mapRef.current?.flyTo([n.lng, n.lat], CAMERA.place.zoom, CAMERA.place.duration)
     },
     [allArtists, rememberQuery],
   )
@@ -559,7 +547,7 @@ export default function GlobeExplore() {
           : c.coordinates
       // 12 = niveau quartier : pendant le vol le clustering se met à jour
       // en continu et les pins apparaissent progressivement, détachés.
-      mapRef.current?.flyTo(center, CAMERA.country.zoom)
+      mapRef.current?.flyTo(center, CAMERA.country.zoom, CAMERA.country.duration)
     },
     [allArtists, rememberQuery],
   )
@@ -593,7 +581,12 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(genreArtists)
       if (genreArtists.length > 0) {
-        mapRef.current?.flyTo(genreArtists[0].coordinates, CAMERA.genre.zoom)
+        const rendered = renderedPosition(genreArtists, genreArtists[0].id, PIN_LAYOUT_ZOOM)
+        mapRef.current?.flyTo(
+          rendered ?? genreArtists[0].coordinates,
+          CAMERA.genre.zoom,
+          CAMERA.genre.duration,
+        )
       }
     },
     [allArtists, rememberQuery],

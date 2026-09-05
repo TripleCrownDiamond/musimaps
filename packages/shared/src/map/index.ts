@@ -412,7 +412,7 @@ export interface CameraTarget {
  * des chiffres.
  */
 export const CAMERA: Record<
-  'artist' | 'city' | 'place' | 'country' | 'genre' | 'sub' | 'globe',
+  'artist' | 'city' | 'place' | 'country' | 'genre' | 'sub' | 'globe' | 'location',
   CameraTarget
 > = {
   artist: { zoom: 13, duration: 1400 },
@@ -422,6 +422,7 @@ export const CAMERA: Record<
   genre: { zoom: 11, duration: 2200 },
   sub: { zoom: 13.5, duration: 1800 },
   globe: { zoom: 0.75, duration: 2000 },
+  location: { zoom: 10, duration: 2200 },
 };
 
 /**
@@ -449,6 +450,9 @@ export const SEARCH_COLLAPSE_ZOOM = 3.2;
 
 /** Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile). */
 export const PIN_LABEL_ZOOM = 12.5;
+
+/** Rayon de recherche autour d'un quartier/localité, en degrés. */
+export const NEIGHBORHOOD_RADIUS_DEG = 0.04;
 
 /**
  * Zoom maximal autorisé — **contrainte de vie privée, pas un réglage d'UI**.

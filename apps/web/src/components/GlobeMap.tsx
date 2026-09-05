@@ -42,7 +42,7 @@ const EMPTY: Artist[] = []
 
 export interface GlobeMapHandle {
   /** Fait tourner le globe vers des coordonnees puis zoome. */
-  flyTo: (coordinates: [number, number], zoom?: number) => void
+  flyTo: (coordinates: [number, number], zoom?: number, duration?: number) => void
   /**
    * Vole vers la position AFFICHÉE d'un artiste (dés-empilement inclus) :
    * au zoom rapproché, la spirale peut décaler le pin de plusieurs centaines
@@ -221,11 +221,11 @@ export default function GlobeMap({
    *   - spread  : pins individuels, décalés en spirale pour ne pas s'empiler.
    */
   const [clusterLevel, setClusterLevel] = useState<ClusterLevel>('country')
-  // Zoom vivant : mis à jour à chaque `zoom` (pas seulement aux seuils de
-  // cluster). Sert à rouvrir la spirale de dés-empilement quand on zoome
-  // profondément (quartier/rue) — sinon les pins resteraient figés au
-  // niveau où le niveau « spread » a été atteint.
-  const [liveZoom, setLiveZoom] = useState(0)
+  // Niveau courant conservé en ref pour éviter d'appeler setState à chaque
+  // frame pendant un vol. Seul le franchissement d'un seuil de cluster doit
+  // reconstruire les markers ; les variables visuelles des pins sont mises à
+  // jour directement sur le DOM par `applyZoomClass`.
+  const clusterLevelRef = useRef<ClusterLevel>('country')
 
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN) return
@@ -331,6 +331,20 @@ export default function GlobeMap({
       // en CSS — deux artistes au même endroit n'ont plus le même diamètre.
       el.style.setProperty('--pin-scale', pinZoomScale(z).toFixed(3))
       el.style.setProperty('--pin-opacity', pinOpacityFor(z).toFixed(3))
+      // Le halo dépend aussi du niveau de popularité de chaque pin. Mettre à
+      // jour uniquement les variables CSS évite de supprimer/recréer tous les
+      // markers à chaque frame de `flyTo` ou de pinch.
+      markersRef.current.forEach((marker) => {
+        const pin = marker.getElement().querySelector<HTMLElement>('.artist-pin')
+        if (!pin) return
+        const rawTier = Number(pin.dataset.pinTier)
+        if (!Number.isInteger(rawTier) || rawTier < 0 || rawTier > 3) return
+        const tier = rawTier as PopularityTier
+        pin.style.setProperty(
+          '--pin-tier-glow',
+          hexToRgba(POPULARITY_RING_COLORS[tier], pinGlowFor(z, tier)),
+        )
+      })
     }
     map.on('zoom', applyZoomClass)
     applyZoomClass()
@@ -366,7 +380,7 @@ export default function GlobeMap({
         map.flyTo({
           center: first.coordinates,
           zoom,
-          duration: CAMERA.artist.duration,
+          duration: CAMERA.city.duration,
           essential: true,
           curve: 1.4,
         })
@@ -382,7 +396,9 @@ export default function GlobeMap({
     }
     map.once('load', () => {
       setMapLoaded(true)
-      setClusterLevel(levelFor(map.getZoom()))
+      const level = levelFor(map.getZoom())
+      clusterLevelRef.current = level
+      setClusterLevel(level)
       onZoomChangeRef.current?.(map.getZoom())
       onReadyRef.current?.(handle)
       // La carte est stable : on peut enfin faire tourner le globe.
@@ -392,10 +408,10 @@ export default function GlobeMap({
     const onLevelChange = () => {
       const z = map.getZoom()
       onZoomChangeRef.current?.(z)
-      setClusterLevel((prev) => {
-        const next = levelFor(z)
-        return next === prev ? prev : next
-      })
+      const next = levelFor(z)
+      if (next === clusterLevelRef.current) return
+      clusterLevelRef.current = next
+      setClusterLevel(next)
     }
     // Pendant un vol (flyTo), le zoom évolue en continu : mettre à jour le
     // niveau de cluster sur l'événement `zoom` (au lieu d'attendre moveend)
@@ -403,17 +419,14 @@ export default function GlobeMap({
     // → pins — avec l'animation de la caméra. Un seul clic suffit.
     const onZoomTick = () => {
       const z = map.getZoom()
-      setClusterLevel((prev) => {
-        const next = levelFor(z)
-        return next === prev ? prev : next
-      })
+      const next = levelFor(z)
+      if (next === clusterLevelRef.current) return
+      clusterLevelRef.current = next
+      setClusterLevel(next)
     }
     map.on('zoom', onZoomTick)
     map.on('zoomend', onLevelChange)
     map.on('moveend', onLevelChange)
-    // Zoom vivant (toutes les frames du zoom) pour la spirale qui s'ouvre.
-    map.on('zoom', () => setLiveZoom(map.getZoom()))
-
     return () => {
       cancelAnimationFrame(frame)
       map.off('zoom', onZoomTick)
@@ -506,7 +519,8 @@ export default function GlobeMap({
           const tier = Math.max(
             ...members.map((a) => tierOf(a, popularityRef.current)),
           ) as PopularityTier
-          const tierVars = pinTierVars(tier, liveZoom)
+          const tierVars = pinTierVars(tier, map.getZoom())
+          el.dataset.pinTier = String(tier)
           el.style.setProperty('--pin-tier-color', tierVars.bg)
           el.style.setProperty('--pin-tier-glow', tierVars.glow)
           el.style.setProperty('--pin-ink', tierVars.ink)
@@ -526,6 +540,13 @@ export default function GlobeMap({
         // sur un pin visible, mis en évidence (highlightedId dans le parent).
         let targetCoords = coordinates
         let targetZoom = zoomTo
+        const targetDuration = place?.kind === 'country'
+          ? CAMERA.country.duration
+          : place?.kind === 'city'
+            ? CAMERA.city.duration
+            : variant === 'sub'
+              ? CAMERA.sub.duration
+              : CAMERA.artist.duration
         if (members && members.length > 0) {
           const firstMember = members[0]
           if (firstMember && isValidCoordinate(firstMember.coordinates)) {
@@ -537,7 +558,7 @@ export default function GlobeMap({
             }
           }
         }
-        map.flyTo({ center: targetCoords, zoom: targetZoom, duration: 1600, essential: true })
+        map.flyTo({ center: targetCoords, zoom: targetZoom, duration: targetDuration, essential: true })
       }
       if (interactive) {
         el.addEventListener('click', (e) => {
@@ -564,7 +585,8 @@ export default function GlobeMap({
       // l'échelle de zoom commune — un artiste très suivi est un point plus
       // large et plus rayonnant qu'un artiste discret, au même endroit.
       const tier = tierOf(artist, popularityRef.current)
-      const tierVars = pinTierVars(tier, liveZoom)
+      const tierVars = pinTierVars(tier, map.getZoom())
+      el.dataset.pinTier = String(tier)
       el.style.setProperty('--pin-tier-color', tierVars.bg)
       el.style.setProperty('--pin-tier-glow', tierVars.glow)
       el.style.setProperty('--pin-ink', tierVars.ink)
@@ -787,7 +809,7 @@ export default function GlobeMap({
     // `editable` est dans les dépendances : basculer le mode admin doit
     // redessiner les markers pour qu'ils deviennent (ou cessent d'être)
     // déplaçables — `draggable` se fixe à la construction du marker.
-  }, [styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, liveZoom, highlightedArtistId, editable])
+  }, [styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, highlightedArtistId, editable])
 
   // Le conteneur Mapbox est un div interne : mapbox-gl.css force `position: relative`
   // sur .mapboxgl-map et ecraserait un `absolute inset-0` passe via className.
