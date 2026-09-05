@@ -1234,12 +1234,6 @@ export default function GlobeExplore() {
                     </p>
                   )}
 
-                {searchingWeb && (
-                  <p className="flex items-center justify-center gap-2 py-6 text-sm text-secondary-text">
-                    <Loader2 className="h-4 w-4 animate-spin" /> {t('discovery.searching')}
-                  </p>
-                )}
-
                 {countryResults.length > 0 && (
                   <>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
@@ -1423,11 +1417,17 @@ export default function GlobeExplore() {
                 )}
 
                 {/* Suggestions en ligne : artistes pas encore sur la carte */}
-                {onlineResults.length > 0 && (
+                {(searchingWeb || onlineResults.length > 0) && (
                   <>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
                       {t('discovery.title')}
                     </h3>
+                    {searchingWeb && onlineResults.length === 0 && (
+                      <p className="flex items-center justify-center gap-2 py-6 text-sm text-secondary-text">
+                        <Loader2 className="h-4 w-4 animate-spin" /> {t('discovery.searching')}
+                      </p>
+                    )}
+                    {onlineResults.length > 0 && (
                     <ul>
                       {onlineResults.map((candidate) => (
                         <li
@@ -1500,6 +1500,7 @@ export default function GlobeExplore() {
                         </li>
                       ))}
                     </ul>
+                    )}
                   </>
                 )}
               </div>

@@ -1775,13 +1775,6 @@ export function ExploreScreen({ navigation, route }: Props) {
                 <Text style={styles.noResults}>{t('globe.noResults', { query })}</Text>
               )}
 
-              {searchingWeb && (
-                <View style={styles.webLoading}>
-                  <ActivityIndicator color={colors.brandDeep} />
-                  <Text style={styles.webLoadingText}>{t('discovery.searching')}</Text>
-                </View>
-              )}
-
               {countryResults.length > 0 && (
                 <>
                   <View style={styles.sectionHeader}>
@@ -1926,12 +1919,18 @@ export function ExploreScreen({ navigation, route }: Props) {
               )}
 
               {/* Suggestions Musibrainz : artistes pas encore sur la carte */}
-              {onlineResults.length > 0 && (
+              {(searchingWeb || onlineResults.length > 0) && (
                 <>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="search-outline" size={13} color={colors.inkSoft} />
                     <Text style={styles.sectionLabel}>{t('discovery.title')}</Text>
                   </View>
+                  {searchingWeb && onlineResults.length === 0 && (
+                    <View style={styles.webLoading}>
+                      <ActivityIndicator color={colors.brandDeep} />
+                      <Text style={styles.webLoadingText}>{t('discovery.searching')}</Text>
+                    </View>
+                  )}
                   {onlineResults.map((candidate) => {
                     const hasCity = Boolean(candidate.city?.trim());
                     return (
