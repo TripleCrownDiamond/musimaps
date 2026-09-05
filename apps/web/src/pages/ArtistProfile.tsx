@@ -28,6 +28,7 @@ import {
   toggleFollow,
 } from '@musimaps/shared'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import { usePageSeo } from '../hooks/usePageSeo'
 import { useAuth } from '../context/AuthContext'
 import { toast } from 'sonner'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
@@ -47,6 +48,18 @@ export default function ArtistProfile() {
   const [following, setFollowing] = useState(false)
   const [saved, setSaved] = useState(false)
   const { user } = useAuth()
+
+  // SEO dynamique par artiste
+  usePageSeo(
+    artist
+      ? {
+          title: `${artist.name} — ${artist.city ? artist.city + ', ' : ''}${artist.country} | Musimaps`,
+          description: artist.bio || `${artist.name} — ${artist.genre ?? 'Artiste'} ${artist.city ? 'à ' + artist.city : ''} sur Musimaps. Découvrez sa musique et ses concerts.`,
+          ogTitle: `${artist.name} | Musimaps`,
+          ogDescription: artist.bio || `Découvrez ${artist.name} sur Musimaps — ${artist.genre ?? 'Artiste'} ${artist.city ? 'à ' + artist.city : ''}.`,
+        }
+      : {},
+  )
 
   useEffect(() => {
     let cancelled = false

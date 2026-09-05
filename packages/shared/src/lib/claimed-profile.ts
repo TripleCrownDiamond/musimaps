@@ -10,6 +10,7 @@ export interface ClaimedArtistProfile {
   name: string;
   genre: string;
   city: string;
+  district?: string | null;
   country: string;
   flag: string;
   lat: number;
@@ -41,6 +42,9 @@ export async function updateMyArtistProfile(input: {
   genre?: string;
   platforms?: Record<string, string>;
   socials?: Record<string, string>;
+  city?: string;
+  district?: string;
+  slug?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: 'Supabase non configuré' };
@@ -51,6 +55,9 @@ export async function updateMyArtistProfile(input: {
     p_genre: input.genre ?? null,
     p_platforms: input.platforms ?? null,
     p_socials: input.socials ?? null,
+    p_city: input.city ?? null,
+    p_district: input.district ?? null,
+    p_slug: input.slug ?? null,
   });
   if (error) return { ok: false, error: error.message };
   const result = data as { ok?: boolean; error?: string } | null;

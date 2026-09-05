@@ -95,6 +95,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
       artistName: f.artistName || user.displayName || '',
       email: f.email || user.email || '',
       city: f.city || user.city || '',
+      district: f.district || user.district || '',
     }));
     // Load claimed profile for genre/bio/photo/platforms/socials
     void fetchMyArtistProfile().then((claimed) => {

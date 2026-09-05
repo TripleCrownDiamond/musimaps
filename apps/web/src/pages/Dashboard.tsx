@@ -17,6 +17,8 @@ import {
   Globe2,
   Heart,
   ImagePlus,
+  Link2,
+  Loader2,
   Mail,
   MapPin,
   Mic2,
@@ -37,6 +39,7 @@ import {
   updateArtistBooking,
   updateMyArtistProfile,
   uploadArtistImage,
+  slugify,
   type ClaimedArtistProfile,
 } from '@musimaps/shared'
 import {
@@ -197,6 +200,8 @@ export default function Dashboard() {
   const [savingBooking, setSavingBooking] = useState(false)
   const [myReferral, setMyReferral] = useState<MyReferralRequest | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [slugDraft, setSlugDraft] = useState('')
+  const [slugSaving, setSlugSaving] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
   const coverInput = useRef<HTMLInputElement>(null)
   // Mélomane : artistes enregistrés / suivis, avec onglets.
@@ -286,6 +291,7 @@ export default function Dashboard() {
         if (profile && !cancelled) {
           claimedProfile = profile
           setClaimed(profile)
+          setSlugDraft(profile?.slug ?? '')
           void fetchArtistFollowers(profile.id).then((n) => {
             if (!cancelled) setClaimedFollowers(n)
           })
@@ -789,6 +795,54 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Lien perso (slug) */}
+        {claimed && (
+          <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
+            <h3 className="display-font flex items-center gap-2 text-lg font-bold">
+              <Link2 className="h-5 w-5 text-brand-deep" /> {t('mapAdmin.slug')}
+            </h3>
+            <p className="mt-1 mb-3 text-sm text-secondary-text">
+              {t('mapAdmin.slugHint')}
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                value={slugDraft}
+                onChange={(e) => setSlugDraft(e.target.value)}
+                placeholder={claimed.id}
+                className="w-full rounded-xl border border-hairline-strong bg-warm-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  const s = slugify(slugDraft)
+                  if (!s) return
+                  setSlugSaving(true)
+                  const result = await updateMyArtistProfile({ slug: s })
+                  setSlugSaving(false)
+                  if (!result.ok) {
+                    toast.error(result.error ?? t('dash.saveFailed'))
+                    return
+                  }
+                  setSlugDraft(s)
+                  setClaimed((prev) => prev ? { ...prev, slug: s } : prev)
+                  toast.success(t('dash.saved'))
+                }}
+                disabled={slugSaving || !slugDraft.trim()}
+                className="shrink-0 rounded-full bg-brand-deep px-5 py-2.5 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
+              >
+                {slugSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('dash.bookingSave')}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-secondary-text">
+              {slugDraft.trim() ? (
+                <>musimaps.com/artist/<span className="font-mono text-primary-text">{slugify(slugDraft)}</span></>
+              ) : (
+                <>{window.location.origin}/artist/<span className="font-mono text-primary-text">{claimed.slug || claimed.id}</span></>
+              )}
+            </p>
           </div>
         )}
 

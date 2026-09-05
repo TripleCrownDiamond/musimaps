@@ -539,6 +539,9 @@ const fr = {
   'c.rejected': 'Revendication refusée — {artist}',
   'c.updateFailed': 'Mise à jour impossible',
   'c.loadFailed': 'Impossible de charger les revendications',
+
+  'mapAdmin.slug': 'Slug (lien profil)',
+  'mapAdmin.slugHint': 'musimaps.com/artist/',
 } as const
 
 export type AdminKey = keyof typeof fr
@@ -1059,6 +1062,9 @@ const en: Record<AdminKey, string> = {
   'c.rejected': 'Claim rejected — {artist}',
   'c.updateFailed': 'Update failed',
   'c.loadFailed': 'Could not load claims',
+
+  'mapAdmin.slug': 'Slug (profile link)',
+  'mapAdmin.slugHint': 'musimaps.com/artist/',
 }
 
 export function useAdminT() {

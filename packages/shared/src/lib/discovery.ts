@@ -1530,6 +1530,7 @@ export async function updateMapArtist(
     platforms: ArtistPlatforms
     socials: ArtistSocials
     verified: boolean
+    slug: string
   }>,
   opts?: { skipGenreClean?: boolean },
 ): Promise<{ ok: boolean; error?: string }> {

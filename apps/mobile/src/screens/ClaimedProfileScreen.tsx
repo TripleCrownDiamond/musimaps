@@ -20,6 +20,8 @@ import {
   updateMyArtistProfile,
   updateArtistBooking,
   uploadArtistImage,
+  slugify,
+  artistUrl,
   type ClaimedArtistProfile,
   type ArtistBooking,
   type BookingPlan,
@@ -47,6 +49,9 @@ export function ClaimedProfileScreen({ navigation }: Props) {
   const [savingBooking, setSavingBooking] = useState(false);
   const [bioDraft, setBioDraft] = useState('');
   const [genreDraft, setGenreDraft] = useState('');
+  const [cityDraft, setCityDraft] = useState('');
+  const [districtDraft, setDistrictDraft] = useState('');
+  const [slugDraft, setSlugDraft] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // ── Chargement ────────────────────────────────────────────────────
@@ -61,6 +66,9 @@ export function ClaimedProfileScreen({ navigation }: Props) {
       setClaimed(profile);
       setBioDraft(profile?.bio ?? '');
       setGenreDraft(profile?.genre ?? '');
+      setCityDraft(profile?.city ?? '');
+      setDistrictDraft(profile?.district ?? '');
+      setSlugDraft(profile?.slug ?? '');
       setBooking(bookingData);
       setLoading(false);
     };
@@ -127,15 +135,15 @@ export function ClaimedProfileScreen({ navigation }: Props) {
   const saveBio = useCallback(async () => {
     if (!claimed) return;
     setSavingProfile(true);
-    const result = await updateMyArtistProfile({ bio: bioDraft.trim(), genre: genreDraft.trim() });
+    const result = await updateMyArtistProfile({ bio: bioDraft.trim(), genre: genreDraft.trim(), city: cityDraft.trim(), district: districtDraft.trim() });
     setSavingProfile(false);
     if (!result.ok) {
       setStatusMsg({ ok: false, text: result.error ?? t('dash.saveFailed') });
       return;
     }
-    setClaimed((prev) => prev ? { ...prev, bio: bioDraft.trim(), genre: genreDraft.trim() } : prev);
+    setClaimed((prev) => prev ? { ...prev, bio: bioDraft.trim(), genre: genreDraft.trim(), city: cityDraft.trim(), district: districtDraft.trim() } : prev);
     setStatusMsg({ ok: true, text: '✅' });
-  }, [claimed, bioDraft, genreDraft, t]);
+  }, [claimed, bioDraft, genreDraft, cityDraft, districtDraft, t]);
 
   // ── Booking plans ─────────────────────────────────────────────────
   const patchPlan = useCallback((index: number, patch: Partial<BookingPlan>) => {
@@ -309,10 +317,62 @@ export function ClaimedProfileScreen({ navigation }: Props) {
               placeholderTextColor={colors.muted}
             />
           </Field>
+          <Field label={t('pedit.cityLabel')}>
+            <Input
+              value={cityDraft}
+              onChangeText={setCityDraft}
+              placeholder="Cotonou, Bénin"
+              placeholderTextColor={colors.muted}
+            />
+          </Field>
+          <Field label={t('pedit.districtLabel')}>
+            <Input
+              value={districtDraft}
+              onChangeText={setDistrictDraft}
+              placeholder="Ex. Yopougon, Bastille…"
+              placeholderTextColor={colors.muted}
+            />
+          </Field>
           <Button
             block
             label={t('dash.bookingSave')}
             onPress={() => void saveBio()}
+            loading={savingProfile}
+          />
+        </Card>
+      </Section>
+
+      {/* ── Lien perso (slug) ── */}
+      <Section title={t('mapAdmin.slug') || 'Lien perso'} subtitle={t('mapAdmin.slugHint') || 'musimaps.com/artist/'}>
+        <Card>
+          <View style={styles.fieldRow}>
+            <Text style={[styles.slugPrefix, { color: colors.inkSoft }]}>musimaps.com/artist/</Text>
+            <Input
+              value={slugDraft}
+              onChangeText={setSlugDraft}
+              placeholder={claimed.id}
+              placeholderTextColor={colors.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Button
+            block
+            label={t('dash.bookingSave')}
+            onPress={async () => {
+              const s = slugify(slugDraft);
+              if (!s) return;
+              setSavingProfile(true);
+              const result = await updateMyArtistProfile({ slug: s });
+              setSavingProfile(false);
+              if (!result.ok) {
+                setStatusMsg({ ok: false, text: result.error ?? t('dash.saveFailed') });
+                return;
+              }
+              setSlugDraft(s);
+              setClaimed((prev) => prev ? { ...prev, slug: s } : prev);
+              setStatusMsg({ ok: true, text: '✅ ' + artistUrl(s) });
+            }}
             loading={savingProfile}
           />
         </Card>
@@ -460,4 +520,6 @@ const createStyles = (colors: AppColors) =>
     textArea: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 80, textAlignVertical: 'top', fontFamily: fonts.body, fontSize: 14 },
     emptyText: { fontFamily: fonts.body, fontSize: 13, textAlign: 'center' },
     status: { fontFamily: fonts.medium, fontSize: 13, textAlign: 'center', marginTop: 8 },
+    fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    slugPrefix: { fontFamily: fonts.body, fontSize: 13, flexShrink: 0 },
   });

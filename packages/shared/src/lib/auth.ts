@@ -264,11 +264,12 @@ export async function updateProfile(params: {
   if (params.bio !== undefined && params.bio.trim()) patch.bio = params.bio.trim();
 
   const { error } = await supabase.from('profiles').update(patch).eq('id', data.user.id);
-  if (error && /bio/i.test(error.message)) {
-    // Colonne bio absente (ancienne base) : on retente sans elle.
+  if (error && /column|schema|does not exist/i.test(error.message)) {
+    // Colonne absente (ancienne base, migration pas encore appliquée)
+    // : on retire les colonnes problématiques et on retente.
     const retry: Record<string, string | string[] | null> = {};
     for (const [key, value] of Object.entries(patch)) {
-      if (key !== 'bio') retry[key] = value;
+      if (!/bio|district|avatar/i.test(key)) retry[key] = value;
     }
     const second = await supabase.from('profiles').update(retry).eq('id', data.user.id);
     return { error: second.error ? { message: second.error.message } : null };

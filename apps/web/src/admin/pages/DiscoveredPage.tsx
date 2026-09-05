@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { BookOpen, Download, Globe2, Loader2, MapPin, Pencil, RefreshCw, Sparkles, Trash2, UserRound } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { aiReviewArtists, geocodeArtistLocation, removeMapArtist, updateMapArtist, type ArtistPlatforms, type ArtistSocials } from '@musimaps/shared'
+import { aiReviewArtists, geocodeArtistLocation, removeMapArtist, slugify, updateMapArtist, type ArtistPlatforms, type ArtistSocials } from '@musimaps/shared'
 import { LocationSelect, type LocationValue } from '@/components/LocationSelect'
 import { useAdminT } from '../i18n'
 import { ImageField } from '../components/fields'
@@ -61,6 +61,7 @@ interface MapArtistRow {
   socials: ArtistSocials | null
   verified: boolean
   claimed_by: string | null
+  slug: string | null
   bookable: boolean
   created_at: string
 }
@@ -123,6 +124,7 @@ export default function DiscoveredPage() {
     cover: string
     verified: boolean
     bookable: boolean
+    slug: string
     platforms: ArtistPlatforms
     socials: ArtistSocials
     plans: BookingPlanInput[]
@@ -144,7 +146,7 @@ export default function DiscoveredPage() {
     }
     // La migration 00016 ajoute plateformes/sociaux/vérification — repli si absents.
     const RICH_SELECT =
-      'id, name, genre, city, district, country, flag, lat, lng, bio, image, cover, source, platforms, socials, verified, claimed_by, bookable, created_at'
+      'id, name, genre, city, district, country, flag, lat, lng, bio, image, cover, source, platforms, socials, verified, slug, claimed_by, bookable, created_at'
     const BASE_SELECT =
       'id, name, genre, city, country, flag, lat, lng, bio, image, source, created_at'
     let { data, error } = await supabase!
@@ -207,6 +209,7 @@ export default function DiscoveredPage() {
       bio: row.bio ?? '',
       image: row.image ?? '',
       cover: row.cover ?? '',
+      slug: row.slug ?? '',
       verified: row.verified,
       bookable: row.bookable,
       platforms: row.platforms ?? {},
@@ -297,6 +300,7 @@ export default function DiscoveredPage() {
       image: editForm.image.trim() || undefined,
       cover: editForm.cover.trim() || undefined,
       verified: editForm.verified,
+      slug: editForm.slug.trim() || undefined,
       platforms: editForm.platforms,
       socials: editForm.socials,
     })
@@ -727,6 +731,22 @@ export default function DiscoveredPage() {
                     objectFit="cover"
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label>{t('mapAdmin.slug')}</Label>
+                <Input
+                  value={editForm.slug}
+                  placeholder={toEdit.id}
+                  onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {editForm.slug.trim() ? (
+                    <>musimaps.com/artist/<span className="font-mono">{slugify(editForm.slug)}</span></>
+                  ) : (
+                    <>{t('mapAdmin.slugHint')}</>
+                  )}
+                </p>
               </div>
 
               <div className="flex items-center justify-between rounded-lg border p-4">
