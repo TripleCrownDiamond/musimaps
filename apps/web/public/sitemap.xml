@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://musimaps.com/</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://musimaps.com/" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/en</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://musimaps.com/" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/globe</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/globe" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/globe" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/en/globe</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/globe" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/globe" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/artistes</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/artistes" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/artistes" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/en/artistes</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/artistes" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/artistes" />
+  </url>
+</urlset>
