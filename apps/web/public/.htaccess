@@ -1,5 +1,14 @@
 Options -MultiViews
 
+# Force le type XML même lorsque l'hébergeur applique sa détection MIME
+# générique : l'URL ne peut plus être interprétée comme une page HTML.
+<Files "sitemap.xml">
+  ForceType application/xml
+  <IfModule mod_headers.c>
+    Header set Content-Type "application/xml; charset=UTF-8"
+  </IfModule>
+</Files>
+
 # ---------------------------------------------------------------
 # Security headers
 # ---------------------------------------------------------------
@@ -20,6 +29,13 @@ Options -MultiViews
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+
+  # Les endpoints SEO ne doivent jamais tomber dans le fallback React :
+  # Google doit recevoir le XML brut, y compris si la propriété soumet
+  # l'ancien chemin court /sitemap.
+  RewriteRule ^sitemap$ sitemap.xml [END]
+  RewriteRule ^sitemap\.xml$ - [END]
+  RewriteRule ^robots\.txt$ - [END]
 
   # Let Apache serve real files and directories directly.
   RewriteCond %{REQUEST_FILENAME} -f [OR]

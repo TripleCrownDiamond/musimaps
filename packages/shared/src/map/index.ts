@@ -475,6 +475,28 @@ export const MAX_ZOOM = 15;
 export const GLOBE_CENTER: [number, number] = [2.4, 8];
 
 /**
+ * Points purement décoratifs du globe de landing.
+ *
+ * Le preview ne charge pas le catalogue et ne doit pas prétendre représenter
+ * des artistes réels. Ces positions donnent seulement quelques étincelles
+ * de densité musicale, sans nom de continent ni interaction.
+ */
+export const GLOBE_PREVIEW_CLUSTER_COORDINATES: ReadonlyArray<[number, number]> = [
+  [-74, 40],
+  [-46, -23],
+  [-3, 52],
+  [2, 48],
+  [18, 9],
+  [31, 30],
+  [77, 23],
+  [103, 1],
+  [139, 36],
+  [151, -33],
+  [-99, 19],
+  [-8, 34],
+];
+
+/**
  * Vitesse de rotation automatique du globe, en degrés de longitude par
  * SECONDE — et non par frame ou par tick.
  *

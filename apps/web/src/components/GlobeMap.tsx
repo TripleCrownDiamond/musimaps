@@ -11,6 +11,7 @@ import {
   PIN_LAYOUT_ZOOM,
   firstRenderedPosition,
   flagFor,
+  GLOBE_PREVIEW_CLUSTER_COORDINATES,
   geoConsistent,
   geoCountryOf,
   hexToRgba,
@@ -82,6 +83,8 @@ interface GlobeMapProps {
   onClusterFocus?: (artists: Artist[], place?: ClusterPlace) => void
   /** false : globe decoratif, aucune interaction possible. */
   interactive?: boolean
+  /** Preview de landing : labels masqués et étincelles non interactives. */
+  decorative?: boolean
   /** Rotation automatique. Pilote par le parent, coupee des que l'utilisateur agit. */
   autoRotate?: boolean
   /** Notifie le parent quand l'utilisateur interrompt la rotation en manipulant le globe. */
@@ -155,6 +158,7 @@ export default function GlobeMap({
   onSelectArtist,
   onClusterFocus,
   interactive = true,
+  decorative = false,
   autoRotate = false,
   onAutoRotateChange,
   onZoomChange,
@@ -254,7 +258,7 @@ export default function GlobeMap({
       // La couleur du trait dérive du token de marque, elle n'est plus
       // recopiée en rgba dans chaque plateforme.
       const zoomLines: string[] = []
-      for (const action of planStyleActions(map.getStyle().layers ?? [], theme)) {
+      for (const action of planStyleActions(map.getStyle().layers ?? [], theme, { showLabels: !decorative })) {
         if (action.kind === 'paint') {
           map.setPaintProperty(action.id, action.property, action.value)
           continue
@@ -440,7 +444,7 @@ export default function GlobeMap({
       setMapLoaded(false)
     }
     // autoRotate est volontairement absent : il est lu via spinRef.
-  }, [interactive, theme])
+  }, [decorative, interactive, theme])
 
   // Pins : rendu indépendant de la construction de la carte. Uniquement après
   // `load` (mapLoaded) pour éviter les markers décalés, et uniquement pour des
@@ -465,10 +469,28 @@ export default function GlobeMap({
     // Le scale visuel (taille selon le zoom) est appliqué sur un enfant
     // (`.artist-pin`) pour ne jamais mélanger scale et transform sur le même
     // élément — sinon les pins sont compressés vers le coin haut-gauche.
-    const pinWrapper = (): HTMLDivElement => {
+    const pinWrapper = (kind: 'default' | 'cluster' = 'default'): HTMLDivElement => {
       const wrapper = document.createElement('div')
-      wrapper.className = 'artist-pin__wrapper'
+      wrapper.className = `artist-pin__wrapper${kind === 'cluster' ? ' artist-pin__wrapper--cluster' : ''}`
       return wrapper
+    }
+
+    // Le preview de landing reste léger et ne dépend pas des données CMS :
+    // quelques étincelles représentent une densité musicale indicative,
+    // sans labels, sans compteur et sans interaction.
+    if (decorative) {
+      GLOBE_PREVIEW_CLUSTER_COORDINATES.forEach((coordinates, index) => {
+        const wrapper = pinWrapper('cluster')
+        const el = document.createElement('span')
+        el.className = 'artist-pin artist-pin--preview-cluster'
+        el.setAttribute('aria-hidden', 'true')
+        el.style.setProperty('--preview-delay', `${(index % 6) * 0.23}s`)
+        wrapper.appendChild(el)
+        markersRef.current.push(
+          new mapboxgl.Marker({ element: wrapper }).setLngLat(coordinates).addTo(map),
+        )
+      })
+      return
     }
 
     // Un « pin » de cluster (pays, ville ou sous-groupe) : drapeau + compteur.
@@ -483,7 +505,7 @@ export default function GlobeMap({
       members?: Artist[],
       place?: ClusterPlace,
     ) => {
-      const wrapper = pinWrapper()
+      const wrapper = pinWrapper('cluster')
       const el = document.createElement('button')
       el.type = 'button'
       el.className =
@@ -809,7 +831,7 @@ export default function GlobeMap({
     // `editable` est dans les dépendances : basculer le mode admin doit
     // redessiner les markers pour qu'ils deviennent (ou cessent d'être)
     // déplaçables — `draggable` se fixe à la construction du marker.
-  }, [styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, highlightedArtistId, editable])
+  }, [decorative, styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, highlightedArtistId, editable])
 
   // Le conteneur Mapbox est un div interne : mapbox-gl.css force `position: relative`
   // sur .mapboxgl-map et ecraserait un `absolute inset-0` passe via className.

@@ -143,6 +143,19 @@ export function ExploreScreen({ navigation, route }: Props) {
   /** Voile des surfaces posées sur la carte — même jeu que le web. */
   const overlay = mapOverlays[theme];
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
+  // Une seule boucle native anime toutes les étincelles de clusters : aucun
+  // timer par pin, donc pas de charge JS supplémentaire pendant la rotation.
+  const clusterPulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(clusterPulse, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(clusterPulse, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [clusterPulse]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
@@ -1140,9 +1153,8 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, [mapTheme]);
 
-  // Clusters « points » en vue globe : petits ronds discrets qui grossissent
-  // au zoom (même courbe d'échelle que le web : 0.22 → 1.15, avec un plancher
-  // de 0.85 pour que le point de 22px reste visible (~19px) comme sur le web).
+  // Clusters « points » en vue globe : étincelles de 5 px, avec une zone
+  // tactile séparée, qui grossissent au zoom (même rendu que le web).
   const globeView = mapZoom < 3.5;
   const clusterScale = Math.min(1.15, Math.max(0.85, 0.22 + (mapZoom - 1) * 0.07));
 
@@ -1352,10 +1364,16 @@ export function ExploreScreen({ navigation, route }: Props) {
         {orderedPins.map((pin) =>
           pin.kind === 'cluster' ? (
             <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap stopGesturePropagation>
+              <Animated.View
+                pointerEvents="box-none"
+                style={globeView ? {
+                  opacity: clusterPulse.interpolate({ inputRange: [0, 1], outputRange: [0.38, 1] }),
+                } : undefined}
+              >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${pin.label} — ${pin.count} artistes`}
-                hitSlop={18}
+                hitSlop={mapUi.clusterHitSlop}
                 style={[
                   styles.clusterPin,
                   pin.variant === 'sub' && styles.clusterPinSub,
@@ -1449,6 +1467,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                   </>
                 )}
               </Pressable>
+              </Animated.View>
             </Mapbox.MarkerView>
           ) : (() => {
             const selectedPin = pin.artist.id === highlightedId;
@@ -2128,10 +2147,10 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     // Vue globe : les clusters deviennent de TRÈS PETITS points fins et
     // discrets (texte masqué), comme sur le web — ils grossissent au zoom.
     clusterPinDot: {
-      width: 10,
-      height: 10,
+      width: mapUi.clusterDotDiameter,
+      height: mapUi.clusterDotDiameter,
       minWidth: 0,
-      borderRadius: 5,
+      borderRadius: mapUi.clusterDotDiameter / 2,
       paddingHorizontal: 0,
       paddingVertical: 0,
       borderWidth: StyleSheet.hairlineWidth,

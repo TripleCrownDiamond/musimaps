@@ -296,6 +296,16 @@
   transform-origin: center;
 }
 
+/* Les clusters gardent une zone de clic confortable, indépendante de leur
+   minuscule point lumineux en vue globe. */
+.artist-pin__wrapper--cluster {
+  width: var(--map-cluster-hit-size);
+  height: var(--map-cluster-hit-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Pin artiste sur la carte — LUMINEUX, coloré par DENSITÉ (tier de
    popularité) : fond + halo dans la couleur du tier (--pin-tier-color /
    --pin-tier-glow), encre contrastée (--pin-ink). Un artiste très suivi
@@ -500,25 +510,52 @@
 /* Vue globe (zoom faible) : les clusters se réduisent à de TRÈS PETITS
    points fins et discrets (contenu masqué) qui grossissent à l'approche. */
 .map-zoom-far .artist-pin--cluster {
-  width: 10px;
+  width: var(--map-cluster-hit-size);
   min-width: 0;
-  height: 10px;
+  height: var(--map-cluster-hit-size);
   padding: 0;
-  border-radius: 50%;
-  border-width: 1px;
-  background: var(--pin-tier-color, var(--color-brand-deep));
-  box-shadow: 0 0 8px var(--pin-tier-glow, rgba(47, 82, 224, 0.5));
-  scale: max(var(--pin-scale, 1), 0.9);
+  border-radius: 9999px;
+  border-width: 0;
+  background: transparent;
+  box-shadow: none;
+  scale: 1;
+  animation: cluster-sparkle 1.8s ease-in-out infinite;
+  will-change: opacity;
 }
 .map-zoom-far .artist-pin--cluster .artist-pin__cluster-content {
   opacity: 0;
 }
 .map-zoom-far .artist-pin--sub {
-  width: 8px;
-  height: 8px;
-  border-width: 1px;
-  background: var(--pin-tier-color, var(--color-brand));
-  box-shadow: 0 0 8px var(--pin-tier-glow, rgba(168, 255, 53, 0.5));
+  width: var(--map-cluster-hit-size);
+  height: var(--map-cluster-hit-size);
+  border-width: 0;
+  background: transparent;
+  box-shadow: none;
+  scale: 1;
+  animation: cluster-sparkle 1.8s ease-in-out infinite;
+  will-change: opacity;
+}
+.map-zoom-far .artist-pin--cluster::before,
+.map-zoom-far .artist-pin--sub::before {
+  display: none;
+}
+.map-zoom-far .artist-pin--cluster::after,
+.map-zoom-far .artist-pin--sub::after,
+.artist-pin.artist-pin--preview-cluster::after {
+  content: '';
+  display: block;
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--map-cluster-dot-diameter);
+  height: var(--map-cluster-dot-diameter);
+  border: 1px solid var(--map-pin-casing);
+  border-radius: 9999px;
+  background: var(--pin-tier-color, var(--color-brand-primary));
+  box-shadow:
+    0 0 4px var(--pin-tier-glow, rgba(47, 82, 224, 0.75)),
+    0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.45));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 .artist-pin--cluster .artist-pin__cluster-content {
   display: flex;
@@ -573,6 +610,35 @@
 }
 .artist-pin--sub:hover {
   scale: calc(max(var(--pin-scale, 1), 0.65) * 1.08);
+}
+
+/* Étincelles du globe de landing : aucun texte ni hit-test. */
+.artist-pin--preview-cluster {
+  width: var(--map-cluster-hit-size);
+  height: var(--map-cluster-hit-size);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  scale: 1;
+  opacity: 0.7;
+  animation: cluster-sparkle 1.8s ease-in-out infinite;
+  animation-delay: var(--preview-delay, 0s);
+  pointer-events: none;
+  will-change: opacity;
+}
+.artist-pin--preview-cluster::before {
+  display: none;
+}
+
+@keyframes cluster-sparkle {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -654,6 +720,25 @@
    pilotées en continu par --pin-scale / --pin-opacity posés en JS). */
 .map-zoom-far .artist-pin::after {
   display: none;
+}
+
+/* Le point décoratif du preview reste visible malgré la règle globale qui
+   masque la pointe des pins en vue globe. */
+.map-zoom-far .artist-pin.artist-pin--preview-cluster::after {
+  content: '';
+  display: block;
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--map-cluster-dot-diameter);
+  height: var(--map-cluster-dot-diameter);
+  border: 1px solid var(--map-pin-casing);
+  border-radius: 9999px;
+  background: var(--color-brand-primary);
+  box-shadow:
+    0 0 4px rgba(47, 82, 224, 0.75),
+    0 0 10px rgba(47, 82, 224, 0.45);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 
 /* Zoom rapproché : les pins reprennent leur place centrale. */

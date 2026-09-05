@@ -295,6 +295,7 @@ export default function Landing() {
                   className="absolute inset-0"
                   theme="dark"
                   interactive={false}
+                  decorative
                   autoRotate
                 />
               ) : (

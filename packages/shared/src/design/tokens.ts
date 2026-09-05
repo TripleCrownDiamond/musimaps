@@ -202,6 +202,12 @@ export const mapUi = {
   artistPinDiameter: 36,
   markerTouchWidth: 72,
   markerTouchHeight: 82,
+  /** Diamètre visuel d'un cluster en vue globe : une étincelle, pas une boule. */
+  clusterDotDiameter: 5,
+  /** Marge tactile autour de l'étincelle (le visuel reste fin). */
+  clusterHitSlop: 22,
+  /** Boîte de hit-test des markers web, centrée sur le point visible. */
+  clusterHitSize: 49,
   clusterMinWidth: 68,
   clusterRadius: 17,
   clusterPaddingX: 13,

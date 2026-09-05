@@ -35,7 +35,8 @@ test('le dézoom reclustre toujours le catalogue complet, sans filtre de viewpor
 
 test('les petits clusters pays restent touchables et n’envoient pas le geste à la carte', () => {
   assert.match(source, /stopGesturePropagation/);
-  assert.match(source, /hitSlop=\{18\}/);
+  assert.match(source, /hitSlop=\{mapUi\.clusterHitSlop\}/);
+  assert.match(source, /clusterPulse\.interpolate/);
 });
 
 test('les pins artistes gardent des coordonnées stables pendant le zoom sur mobile et web', () => {

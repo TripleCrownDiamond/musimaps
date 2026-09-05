@@ -97,6 +97,11 @@ export interface StyleLayer {
   minzoom?: number;
 }
 
+export interface MapStyleOptions {
+  /** Les previews décoratifs masquent tous les labels textuels. */
+  showLabels?: boolean;
+}
+
 /** Document de style minimal manipulé sans dépendre de Mapbox GL. */
 export interface MapStyleDocument {
   layers?: StyleLayer[];
@@ -123,8 +128,13 @@ export type LayerAction =
  * `setLayoutProperty` / `setPaintProperty`, le mobile en mutant le JSON
  * avant de le passer à la MapView. Une seule règle, deux applications.
  */
-export function planStyleActions(layers: StyleLayer[], theme: MapTheme): LayerAction[] {
+export function planStyleActions(
+  layers: StyleLayer[],
+  theme: MapTheme,
+  options: MapStyleOptions = {},
+): LayerAction[] {
   const palette = theme === 'dark' ? darkPalette : lightPalette;
+  const showLabels = options.showLabels ?? true;
   const actions: LayerAction[] = [];
   for (const layer of layers) {
     if (layer.type === 'background' && LAND_RE.test(layer.id)) {
@@ -139,7 +149,7 @@ export function planStyleActions(layers: StyleLayer[], theme: MapTheme): LayerAc
 
     if (layer.type === 'line' && !KEEP_LINE_RE.test(layer.id)) {
       actions.push({ kind: 'hide', id: layer.id, detail: true });
-    } else if (layer.type === 'symbol' && !KEEP_SYMBOL_RE.test(layer.id)) {
+    } else if (layer.type === 'symbol' && (!showLabels || !KEEP_SYMBOL_RE.test(layer.id))) {
       actions.push({ kind: 'hide', id: layer.id, detail: false });
     } else if (layer.type === 'symbol' && KEEP_SYMBOL_RE.test(layer.id)) {
       actions.push({ kind: 'paint', id: layer.id, property: 'text-color', value: palette.mapLabel });
