@@ -1085,11 +1085,11 @@ export default function GlobeExplore() {
 
       {/* Panneau de recherche */}
       {searchOpen && (
-        <div className="absolute inset-0 z-40 flex flex-col justify-end bg-black/20 backdrop-blur-sm">
+        <div className="absolute inset-0 z-40 bg-black/20 backdrop-blur-sm">
           <button
             type="button"
             aria-label={t('globe.closeSearch')}
-            className="w-full flex-1"
+            className="absolute inset-0 z-0 h-full w-full"
             onClick={() => {
               // Ferme le panneau en gardant les pins de la dernière cible :
               // jamais de retour à « tous les artistes ».
@@ -1097,7 +1097,7 @@ export default function GlobeExplore() {
               setQuery('')
             }}
           />
-          <div className="sheet-in mx-auto w-full max-w-2xl rounded-t-[2rem] bg-surface p-5 shadow-2xl sm:mb-6 sm:rounded-[1.75rem] sm:p-6">
+          <div className="sheet-in-top relative z-10 mx-auto w-full max-w-2xl rounded-b-[2rem] bg-surface p-5 shadow-2xl sm:rounded-b-[1.75rem] sm:p-6">
             <div className="w-full">
               <div className="relative mb-5 flex items-center justify-center">
                 <button

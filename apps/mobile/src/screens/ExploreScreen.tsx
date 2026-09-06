@@ -175,6 +175,12 @@ export function ExploreScreen({ navigation, route }: Props) {
       .mapboxgl-ctrl-bottom-right {
         display: none !important;
       }
+      input:focus,
+      textarea:focus,
+      select:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
     `;
     document.head.appendChild(style);
     return () => style.remove();
@@ -1692,7 +1698,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      {/* Panneau de recherche (comme le web : scrim flouté + sheet bas) */}
+      {/* Panneau de recherche ancré en haut, avec scrim flouté */}
       {searchOpen && (
         <View style={styles.searchPanel}>
           <Pressable
@@ -1708,12 +1714,13 @@ export function ExploreScreen({ navigation, route }: Props) {
               styles.sheet,
               {
                 paddingBottom: insets.bottom + 14,
+                paddingTop: insets.top + 12,
                 opacity: sheetAnim,
                 transform: [
                   {
                     translateY: sheetAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [28, 0],
+                      outputRange: [-28, 0],
                     }),
                   },
                 ],
@@ -1738,6 +1745,7 @@ export function ExploreScreen({ navigation, route }: Props) {
               <TextInput
                 autoFocus
                 value={query}
+                nativeID="musimaps-globe-search-input"
                 underlineColorAndroid="transparent"
                 onChangeText={setQuery}
                 onSubmitEditing={() => {
@@ -2323,13 +2331,13 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     controlBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
     controlBtnText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13 },
     controlBtnTextActive: { color: colors.black },
-    searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1500, justifyContent: 'flex-end' },
+    searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1500, justifyContent: 'flex-start' },
     scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: overlay.scrim, zIndex: 0 },
     sheet: {
-      height: '62%',
+      flex: 1,
       backgroundColor: colors.surface,
-      borderTopLeftRadius: 32,
-      borderTopRightRadius: 32,
+      borderBottomLeftRadius: 32,
+      borderBottomRightRadius: 32,
       paddingHorizontal: 20,
       paddingTop: 12,
       borderWidth: 1,
