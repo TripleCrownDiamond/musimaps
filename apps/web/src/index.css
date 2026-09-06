@@ -552,8 +552,8 @@
   border-radius: 9999px;
   background: var(--pin-tier-color, var(--color-brand-primary));
   box-shadow:
-    0 0 4px var(--pin-tier-glow, rgba(47, 82, 224, 0.75)),
-    0 0 10px var(--pin-tier-glow, rgba(47, 82, 224, 0.45));
+    0 0 var(--map-cluster-dot-glow-radius) var(--pin-tier-glow, rgba(47, 82, 224, 0.75)),
+    0 0 calc(var(--map-cluster-dot-glow-radius) * 2) var(--pin-tier-glow, rgba(47, 82, 224, 0.45));
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -718,7 +718,7 @@
 
 /* Vue globe lointaine : flèche masquée (la taille et l'opacité sont déjà
    pilotées en continu par --pin-scale / --pin-opacity posés en JS). */
-.map-zoom-far .artist-pin::after {
+.map-zoom-far .artist-pin:not(.artist-pin--cluster):not(.artist-pin--sub):not(.artist-pin--preview-cluster)::after {
   display: none;
 }
 

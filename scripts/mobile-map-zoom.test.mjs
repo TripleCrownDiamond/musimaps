@@ -10,6 +10,10 @@ const webMapSource = readFileSync(
   new URL('../apps/web/src/components/GlobeMap.tsx', import.meta.url),
   'utf8',
 );
+const webPinCss = readFileSync(
+  new URL('../apps/web/src/index.css', import.meta.url),
+  'utf8',
+);
 const authSource = readFileSync(
   new URL('../packages/shared/src/lib/auth.ts', import.meta.url),
   'utf8',
@@ -37,6 +41,19 @@ test('les petits clusters pays restent touchables et n’envoient pas le geste �
   assert.match(source, /stopGesturePropagation/);
   assert.match(source, /hitSlop=\{mapUi\.clusterHitSlop\}/);
   assert.match(source, /clusterPulse\.interpolate/);
+});
+
+test('les étincelles pays/ville restent visibles au dézoom', () => {
+  // La pointe des pins artistes est masquée au loin, mais cette règle ne doit
+  // jamais viser les pseudo-éléments des clusters : ils portent le seul point
+  // lumineux de la vue globe. Un conflit de spécificité les avait fait
+  // disparaître sur le web.
+  assert.match(
+    webPinCss,
+    /\.map-zoom-far \.artist-pin:not\(\.artist-pin--cluster\):not\(\.artist-pin--sub\):not\(\.artist-pin--preview-cluster\)::after/,
+  );
+  assert.match(webPinCss, /\.map-zoom-far \.artist-pin--cluster::after/);
+  assert.match(source, /shadowRadius: mapUi\.clusterDotGlowRadius/);
 });
 
 test('les pins artistes gardent des coordonnées stables pendant le zoom sur mobile et web', () => {

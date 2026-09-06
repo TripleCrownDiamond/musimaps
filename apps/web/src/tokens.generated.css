@@ -28,6 +28,8 @@
 :root {
   --map-pin-diameter: 36px;
   --map-cluster-dot-diameter: 5px;
+  --map-cluster-dot-glow-radius: 5px;
+  --map-cluster-dot-glow-opacity: 0.85;
   --map-cluster-hit-size: 49px;
   --map-cluster-min-width: 68px;
   --map-cluster-radius: 17px;

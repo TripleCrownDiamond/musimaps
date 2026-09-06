@@ -94,6 +94,8 @@ const lines = [
   ':root {',
   `  --map-pin-diameter: ${mapUi.artistPinDiameter}px;`,
   `  --map-cluster-dot-diameter: ${mapUi.clusterDotDiameter}px;`,
+  `  --map-cluster-dot-glow-radius: ${mapUi.clusterDotGlowRadius}px;`,
+  `  --map-cluster-dot-glow-opacity: ${mapUi.clusterDotGlowOpacity};`,
   `  --map-cluster-hit-size: ${mapUi.clusterHitSize}px;`,
   `  --map-cluster-min-width: ${mapUi.clusterMinWidth}px;`,
   `  --map-cluster-radius: ${mapUi.clusterRadius}px;`,

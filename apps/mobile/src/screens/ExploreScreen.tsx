@@ -2183,6 +2183,13 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       // la terre claire, soit 1,05:1 — le sous-cluster disparaissait. Même
       // token que `.artist-pin--sub` côté web.
       borderColor: overlay.pinCasing,
+      // RN ne possède pas le box-shadow CSS du web : le halo est explicite
+      // pour que l'étincelle reste visible tout en gardant un disque fin.
+      shadowColor: colors.brandPrimary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: mapUi.clusterDotGlowOpacity,
+      shadowRadius: mapUi.clusterDotGlowRadius,
+      elevation: mapUi.clusterDotElevation,
     },
     clusterPinMain: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, lineHeight: 15 },
     clusterPinStats: {

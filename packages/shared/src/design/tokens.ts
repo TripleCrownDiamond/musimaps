@@ -204,6 +204,12 @@ export const mapUi = {
   markerTouchHeight: 82,
   /** Diamètre visuel d'un cluster en vue globe : une étincelle, pas une boule. */
   clusterDotDiameter: 5,
+  /** Rayon du halo autour de l'étincelle (le point reste fin, même sur mobile). */
+  clusterDotGlowRadius: 5,
+  /** Opacité du halo natif — RN n'a pas de box-shadow CSS. */
+  clusterDotGlowOpacity: 0.85,
+  /** Élévation Android minimale pour que le halo reste visible au-dessus du globe. */
+  clusterDotElevation: 3,
   /** Marge tactile autour de l'étincelle (le visuel reste fin). */
   clusterHitSlop: 22,
   /** Boîte de hit-test des markers web, centrée sur le point visible. */
