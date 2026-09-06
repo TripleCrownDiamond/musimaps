@@ -43,6 +43,12 @@ test('les petits clusters pays restent touchables et n’envoient pas le geste �
   assert.match(source, /clusterPulse\.interpolate/);
 });
 
+test('la rotation native utilise le déplacement Mapbox direct, sans réinjecter un centre périmé', () => {
+  assert.match(source, /cameraRef\.current\?\.moveBy\(/);
+  assert.match(source, /spinPixelsFor\(mapZoom, duration\)/);
+  assert.match(source, /Platform\.OS !== 'web'/);
+});
+
 test('les étincelles pays/ville restent visibles au dézoom', () => {
   // La pointe des pins artistes est masquée au loin, mais cette règle ne doit
   // jamais viser les pseudo-éléments des clusters : ils portent le seul point

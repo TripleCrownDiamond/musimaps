@@ -554,3 +554,14 @@ export function spinDeltaFor(elapsedMs: number): number {
   const capped = Math.min(elapsedMs, 250);
   return (GLOBE_SPIN_DEG_PER_SEC * capped) / 1000;
 }
+
+/**
+ * Déplacement horizontal équivalent à la rotation du globe pour le moteur
+ * natif Mapbox. `Camera.moveBy` travaille en pixels écran (et non en degrés),
+ * d'où cette conversion basée sur la largeur projetée du monde.
+ */
+export function spinPixelsFor(zoom: number, elapsedMs: number): number {
+  const worldPixels = 512 * 2 ** Math.max(0, zoom);
+  const degrees = (GLOBE_SPIN_DEG_PER_SEC * Math.max(0, elapsedMs)) / 1000;
+  return (degrees * worldPixels) / 360;
+}

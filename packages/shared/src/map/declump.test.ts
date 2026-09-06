@@ -21,6 +21,7 @@ import {
   firstRenderedPosition,
   pinRingWidthFor,
   renderedPosition,
+  spinPixelsFor,
 } from './index';
 
 /** Artiste minimal posé sur une coordonnée donnée. */
@@ -59,6 +60,13 @@ describe('anneaux de popularité', () => {
     expect(TIER_RING_WIDTH[1]).toBeLessThan(TIER_RING_WIDTH[2]);
     expect(TIER_RING_WIDTH[2]).toBeLessThan(TIER_RING_WIDTH[3]);
     expect(pinRingWidthFor(3)).toBe(TIER_RING_WIDTH[3]);
+  });
+});
+
+describe('rotation native', () => {
+  it('convertit une durée de rotation en déplacement pixel positif', () => {
+    expect(spinPixelsFor(0.75, 250)).toBeGreaterThan(0);
+    expect(spinPixelsFor(6, 250)).toBeGreaterThan(spinPixelsFor(0.75, 250));
   });
 });
 

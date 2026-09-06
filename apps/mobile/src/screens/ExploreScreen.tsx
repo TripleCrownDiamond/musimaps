@@ -64,6 +64,7 @@ import {
   pinScaleFor,
   POPULARITY_RING_COLORS,
   renderedPosition,
+  spinPixelsFor,
   spinDeltaFor,
   SEARCH_COLLAPSE_ZOOM,
   tierOf,
@@ -133,6 +134,18 @@ type VisibleRegion = {
   };
 };
 
+/** Surface Mapbox GL exposée par l'adaptateur Expo Web. */
+type ExpoWebMap = {
+  getZoom: () => number;
+  getCenter: () => { lng: number; lat: number };
+  panBy: (
+    offset: [number, number],
+    options?: { duration?: number; easing?: (value: number) => number },
+  ) => void;
+  on: (event: 'zoom' | 'moveend', listener: () => void) => void;
+  off: (event: 'zoom' | 'moveend', listener: () => void) => void;
+};
+
 type PlaceResult = { city: string; country: string; flag: string; coordinates: [number, number]; count: number };
 type CountryResult = { code: string; name: string; flag: string; coordinates: [number, number]; count: number };
 type GenreResult = { genre: string; count: number };
@@ -162,6 +175,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   }, [clusterPulse]);
   const cameraRef = useRef<Mapbox.Camera>(null);
   const mapViewRef = useRef<Mapbox.MapView>(null);
+  const webMapRef = useRef<ExpoWebMap | null>(null);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
 
   // --- État (miroir de la page globe web) ---
@@ -975,9 +989,13 @@ export function ExploreScreen({ navigation, route }: Props) {
     syncMapZoom(z, true);
   };
 
-  // Rotation automatique (intervalle, comme le flyTo jumpTo du web). Coupe
-  // dès qu'on vole vers une cible, qu'on tape la carte, ou qu'un geste de
-  // l'utilisateur est détecté.
+  // Rotation automatique. Sur iOS/Android, `moveBy` confie l'interpolation
+  // directement au moteur Mapbox : le thread JS n'envoie plus de nouvelle
+  // coordonnée à chaque tick et ne peut donc plus provoquer de blocage visible.
+  // Sur Expo Web, l'adaptateur n'expose pas `moveBy` : on garde le chemin
+  // `setCamera` de compatibilité, tandis que le natif utilise le chemin direct.
+  // Coupe dès qu'on vole vers une cible, qu'on tape la carte, ou qu'un geste
+  // de l'utilisateur est détecté.
   //
   // Les gestes remontent par `onCameraChanged` (API Mapbox v10) et par le
   // responder parent ; aucun ancien événement de région n'est nécessaire.
@@ -992,24 +1010,46 @@ export function ExploreScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!spinning) return;
     // Rotation en degrés par SECONDE (valeur partagée avec le web) et pas
-    // par tick : le globe tourne à la même vitesse des deux côtés, et un
-    // appareil qui rame perd des images sans ralentir la rotation.
-    // Le tick passe de 120 ms à 33 ms — 8 images/s était visiblement saccadé.
+    // par tick : le globe tourne à la même vitesse des deux côtés.
     let last = Date.now();
     const interval = setInterval(() => {
       const now = Date.now();
-      const delta = spinDeltaFor(now - last);
+      const elapsed = now - last;
       last = now;
+
+      // `moveBy` est exécuté directement par le moteur natif (iOS/Android),
+      // contrairement à `setCamera` qui passe par une file de CameraStops.
+      // Le déplacement est relatif à la caméra courante : aucun centre périmé
+      // ne peut être réinjecté quand un événement caméra arrive en retard.
+      if (Platform.OS !== 'web') {
+        const duration = Math.max(1, Math.min(elapsed, GLOBE_SPIN_TICK_MS * 2));
+        cameraRef.current?.moveBy({
+          x: spinPixelsFor(mapZoom, duration),
+          y: 0,
+          animationMode: 'linearTo',
+          animationDuration: duration,
+        });
+        return;
+      }
+
+      // Expo Web expose le Mapbox GL JS interne, mais pas `Camera.moveBy`.
+      // `panBy` évite alors de repasser par le pont React Native et garde la
+      // même interpolation linéaire que le chemin natif.
+      const webMap = webMapRef.current;
+      if (webMap) {
+        const duration = Math.max(1, Math.min(elapsed, GLOBE_SPIN_TICK_MS * 2));
+        webMap.panBy([spinPixelsFor(mapZoom, duration), 0], {
+          duration,
+          easing: (value) => value,
+        });
+        return;
+      }
+
+      const delta = spinDeltaFor(elapsed);
       centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
       cameraRef.current?.setCamera({
         centerCoordinate: centerRef.current,
-        // Le natif interpole ces 250 ms à 60 fps. Avec `animationDuration: 0`
-        // et 30 ticks/seconde, chaque pas était un saut discret : la gigue du
-        // minuteur JS se voyait directement à l'écran.
         animationDuration: GLOBE_SPIN_TICK_MS,
-        // `linearTo` = interpolation à vitesse constante, indispensable pour
-        // une rotation continue. Surtout pas 'flyTo' : le mode FLIGHT lance
-        // une animation caméra qui reprend le dessus sur les gestes.
         animationMode: 'linearTo',
       });
     }, GLOBE_SPIN_TICK_MS);
@@ -1181,16 +1221,9 @@ export function ExploreScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (Platform.OS !== 'web' || (locState !== 'granted' && locState !== 'skipped')) return;
 
-    type WebMap = {
-      getZoom: () => number;
-      getCenter: () => { lng: number; lat: number };
-      on: (event: 'zoom' | 'moveend', listener: () => void) => void;
-      off: (event: 'zoom' | 'moveend', listener: () => void) => void;
-    };
-
     let disposed = false;
     let retry: ReturnType<typeof setTimeout> | null = null;
-    let webMap: WebMap | null = null;
+    let webMap: ExpoWebMap | null = null;
 
     const onZoom = () => {
       if (webMap) syncMapZoom(webMap.getZoom());
@@ -1203,7 +1236,8 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
     const attach = () => {
       if (disposed) return;
-      webMap = (mapViewRef.current as unknown as { map?: WebMap } | null)?.map ?? null;
+      webMap = (mapViewRef.current as unknown as { map?: ExpoWebMap } | null)?.map ?? null;
+      webMapRef.current = webMap;
       if (!webMap) {
         retry = setTimeout(attach, 50);
         return;
@@ -1221,6 +1255,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         webMap.off('zoom', onZoom);
         webMap.off('moveend', onMoveEnd);
       }
+      webMapRef.current = null;
     };
   }, [locState, mapTheme, tintedStyle, syncMapZoom]);
 
