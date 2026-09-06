@@ -49,6 +49,22 @@ test('la rotation native utilise le déplacement Mapbox direct, sans réinjecter
   assert.match(source, /Platform\.OS !== 'web'/);
 });
 
+test('l’interaction mobile ne désactive pas le mode rotation', () => {
+  // Le drag/pinch doit seulement donner la priorité à Mapbox pendant le
+  // geste. L’état Play/Pause reste inchangé et la rotation reprend ensuite.
+  assert.match(source, /gestureActiveRef = useRef\(false\)/);
+  assert.match(source, /if \(gestureActiveRef\.current\) return/);
+  assert.match(source, /if \(gestures\?\.isGestureActive\) gestureActiveRef\.current = true/);
+  assert.match(source, /onMapIdle=\{\(event\) => \{\s*gestureActiveRef\.current = false;/);
+  assert.doesNotMatch(source, /gestures\?\.isGestureActive && spinRef\.current/);
+  assert.doesNotMatch(source, /setSpinning\(false\)/);
+
+  const mapPressStart = source.indexOf('onPress={() => {', source.indexOf('<Mapbox.MapView'));
+  const mapPressEnd = source.indexOf('}}', mapPressStart);
+  assert.ok(mapPressStart !== -1 && mapPressEnd !== -1, 'callback onPress de la carte introuvable');
+  assert.doesNotMatch(source.slice(mapPressStart, mapPressEnd), /setSpinning\(false\)/);
+});
+
 test('les étincelles pays/ville restent visibles au dézoom', () => {
   // La pointe des pins artistes est masquée au loin, mais cette règle ne doit
   // jamais viser les pseudo-éléments des clusters : ils portent le seul point

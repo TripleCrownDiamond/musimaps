@@ -471,9 +471,9 @@ export function ExploreScreen({ navigation, route }: Props) {
     zoomLevel: number,
     duration = CAMERA.artist.duration,
   ) => {
-    // Arrête la rotation immédiatement (clear synchrone de l'intervalle) :
-    // sinon le prochain tick (120 ms) sauterait la caméra et annulerait le vol.
-    stopSpinImmediate();
+    // Suspend le tick pendant le vol (clear synchrone de l'intervalle), sans
+    // désactiver le mode Play/Pause. Le tick reprendra à `onMapIdle`.
+    suspendSpinForCameraMove();
     cameraRef.current?.setCamera({
       centerCoordinate: coordinates,
       zoomLevel,
@@ -499,7 +499,6 @@ export function ExploreScreen({ navigation, route }: Props) {
   };
 
   const resetView = () => {
-    setSpinning(false);
     setSelected(null);
     setSelectedPlace(null);
     setPlaceIndex(0);
@@ -994,19 +993,18 @@ export function ExploreScreen({ navigation, route }: Props) {
   // coordonnée à chaque tick et ne peut donc plus provoquer de blocage visible.
   // Sur Expo Web, l'adaptateur n'expose pas `moveBy` : on garde le chemin
   // `setCamera` de compatibilité, tandis que le natif utilise le chemin direct.
-  // Coupe dès qu'on vole vers une cible, qu'on tape la carte, ou qu'un geste
-  // de l'utilisateur est détecté.
+  // Suspend le tick pendant un vol programmatique. Un geste utilisateur ne
+  // désactive pas le mode rotation : il suspend seulement le tick pendant
+  // l'interaction et la rotation reprend dès que Mapbox revient au repos.
   //
-  // Les gestes remontent par `onCameraChanged` (API Mapbox v10) et par le
-  // responder parent ; aucun ancien événement de région n'est nécessaire.
-  const spinRef = useRef(spinning);
-  /** Intervalle de rotation stocké dans une ref : sur le moindre contact
-   *  utilisateur on le clear SYNCHRONEMENT (sans attendre un re-render), pour
-   *  que le prochain tick ne saute pas la caméra pendant un drag. */
+  // Les gestes remontent par `onCameraChanged` (API Mapbox v10) ; aucun ancien
+  // événement de région ni capture tactile du parent n'est nécessaire.
+  /** Geste utilisateur en cours : le moteur Mapbox garde la priorité sur le
+   *  déplacement relatif de la rotation, sans basculer l'état Play/Pause. */
+  const gestureActiveRef = useRef(false);
+  /** Intervalle de rotation stocké dans une ref pour arrêter immédiatement
+   *  un vol programmatique sans attendre un re-render. */
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    spinRef.current = spinning;
-  }, [spinning]);
   useEffect(() => {
     if (!spinning) return;
     // Rotation en degrés par SECONDE (valeur partagée avec le web) et pas
@@ -1016,6 +1014,11 @@ export function ExploreScreen({ navigation, route }: Props) {
       const now = Date.now();
       const elapsed = now - last;
       last = now;
+
+      // Pendant un drag/pinch, Mapbox doit être l'unique écrivain de la
+      // caméra. Le mode rotation reste actif et reprend au prochain tick
+      // après le signal de fin de geste.
+      if (gestureActiveRef.current) return;
 
       // `moveBy` est exécuté directement par le moteur natif (iOS/Android),
       // contrairement à `setCamera` qui passe par une file de CameraStops.
@@ -1060,19 +1063,15 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, [spinning]);
 
-  /** Arrête la rotation IMMÉDIATEMENT (ref, pas d'attente de re-render). */
-  const stopSpinImmediate = useCallback(() => {
+  /** Suspend la rotation pendant un vol programmatique, sans basculer
+   *  l'état Play/Pause. Le mode actif reprend au prochain `onMapIdle`. */
+  const suspendSpinForCameraMove = useCallback(() => {
+    gestureActiveRef.current = true;
     if (spinIntervalRef.current) {
       clearInterval(spinIntervalRef.current);
       spinIntervalRef.current = null;
     }
-    setSpinning(false);
   }, []);
-
-  /** Toucher : arrête la rotation immédiatement (clear interval synchrone). */
-  const handleTouchStart = useCallback(() => {
-    if (spinRef.current) stopSpinImmediate();
-  }, [stopSpinImmediate]);
 
   // Ouverture d'un artiste passé en paramètre (recherche / sauvegardés).
   // Garde-fou : ne se rejoue pas à chaque rechargement de map_artists quand
@@ -1302,26 +1301,10 @@ export function ExploreScreen({ navigation, route }: Props) {
           )}
         </View>
       ) : (
-        // Le moindre contact arrête la rotation, en phase de CAPTURE.
-        //
-        // `onTouchStart` seul ne suffisait pas : la MapView est un composant
-        // natif qui consomme le geste avant que le système tactile de React
-        // Native ne le voie, donc le handler du parent ne se déclenchait pas
-        // — il fallait mettre la rotation en pause à la main avant de pouvoir
-        // manipuler le globe. `onStartShouldSetResponderCapture` s'exécute
-        // AVANT que l'enfant ne réclame le toucher ; on renvoie false pour
-        // que la carte reçoive quand même le geste normalement.
-        <View
-          style={StyleSheet.absoluteFill}
-          onStartShouldSetResponderCapture={() => {
-            handleTouchStart();
-            return false;
-          }}
-          onMoveShouldSetResponderCapture={() => {
-            handleTouchStart();
-            return false;
-          }}
-        >
+        // Le geste tactile reste entièrement pris en charge par Mapbox. Il
+        // suspend seulement le tick de rotation via `gestures.isGestureActive`
+        // ; seul le bouton Play/Pause modifie l'état de rotation.
+        <View style={StyleSheet.absoluteFill}>
         <Mapbox.MapView
         // La clé change dès que le style de marque est prêt — sur natif AUSSI.
         // Elle valait 'native-map' en dur : la MapView recevait `styleURL`
@@ -1343,7 +1326,6 @@ export function ExploreScreen({ navigation, route }: Props) {
         logoEnabled={false}
         attributionEnabled={false}
         onPress={() => {
-          setSpinning(false);
           if (selected) {
             if (selectedPlace) {
               setVisiblePins(selectedPlace.artists);
@@ -1357,18 +1339,20 @@ export function ExploreScreen({ navigation, route }: Props) {
           }
           setSelected(null);
         }}
-        onMapIdle={loadRegion}
+        onMapIdle={(event) => {
+          gestureActiveRef.current = false;
+          loadRegion(event);
+        }}
         // Pendant un vol, le zoom évolue en continu : on met à jour le niveau
         // de cluster dès qu'un seuil est franchi (pays → villes → groupes →
         // pins) pour que les clusters se scindent progressivement, comme le
         // zoom tick du globe web. On ne met à jour que sur changement de
         // niveau discret pour éviter un re-render par frame.
         onCameraChanged={({ properties, gestures }) => {
-          // Natif : un geste actif (drag/pinch) arrête la rotation
-          // immédiatement (clear synchrone de l'intervalle).
-          if (gestures?.isGestureActive && spinRef.current) {
-            stopSpinImmediate();
-          }
+          // Natif : pendant un drag/pinch, Mapbox est l'unique écrivain de la
+          // caméra. On ne désactive pas le mode rotation : il reprend dès que
+          // le geste est terminé (ou au prochain `onMapIdle`).
+          if (gestures?.isGestureActive) gestureActiveRef.current = true;
           // Le centre suit le geste EN CONTINU. Il n'était rafraîchi qu'à
           // `onMapIdle` : en relançant la rotation, on repartait de la position
           // d'avant le déplacement et le globe sautait en arrière — le fameux
