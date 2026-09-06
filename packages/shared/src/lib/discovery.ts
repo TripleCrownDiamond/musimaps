@@ -3,6 +3,7 @@ import { triggerDiscoveryNotification } from './notifications'
 import type { Artist, ArtistEvent } from '../index'
 import { countryByName } from '../geo'
 import { rankArtistResults } from './search'
+import { fetchLlmConfig, isLlmEnabled, type LlmConfig } from './llm'
 
 /**
  * MusicBrainz exige un User-Agent descriptif (identification du client) :
@@ -857,7 +858,12 @@ export async function searchArtistOnline(
   const q = normalizeArtistSearchQuery(query)
   if (!q) return []
 
+  // La configuration publiée est commune au web et au mobile. On la charge
+  // en parallèle de MusicBrainz pour ne pas ajouter de latence au premier
+  // résultat et pour pouvoir couper proprement les appels IA depuis l'admin.
+  const llmPromise = fetchLlmConfig()
   const mbResults = await searchMusicBrainz(q, signal)
+  const llm = await llmPromise
 
   // MusicBrainz insuffisant → secours Wikipedia/Wikidata.
   let fallback: DiscoveredArtist[] = []
@@ -915,9 +921,9 @@ export async function searchArtistOnline(
   const hasRealBio = merged.some(
     (m) => m.bio && m.bio.length > 60 && !m.bio.includes('Musibrainz'),
   )
-  if (!signal?.aborted && (merged.length < 3 || !hasRealBio)) {
+  if (!signal?.aborted && isLlmEnabled(llm) && (merged.length < 3 || !hasRealBio)) {
     try {
-      const deep = await agentDeepSearch(q)
+      const deep = await agentDeepSearch(q, llm)
       const already =
         deep &&
         merged.some(
@@ -932,13 +938,15 @@ export async function searchArtistOnline(
   // Vérification IA (Mistral) des candidats consolidés : filtrage intelligent
   // des non-musiciens + normalisation genre/bio. Aucun résultat « brut » ne
   // sort : le repli local exige au minimum deux sources indépendantes.
-  try {
-    const verified = await aiVerifyCandidates(merged)
-    // `verified === null` → vérification indisponible : le croisement local
-    // reste obligatoire. `[]` signifie que l'IA a écarté tous les candidats.
-    if (verified !== null) return rankArtistResults(verified, q).map((item) => item.artist)
-  } catch {
-    /* repli local multi-source ci-dessous */
+  if (isLlmEnabled(llm)) {
+    try {
+      const verified = await aiVerifyCandidates(merged, llm)
+      // `verified === null` → vérification indisponible : le croisement local
+      // reste obligatoire. `[]` signifie que l'IA a écarté tous les candidats.
+      if (verified !== null) return rankArtistResults(verified, q).map((item) => item.artist)
+    } catch {
+      /* repli local multi-source ci-dessous */
+    }
   }
   return rankArtistResults(merged.filter(hasCrossSourceEvidence), q).map((item) => item.artist)
 }
@@ -982,7 +990,7 @@ const agentQueryCache = new Map<
   { at: number; artist: DiscoveredArtist | null }
 >()
 const AGENT_QUERY_TTL_MS = 10 * 60 * 1000
-async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> {
+async function agentDeepSearch(query: string, config: LlmConfig): Promise<DiscoveredArtist | null> {
   const supabase = getSupabase()
 
   if (!supabase) return null
@@ -990,7 +998,11 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
   const cached = agentQueryCache.get(cacheKey)
   if (cached && Date.now() - cached.at <= AGENT_QUERY_TTL_MS) return cached.artist
   const invoke = supabase.functions.invoke('ai_artist_agent', {
-    body: { query, maxSteps: 8 },
+    body: {
+      query,
+      maxSteps: config.maxSteps,
+      llm: { provider: config.provider, model: config.model },
+    },
   })
   const timeout = new Promise<'timeout'>((resolve) =>
     setTimeout(() => resolve('timeout'), 9000),
@@ -1074,12 +1086,14 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
  */
 async function aiVerifyCandidates(
   artists: DiscoveredArtist[],
+  config: LlmConfig,
 ): Promise<DiscoveredArtist[] | null> {
   const supabase = getSupabase()
 
   if (!supabase || artists.length === 0) return null
   const invoke = supabase.functions.invoke('ai_verify', {
     body: {
+      llm: { provider: config.provider, model: config.model },
       artists: artists.map((a) => ({
         id: a.id,
         name: a.name,
@@ -1171,9 +1185,16 @@ export async function aiReviewArtists(
   if (!supabase || artists.length === 0) {
     return { ok: false, error: 'Supabase non configuré', results: [] }
   }
+  const config = await fetchLlmConfig()
+  if (!isLlmEnabled(config)) {
+    // Code stable traduit par l'interface admin ; le shared ne porte aucune
+    // chaîne visible liée à une plateforme ou à une langue.
+    return { ok: false, error: 'llm_disabled', results: [] }
+  }
   try {
     const { data, error } = await supabase.functions.invoke('ai_verify', {
       body: {
+        llm: { provider: config.provider, model: config.model },
         artists: artists.map((a) => ({
           id: a.id,
           name: a.name,

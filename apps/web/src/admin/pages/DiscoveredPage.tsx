@@ -353,7 +353,7 @@ export default function DiscoveredPage() {
       )
       if (!result.ok) {
         toast.error(t('d.ai.failed'), {
-          description: result.error,
+          description: result.error === 'llm_disabled' ? t('d.ai.disabled') : result.error,
         })
         setAiBusy(false)
         return

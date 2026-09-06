@@ -259,6 +259,12 @@ role: 'all',
     openSignup: true,
     closedSignupMessage:
       'Account creation opens after launch. Your spot on the map is reserved if you are on the waitlist.',
+    llm: {
+      enabled: true,
+      provider: 'mistral',
+      model: 'mistral-small-latest',
+      maxSteps: 8,
+    },
   },
   onboarding: {
     slides: [

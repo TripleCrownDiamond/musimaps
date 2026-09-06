@@ -23,6 +23,7 @@ const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') ?? ''
 const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') ?? ''
 const MODEL = Deno.env.get('MISTRAL_MODEL') ?? 'mistral-small-latest'
+const MODEL_RE = /^[a-z0-9][a-z0-9._-]{1,99}$/i
 const UA = 'Musimaps/1.0 (https://musimaps.com; ai-artist-agent)'
 
 const ALLOWED_ORIGIN = 'https://musimaps.com'
@@ -355,7 +356,17 @@ Règles :
 
 Réponds UNIQUEMENT en JSON : {"verdict":"keep|review|reject","reason":"1 ligne fr","genre":"...","bio":"..."}`
 
-async function mistralVerdict(candidate: any) {
+function modelFromBody(body: unknown): string {
+  if (!body || typeof body !== 'object') return MODEL
+  const llm = (body as Record<string, unknown>).llm
+  if (!llm || typeof llm !== 'object') return MODEL
+  const requested = (llm as Record<string, unknown>).model
+  return typeof requested === 'string' && MODEL_RE.test(requested.trim())
+    ? requested.trim()
+    : MODEL
+}
+
+async function mistralVerdict(candidate: any, model: string) {
   if (!MISTRAL_KEY) return null
   const payload = {
     name: candidate.name,
@@ -376,7 +387,7 @@ async function mistralVerdict(candidate: any) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model,
       temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
@@ -402,7 +413,7 @@ async function mistralVerdict(candidate: any) {
 /* ---------------------------------------------------------------- */
 /* Boucle de l'agent                                                 */
 /* ---------------------------------------------------------------- */
-async function runAgent(query: string, maxSteps: number) {
+async function runAgent(query: string, maxSteps: number, model: string) {
   const state: any = { query, candidate: null, status: 'partial', verdict: null, log: [] }
   let steps = 0
   const step = async (fn: () => Promise<void>) => {
@@ -487,7 +498,7 @@ async function runAgent(query: string, maxSteps: number) {
 
   // 6. VERDICT IA
   try {
-    const v = await mistralVerdict(state.candidate)
+    const v = await mistralVerdict(state.candidate, model)
     if (v) {
       const sourceCount = [
         state.candidate.evidence.musicbrainz,
@@ -529,8 +540,18 @@ Deno.serve(async (req) => {
     const query = String(body?.query ?? '').trim().slice(0, 120)
     if (!query) return json({ ok: false, error: 'query manquante' }, 400, cors)
     const maxSteps = Math.min(12, Math.max(1, Number(body?.maxSteps ?? 8) || 8))
+    const llm = body && typeof body === 'object'
+      ? (body as Record<string, unknown>).llm
+      : null
+    const provider = llm && typeof llm === 'object'
+      ? (llm as Record<string, unknown>).provider
+      : null
+    if (provider && provider !== 'mistral') {
+      return json({ ok: false, error: 'Fournisseur LLM non pris en charge.' }, 400, cors)
+    }
+    const model = modelFromBody(body)
 
-    const state = await runAgent(query, maxSteps)
+    const state = await runAgent(query, maxSteps, model)
     return json({
       ok: true,
       status: state.status,

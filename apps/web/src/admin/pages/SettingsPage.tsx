@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { ShieldPlus, Trash2 } from 'lucide-react'
+import { Bot, ShieldPlus, Trash2 } from 'lucide-react'
+import {
+  DEFAULT_LLM_CONFIG,
+  LLM_MAX_STEPS,
+  LLM_MIN_STEPS,
+  type LlmConfig,
+} from '@musimaps/shared'
 import type { SettingsContent } from '@/lib/cms'
 import { useSection } from '../useSection'
+import { useAdminT } from '../i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, TextAreaInput, TextInput } from '../components/fields'
 import { LangSwitch } from '../components/LangSwitch'
 import { PublishBar } from '../components/PublishBar'
 
 export default function SettingsPage() {
+  const { t } = useAdminT()
   const [lang, setLang] = useState<'fr' | 'en'>('fr')
   const section = useSection('settings', lang)
   const [draft, setDraft] = useState<SettingsContent | null>(null)
@@ -34,6 +43,16 @@ export default function SettingsPage() {
 
   const set = (patch: Partial<SettingsContent>) =>
     setDraft((d) => (d ? { ...d, ...patch } : d))
+
+  const setLlm = (patch: Partial<LlmConfig>) =>
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            llm: { ...DEFAULT_LLM_CONFIG, ...(d.llm ?? {}), ...patch },
+          }
+        : d,
+    )
 
   const save = async () => {
     if (!draft) return { ok: false, error: 'Aucun contenu à enregistrer' }
@@ -69,6 +88,8 @@ export default function SettingsPage() {
       <div className="py-16 text-center text-sm text-muted-foreground">Chargement…</div>
     )
   }
+
+  const llm = draft.llm ?? DEFAULT_LLM_CONFIG
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -112,6 +133,64 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {lang === 'fr' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Bot className="size-5 text-muted-foreground" />
+              {t('settings.llm.title')}
+            </CardTitle>
+            <CardDescription>{t('settings.llm.desc')}</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4">
+            <label className="flex items-center justify-between gap-4 rounded-xl border p-4">
+              <span>
+                <span className="block text-sm font-medium">{t('settings.llm.enabled')}</span>
+                <span className="block text-xs text-muted-foreground">
+                  {t('settings.llm.enabledDesc')}
+                </span>
+              </span>
+              <Switch
+                checked={llm.enabled}
+                onCheckedChange={(checked) => setLlm({ enabled: checked })}
+                aria-label={t('settings.llm.enabled')}
+              />
+            </label>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label={t('settings.llm.provider')}>
+                <Input value={t('settings.llm.providerMistral')} disabled />
+              </Field>
+              <Field label={t('settings.llm.model')} hint={t('settings.llm.modelHint')}>
+                <TextInput
+                  value={llm.model}
+                  onChange={(model) => setLlm({ model })}
+                  placeholder="mistral-small-latest"
+                />
+              </Field>
+            </div>
+            <Field label={t('settings.llm.maxSteps')} hint={t('settings.llm.maxStepsHint')}>
+              <Input
+                type="number"
+                min={LLM_MIN_STEPS}
+                max={LLM_MAX_STEPS}
+                step={1}
+                value={String(llm.maxSteps)}
+                onChange={(event) => {
+                  const value = Number(event.target.value)
+                  if (!Number.isFinite(value)) return
+                  setLlm({
+                    maxSteps: Math.min(
+                      LLM_MAX_STEPS,
+                      Math.max(LLM_MIN_STEPS, Math.round(value)),
+                    ),
+                  })
+                }}
+              />
+            </Field>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

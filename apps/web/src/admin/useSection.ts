@@ -8,6 +8,7 @@ import {
 } from '@/lib/cms'
 import type { Lang } from '@/i18n/translations'
 import { useCms } from '@/context/CmsContext'
+import { resetLlmConfigCache } from '@musimaps/shared'
 
 export interface SectionResult {
   draft: unknown
@@ -61,6 +62,7 @@ export function useSection(key: ContentKey, lang: Lang = 'fr'): SectionResult {
   const publish = useCallback(async () => {
     const result = await publishContent(key)
     if (result.ok) {
+      if (key === 'settings') resetLlmConfigCache()
       await reload()
       // Met à jour le contenu visible (SEO, landing…) côté public.
       await reloadPublic()

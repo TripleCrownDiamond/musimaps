@@ -20,6 +20,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') ?? ''
 const MODEL = Deno.env.get('MISTRAL_MODEL') ?? 'mistral-small-latest'
+const MODEL_RE = /^[a-z0-9][a-z0-9._-]{1,99}$/i
 
 const ALLOWED_ORIGIN = 'https://musimaps.com'
 
@@ -85,6 +86,17 @@ function validProjectKey(key: string): boolean {
   }
 }
 
+/** Le modèle peut être piloté par le CMS, mais reste borné à un identifiant. */
+function modelFromBody(body: unknown): string {
+  if (!body || typeof body !== 'object') return MODEL
+  const llm = (body as Record<string, unknown>).llm
+  if (!llm || typeof llm !== 'object') return MODEL
+  const requested = (llm as Record<string, unknown>).model
+  return typeof requested === 'string' && MODEL_RE.test(requested.trim())
+    ? requested.trim()
+    : MODEL
+}
+
 function extractJson(content: string): unknown {
   let text = content.trim()
   const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
@@ -115,6 +127,16 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'MISTRAL_API_KEY non configurée (npx supabase secrets set MISTRAL_API_KEY=…)' }, 503, cors)
     }
     const body = await req.json().catch(() => null)
+    const llm = body && typeof body === 'object'
+      ? (body as Record<string, unknown>).llm
+      : null
+    const provider = llm && typeof llm === 'object'
+      ? (llm as Record<string, unknown>).provider
+      : null
+    if (provider && provider !== 'mistral') {
+      return json({ ok: false, error: 'Fournisseur LLM non pris en charge.' }, 400, cors)
+    }
+    const model = modelFromBody(body)
     const artists = Array.isArray(body?.artists) ? body.artists : []
     if (artists.length === 0) return json({ ok: true, results: [] }, 200, cors)
 
@@ -139,7 +161,7 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         temperature: 0,
         response_format: { type: 'json_object' },
         messages: [

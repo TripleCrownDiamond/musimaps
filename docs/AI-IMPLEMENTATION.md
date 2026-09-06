@@ -203,7 +203,20 @@ npx supabase functions deploy ai_artist_agent
 npx supabase secrets set MISTRAL_API_KEY=xxx MAPBOX_TOKEN=xxx
 ```
 
-### 8.3 Carte — dés-empilement des pins
+### 8.3 Réglages LLM dans l'admin
+
+La page **Admin → Réglages** expose la configuration publique du moteur :
+interrupteur, modèle Mistral et nombre maximal d'étapes de l'agent (1 à 12).
+Après **Enregistrer** puis **Publier**, le web et l'application mobile lisent
+la même valeur `settings.llm` depuis `site_content_public`, via le helper
+`@musimaps/shared`. Les clés (`MISTRAL_API_KEY`, `MAPBOX_TOKEN`) restent dans
+les secrets des Edge Functions et ne sont jamais publiées au client.
+
+Les fonctions `ai_verify` et `ai_artist_agent` acceptent le modèle publié dans
+la requête (avec validation de l'identifiant) ; leurs mises à jour doivent être
+redéployées dans Supabase après une modification du code.
+
+### 8.4 Carte — dés-empilement des pins
 
 Les localisations étant des géocodages de ville (pas précises à la rue
 près), des artistes d'une même ville seraient parfaitement empilés. Niveaux

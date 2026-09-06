@@ -35,7 +35,7 @@ export interface WaitlistProfile {
  * qui pilote le web ET le mobile. On ne le redéfinit plus ici — cette copie
  * n'avait que 3 métriques et ignorait le rôle.
  */
-import type { BadgeDef, BadgeRule } from '@musimaps/shared'
+import type { BadgeDef, BadgeRule, LlmConfig } from '@musimaps/shared'
 
 export type BadgeCondition = BadgeRule
 export type BadgeDefinition = BadgeDef
@@ -196,6 +196,8 @@ export interface SettingsContent {
   latestAppVersion?: string
   /** Ce qui change dans cette version, affiché dans la fenêtre. */
   updateMessage?: string
+  /** Configuration publique du moteur IA, lue par le web et l'app mobile. */
+  llm: LlmConfig
 }
 
 /** Une slide de l'onboarding mobile (icône lucide + textes, par langue). */
@@ -507,6 +509,12 @@ role: 'all',
     openSignup: true,
     closedSignupMessage:
       'La création de compte ouvrira après le lancement. Votre place sur la carte est réservée si vous êtes sur la liste d’attente.',
+    llm: {
+      enabled: true,
+      provider: 'mistral',
+      model: 'mistral-small-latest',
+      maxSteps: 8,
+    },
   },
   onboarding: {
     slides: [

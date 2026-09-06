@@ -20,6 +20,7 @@ export * from './lib/gamification'
 export * from './lib/waitlist'
 export * from './lib/referral'
 export * from './lib/discovery'
+export * from './lib/llm'
 export * from './map'
 export * from './map/style'
 
