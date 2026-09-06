@@ -60,6 +60,7 @@ import {
   MAX_ZOOM,
   PIN_LABEL_ZOOM,
   pinOpacityFor,
+  pinRingWidthFor,
   pinScaleFor,
   POPULARITY_RING_COLORS,
   renderedPosition,
@@ -1546,6 +1547,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       borderRadius: ringSize / 2,
                       top: (mapUi.markerTouchHeight - ringSize) / 2,
                       left: (mapUi.markerTouchWidth - ringSize) / 2,
+                      borderWidth: selectedPin ? 3 : pinRingWidthFor(pin.tier),
                       borderColor:
                         selectedPin
                           ? colors.brandSecondary

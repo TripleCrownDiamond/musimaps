@@ -14,7 +14,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Artist } from '../index';
-import { PIN_LAYOUT_ZOOM, declump, firstRenderedPosition, renderedPosition } from './index';
+import {
+  PIN_LAYOUT_ZOOM,
+  TIER_RING_WIDTH,
+  declump,
+  firstRenderedPosition,
+  pinRingWidthFor,
+  renderedPosition,
+} from './index';
 
 /** Artiste minimal posé sur une coordonnée donnée. */
 const at = (id: string, name: string, coordinates: [number, number]): Artist => ({
@@ -43,6 +50,15 @@ describe('PIN_LAYOUT_ZOOM', () => {
   it('est une valeur unique et exploitable', () => {
     expect(Number.isFinite(PIN_LAYOUT_ZOOM)).toBe(true);
     expect(PIN_LAYOUT_ZOOM).toBeGreaterThan(0);
+  });
+});
+
+describe('anneaux de popularité', () => {
+  it('augmente l\'épaisseur avec chaque niveau pour rester lisible', () => {
+    expect(TIER_RING_WIDTH[0]).toBeLessThan(TIER_RING_WIDTH[1]);
+    expect(TIER_RING_WIDTH[1]).toBeLessThan(TIER_RING_WIDTH[2]);
+    expect(TIER_RING_WIDTH[2]).toBeLessThan(TIER_RING_WIDTH[3]);
+    expect(pinRingWidthFor(3)).toBe(TIER_RING_WIDTH[3]);
   });
 });
 

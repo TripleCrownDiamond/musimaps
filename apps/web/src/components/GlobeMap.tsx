@@ -32,6 +32,7 @@ import {
   type MapTheme,
   tierOf,
   TIER_SIZE_FACTOR,
+  pinRingWidthFor,
   type ClusterLevel,
   type PopularityMap,
   type PopularityTier,
@@ -143,7 +144,12 @@ function pinTierVars(tier: PopularityTier, zoom: number) {
   const color = POPULARITY_RING_COLORS[tier]
   // Le lime (tier 3) demande une encre sombre ; les autres, du blanc.
   const ink = tier === 3 ? '#0b1420' : '#ffffff'
-  return { bg: color, glow: hexToRgba(color, pinGlowFor(zoom, tier)), ink }
+  return {
+    bg: color,
+    glow: hexToRgba(color, pinGlowFor(zoom, tier)),
+    ink,
+    ringWidth: pinRingWidthFor(tier),
+  }
 }
 
 export interface ClusterPlace {
@@ -546,6 +552,7 @@ export default function GlobeMap({
           el.style.setProperty('--pin-tier-color', tierVars.bg)
           el.style.setProperty('--pin-tier-glow', tierVars.glow)
           el.style.setProperty('--pin-ink', tierVars.ink)
+          el.style.setProperty('--pin-tier-ring-width', `${tierVars.ringWidth}px`)
         }
       }
       wrapper.appendChild(el)
@@ -613,6 +620,7 @@ export default function GlobeMap({
       el.style.setProperty('--pin-tier-glow', tierVars.glow)
       el.style.setProperty('--pin-ink', tierVars.ink)
       el.style.setProperty('--pin-tier-size', String(TIER_SIZE_FACTOR[tier]))
+      el.style.setProperty('--pin-tier-ring-width', `${tierVars.ringWidth}px`)
       const tip = document.createElement('span')
       tip.className = 'artist-pin__tooltip'
       tip.textContent = artist.name

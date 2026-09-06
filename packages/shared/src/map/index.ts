@@ -265,6 +265,24 @@ export const TIER_SIZE_FACTOR: Record<PopularityTier, number> = {
   3: 1.3,
 };
 
+/**
+ * Épaisseur visuelle de l'anneau par niveau de popularité (px).
+ *
+ * La couleur seule se perd sur une photo, une terre claire ou un écran
+ * extérieur. L'épaisseur ajoute donc un second signal perceptible, identique
+ * sur le web et le mobile, sans transformer les pins en grosses bulles.
+ */
+export const TIER_RING_WIDTH: Record<PopularityTier, number> = {
+  0: 1.5,
+  1: 2,
+  2: 2.5,
+  3: 3,
+};
+
+export function pinRingWidthFor(tier: PopularityTier): number {
+  return TIER_RING_WIDTH[tier];
+}
+
 /** Échelle de base liée au zoom : minuscule de loin, pleine taille à l'approche. */
 export function pinZoomScale(zoom: number): number {
   return Math.min(1.15, Math.max(0.22, 0.22 + (zoom - 1) * 0.07));

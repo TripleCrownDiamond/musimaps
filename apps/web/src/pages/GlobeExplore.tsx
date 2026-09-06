@@ -9,7 +9,22 @@ import RotateToggle from '../components/RotateToggle'
 import AdminArtistEditor from '../components/AdminArtistEditor'
 import { currentUserEmail, isAdminUser } from '../lib/admin'
 import type { Artist } from '@musimaps/shared'
-import { CAMERA, COUNTRIES, countryByName, distanceKm, flagFor, geoCountryOf, isScopeArmed, NEIGHBORHOOD_RADIUS_DEG, renderedPosition, shouldReleaseScope, PIN_LAYOUT_ZOOM } from '@musimaps/shared'
+import {
+  CAMERA,
+  COUNTRIES,
+  countryByName,
+  distanceKm,
+  flagFor,
+  geoCountryOf,
+  isScopeArmed,
+  NEIGHBORHOOD_RADIUS_DEG,
+  renderedPosition,
+  shouldReleaseScope,
+  PIN_LAYOUT_ZOOM,
+  POPULARITY_RING_COLORS,
+  TIER_RING_WIDTH,
+  type PopularityTier,
+} from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
 import { useCms } from '../context/CmsContext'
@@ -932,12 +947,28 @@ export default function GlobeExplore() {
             <div className="rounded-2xl bg-secondary-bg p-3">
               <p className="mb-2 text-[11px] font-bold uppercase tracking-[.12em] text-secondary-text">{t('globe.guidePopularity')}</p>
               <div className="grid grid-cols-4 gap-2 text-center text-[10px] font-semibold text-secondary-text">
-                {[
-                  ['#7C8698', t('globe.guideTierNew')],
-                  ['#2F52E0', t('globe.guideTierKnown')],
-                  ['#1E3AA8', t('globe.guideTierPopular')],
-                  ['#A8FF35', t('globe.guideTierStar')],
-                ].map(([color, label]) => <div key={color}><span className="mx-auto mb-1 block h-3 w-3 rounded-full ring-2 ring-white/70" style={{ backgroundColor: color }} />{label}</div>)}
+                {(
+                  [
+                    [0, t('globe.guideTierNew')],
+                    [1, t('globe.guideTierKnown')],
+                    [2, t('globe.guideTierPopular')],
+                    [3, t('globe.guideTierStar')],
+                  ] as const
+                ).map(([tier, label]) => (
+                  <div key={tier}>
+                    <span
+                      className="mx-auto mb-1 block h-5 w-5 rounded-full"
+                      style={{
+                        borderColor: POPULARITY_RING_COLORS[tier as PopularityTier],
+                        borderStyle: 'solid',
+                        borderWidth: `${TIER_RING_WIDTH[tier as PopularityTier]}px`,
+                        backgroundColor: 'var(--map-pin-casing)',
+                        boxShadow: '0 0 0 1px var(--map-pin-casing), 0 0 8px var(--pin-tier-glow, transparent)',
+                      }}
+                    />
+                    {label}
+                  </div>
+                ))}
               </div>
             </div>
             <p className="border-t border-hairline pt-3 text-xs leading-relaxed text-secondary-text">{t('globe.guideZoom')}</p>

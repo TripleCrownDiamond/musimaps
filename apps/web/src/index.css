@@ -368,7 +368,7 @@
   position: absolute;
   inset: -6px;
   border-radius: 9999px;
-  border: 2px solid var(--pin-tier-color, transparent);
+  border: var(--pin-tier-ring-width, 2px) solid var(--pin-tier-color, transparent);
   /* L'anneau de tier subit le même sort que le disque : le lime du tier 3 se
      confond avec la terre claire. Un liseré 1px de part et d'autre le
      détache du fond sans en changer la couleur, qui porte du sens. */
