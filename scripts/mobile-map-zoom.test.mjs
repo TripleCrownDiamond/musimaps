@@ -76,15 +76,15 @@ test('l’adaptateur Expo Web ne laisse pas réapparaître le branding Mapbox', 
   assert.match(source, /document\.createElement\('style'\)/);
 });
 
-test('la recherche du globe est ancrée en haut et supprime le contour natif mobile', () => {
-  assert.match(source, /searchPanel: \{[^}]*justifyContent: 'flex-start'/);
-  assert.match(source, /sheet: \{\s*flex: 1,/);
-  assert.match(source, /paddingTop: insets\.top \+ 12/);
-  assert.match(source, /outputRange: \[-28, 0\]/);
+test('la recherche reste en bas et remonte les résultats au-dessus des contrôles', () => {
+  assert.match(source, /searchPanel: \{[^}]*justifyContent: 'flex-end'/);
+  assert.match(source, /sheet: \{\s*height: '62%',/);
+  assert.match(source, /sheetWithQuery: \{ flexDirection: 'column-reverse' \}/);
+  assert.match(source, /outputRange: \[28, 0\]/);
   assert.match(source, /input:focus/);
-  assert.match(webExploreSource, /absolute inset-0 z-40 bg-black\/20 backdrop-blur-sm/);
-  assert.match(webExploreSource, /absolute inset-0 z-0 h-full w-full/);
-  assert.match(webExploreSource, /sheet-in-top relative z-10 mx-auto w-full max-w-2xl rounded-b/);
+  assert.match(webExploreSource, /absolute inset-0 z-40 flex flex-col justify-end bg-black\/20 backdrop-blur-sm/);
+  assert.match(webExploreSource, /flex w-full flex-col \$\{query\.trim\(\) \? 'flex-col-reverse' : ''\}/);
+  assert.match(webExploreSource, /sheet-in relative z-10 mx-auto w-full max-w-2xl rounded-t/);
 });
 
 test('les étincelles pays/ville restent visibles au dézoom', () => {

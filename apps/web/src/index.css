@@ -780,15 +780,6 @@
   animation: sheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes sheetInTop {
-  from { transform: translateY(-24px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-.sheet-in-top {
-  animation: sheetInTop 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 /* Masque la barre de défilement verticale des panneaux (ex. recherche). */
 .no-scrollbar {
   scrollbar-width: none;

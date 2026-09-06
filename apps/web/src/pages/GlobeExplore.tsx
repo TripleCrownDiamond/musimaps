@@ -1085,11 +1085,11 @@ export default function GlobeExplore() {
 
       {/* Panneau de recherche */}
       {searchOpen && (
-        <div className="absolute inset-0 z-40 bg-black/20 backdrop-blur-sm">
+        <div className="absolute inset-0 z-40 flex flex-col justify-end bg-black/20 backdrop-blur-sm">
           <button
             type="button"
             aria-label={t('globe.closeSearch')}
-            className="absolute inset-0 z-0 h-full w-full"
+            className="w-full flex-1"
             onClick={() => {
               // Ferme le panneau en gardant les pins de la dernière cible :
               // jamais de retour à « tous les artistes ».
@@ -1097,52 +1097,54 @@ export default function GlobeExplore() {
               setQuery('')
             }}
           />
-          <div className="sheet-in-top relative z-10 mx-auto w-full max-w-2xl rounded-b-[2rem] bg-surface p-5 shadow-2xl sm:rounded-b-[1.75rem] sm:p-6">
-            <div className="w-full">
-              <div className="relative mb-5 flex items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchOpen(false)
-                    setQuery('')
-                  }}
-                  aria-label={t('globe.back')}
-                  className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full bg-surface shadow-md"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <h2 className="display-font text-lg font-bold">{t('globe.searchPlaceholder')}</h2>
-              </div>
-
-              <div className="relative mb-4 border-t border-hairline pt-5">
-                <Search className="absolute left-5 top-1/2 h-5 w-5 translate-y-1 text-secondary-text" />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    // Entrée : mémorise la requête dans l'historique.
-                    if (e.key === 'Enter') {
-                      rememberQuery(query)
-                      // S'il y a un seul artiste clair, on s'y rend.
-                      if (artistResults.length === 1 && placeResults.length === 0 && genreResults.length === 0) {
-                        goToArtist(artistResults[0], query)
-                      }
-                    }
-                  }}
-                  placeholder={t('globe.searchPh')}
-                  className="w-full rounded-full border border-hairline-strong py-4 pl-14 pr-12 outline-none focus:ring-2 focus:ring-brand-deep"
-                />
-                {query && (
+          <div className="sheet-in relative z-10 mx-auto w-full max-w-2xl rounded-t-[2rem] bg-surface p-5 shadow-2xl sm:mb-6 sm:rounded-[1.75rem] sm:p-6">
+            <div className={`flex w-full flex-col ${query.trim() ? 'flex-col-reverse' : ''}`}>
+              <div className="w-full">
+                <div className="relative mb-5 flex items-center justify-center">
                   <button
                     type="button"
-                    onClick={() => setQuery('')}
-                    aria-label={t('globe.clear')}
-                    className="absolute right-5 top-1/2 translate-y-1 text-secondary-text hover:text-primary-text"
+                    onClick={() => {
+                      setSearchOpen(false)
+                      setQuery('')
+                    }}
+                    aria-label={t('globe.back')}
+                    className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full bg-surface shadow-md"
                   >
-                    <X className="h-5 w-5" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
-                )}
+                  <h2 className="display-font text-lg font-bold">{t('globe.searchPlaceholder')}</h2>
+                </div>
+
+                <div className="relative mb-4 border-t border-hairline pt-5">
+                  <Search className="absolute left-5 top-1/2 h-5 w-5 translate-y-1 text-secondary-text" />
+                  <input
+                    autoFocus
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Entrée : mémorise la requête dans l'historique.
+                      if (e.key === 'Enter') {
+                        rememberQuery(query)
+                        // S'il y a un seul artiste clair, on s'y rend.
+                        if (artistResults.length === 1 && placeResults.length === 0 && genreResults.length === 0) {
+                          goToArtist(artistResults[0], query)
+                        }
+                      }
+                    }}
+                    placeholder={t('globe.searchPh')}
+                    className="w-full rounded-full border border-hairline-strong py-4 pl-14 pr-12 outline-none focus:ring-2 focus:ring-brand-deep"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery('')}
+                      aria-label={t('globe.clear')}
+                      className="absolute right-5 top-1/2 translate-y-1 text-secondary-text hover:text-primary-text"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="no-scrollbar max-h-[45vh] overflow-y-auto">
