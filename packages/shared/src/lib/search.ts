@@ -58,6 +58,44 @@ const WEIGHT_QUALITY = 0.1;
  */
 export const MIN_RELEVANCE = 0.2;
 
+/**
+ * Score de correspondance textuelle pour les listes de recherche locales.
+ * Une égalité exacte ou un préfixe passe avant une simple inclusion ; le score
+ * est volontairement pur pour que web et mobile trient les mêmes éléments.
+ */
+export function searchRelevance(value: string | null | undefined, query: string): number {
+  const candidate = normalize(value ?? '').trim();
+  const needle = normalize(query).trim();
+  if (!candidate || !needle) return 0;
+  if (candidate === needle) return 1;
+  if (candidate.startsWith(needle)) return 0.9;
+  const words = needle.split(' ').filter(Boolean);
+  if (words.length > 1 && words.every((word) => candidate.includes(word))) return 0.8;
+  if (candidate.includes(needle)) return 0.7;
+  return 0;
+}
+
+/** Trie un type de résultat en conservant l’ordre d’origine à score égal. */
+export function rankSearchResults<T>(
+  results: T[],
+  query: string,
+  primary: (result: T) => string | null | undefined,
+  secondary?: (result: T) => string | null | undefined,
+): T[] {
+  return results
+    .map((result, index) => ({
+      result,
+      index,
+      score: Math.max(
+        searchRelevance(primary(result), query),
+        secondary ? searchRelevance(secondary(result), query) * 0.85 : 0,
+      ),
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map(({ result }) => result);
+}
+
+
 /** Mots trop courants pour désigner un lieu dans une requête. */
 const STOP_WORDS = new Set(['de', 'du', 'la', 'le', 'les', 'des', 'the', 'of', 'and', 'et']);
 

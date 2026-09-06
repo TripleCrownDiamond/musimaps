@@ -39,6 +39,7 @@ import {
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
+  rankSearchResults,
   rankArtistResults,
   normalizeArtistSearchQuery,
   searchArtistOnline,
@@ -224,6 +225,8 @@ export default function GlobeExplore() {
       setSearchingWeb(false)
       return
     }
+    setOnlineResults([])
+    setSearchingWeb(false)
     const controller = new AbortController()
     const delay = setTimeout(() => {
       setSearchingWeb(true)
@@ -256,12 +259,14 @@ export default function GlobeExplore() {
       setSearchingNeighborhoods(false)
       return
     }
+    setNeighborhoodResults([])
+    setSearchingNeighborhoods(false)
     const controller = new AbortController()
     const delay = setTimeout(() => {
       setSearchingNeighborhoods(true)
       void searchNeighborhoods(q, controller.signal).then((results) => {
         if (controller.signal.aborted) return
-        setNeighborhoodResults(results)
+        setNeighborhoodResults(rankSearchResults(results, q, (result) => result.name, (result) => `${result.city} ${result.country}`))
         setSearchingNeighborhoods(false)
       })
     }, 350)
@@ -285,7 +290,7 @@ export default function GlobeExplore() {
     const q = norm(query)
     if (!q) return []
     const seen = new Set<string>()
-    return allArtists.filter((a) => {
+    const matches = allArtists.filter((a) => {
       if (seen.has(a.id)) return false
       if (norm(a.name).includes(q)) {
         seen.add(a.id)
@@ -293,6 +298,7 @@ export default function GlobeExplore() {
       }
       return false
     })
+    return rankSearchResults(matches, query, (artist) => artist.name, (artist) => `${artist.city} ${artist.country}`)
   }, [allArtists, query])
 
   /** Lieux (ville + pays) contenant la requête, regroupés et comptés. */
@@ -308,7 +314,7 @@ export default function GlobeExplore() {
       if (current) current.count += 1
       else map.set(key, { city: a.city, country: a.country, flag: a.flag, coordinates: a.coordinates, count: 1 })
     }
-    return [...map.values()]
+    return rankSearchResults([...map.values()], query, (place) => place.city, (place) => place.country)
   }, [allArtists, query])
 
   /** Pays contenant la requête (nom ou code ISO), regroupés et comptés. */
@@ -342,7 +348,7 @@ export default function GlobeExplore() {
           count: 1,
         })
     }
-    return [...map.values()].sort((a, b) => b.count - a.count)
+    return rankSearchResults([...map.values()], query, (country) => country.name, (country) => country.code)
   }, [allArtists, query])
 
   /** Genres musicaux contenant la requête, regroupés et comptés. */
@@ -355,7 +361,7 @@ export default function GlobeExplore() {
       const current = map.get(a.genre)
       map.set(a.genre, { genre: a.genre, count: (current?.count ?? 0) + 1 })
     }
-    return [...map.values()]
+    return rankSearchResults([...map.values()], query, (genre) => genre.genre)
   }, [allArtists, query])
 
   /** Pins affichés en direct pendant la saisie : les artistes dont le nom
@@ -1097,8 +1103,8 @@ export default function GlobeExplore() {
               setQuery('')
             }}
           />
-          <div className="sheet-in relative z-10 mx-auto w-full max-w-2xl rounded-t-[2rem] bg-surface p-5 shadow-2xl sm:mb-6 sm:rounded-[1.75rem] sm:p-6">
-            <div className={`flex w-full flex-col ${query.trim() ? 'flex-col-reverse' : ''}`}>
+          <div className="sheet-in relative z-10 mx-auto h-[62vh] w-full max-w-2xl rounded-t-[2rem] bg-surface p-5 shadow-2xl sm:mb-6 sm:rounded-[1.75rem] sm:p-6">
+            <div className="w-full">
               <div className="w-full">
                 <div className="relative mb-5 flex items-center justify-center">
                   <button
@@ -1262,113 +1268,8 @@ export default function GlobeExplore() {
                     </p>
                   )}
 
-                {countryResults.length > 0 && (
-                  <>
-                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
-                      <Globe2 className="mr-1 inline h-3 w-3" /> {t('globe.countries')}
-                    </h3>
-                    <ul>
-                      {countryResults.map((c) => (
-                        <li key={c.code}>
-                          <button
-                            type="button"
-                            onClick={() => goToCountry(c)}
-                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
-                          >
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-lg">
-                              {c.flag}
-                            </span>
-                            <span className="flex-1">
-                              <span className="block font-medium">{c.name}</span>
-                              <span className="block text-sm text-secondary-text">
-                                {t('globe.countryArtists', {
-                                  count: c.count,
-                                  s: c.count > 1 ? 's' : '',
-                                })}
-                              </span>
-                            </span>
-                            <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
-                              {t('globe.typeCountry')}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
-                {neighborhoodResults.length > 0 && (
-                  <>
-                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
-                      <MapPin className="mr-1 inline h-3 w-3" /> {t('globe.neighborhoods')}
-                    </h3>
-                    <ul>
-                      {neighborhoodResults.map((n) => (
-                        <li key={`${n.name}·${n.lng}·${n.lat}`}>
-                          <button
-                            type="button"
-                            onClick={() => goToNeighborhood(n)}
-                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
-                          >
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
-                              <MapPin className="h-5 w-5" />
-                            </span>
-                            <span className="flex-1">
-                              <span className="block font-medium">{n.name}</span>
-                              <span className="block text-sm text-secondary-text">
-                                {[n.city, n.country].filter(Boolean).join(', ') || '—'}
-                              </span>
-                            </span>
-                            <span className="shrink-0 rounded-full bg-secondary-bg px-2.5 py-1 text-xs font-semibold text-secondary-text">
-                              {t('globe.typeNeighborhood')}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
-                {placeResults.length > 0 && (
-                  <>
-                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
-                      <MapPin className="mr-1 inline h-3 w-3" /> {t('globe.places')}
-                    </h3>
-                    <ul>
-                      {placeResults.map((c) => (
-                        <li key={`${c.city}·${c.country}`}>
-                          <button
-                            type="button"
-                            onClick={() => goToCity(c)}
-                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
-                          >
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
-                              <MapPin className="h-5 w-5" />
-                            </span>
-                            <span className="flex-1">
-                              <span className="block font-medium">
-                                {c.flag} {c.city}
-                              </span>
-                              <span className="block text-sm text-secondary-text">
-                                {c.country} ·{' '}
-                                {t('globe.placeArtists', {
-                                  count: c.count,
-                                  s: c.count > 1 ? 's' : '',
-                                })}
-                              </span>
-                            </span>
-                            <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
-                              {t('globe.typePlace')}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
                 {artistResults.length > 0 && (
-                  <>
+                  <section>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
                       <Mic2 className="mr-1 inline h-3 w-3" /> {t('globe.artists')}
                     </h3>
@@ -1406,11 +1307,116 @@ export default function GlobeExplore() {
                         </li>
                       ))}
                     </ul>
-                  </>
+                  </section>
+                )}
+
+                {countryResults.length > 0 && (
+                  <section>
+                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
+                      <Globe2 className="mr-1 inline h-3 w-3" /> {t('globe.countries')}
+                    </h3>
+                    <ul>
+                      {countryResults.map((c) => (
+                        <li key={c.code}>
+                          <button
+                            type="button"
+                            onClick={() => goToCountry(c)}
+                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
+                          >
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-lg">
+                              {c.flag}
+                            </span>
+                            <span className="flex-1">
+                              <span className="block font-medium">{c.name}</span>
+                              <span className="block text-sm text-secondary-text">
+                                {t('globe.countryArtists', {
+                                  count: c.count,
+                                  s: c.count > 1 ? 's' : '',
+                                })}
+                              </span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
+                              {t('globe.typeCountry')}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {placeResults.length > 0 && (
+                  <section>
+                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
+                      <MapPin className="mr-1 inline h-3 w-3" /> {t('globe.places')}
+                    </h3>
+                    <ul>
+                      {placeResults.map((c) => (
+                        <li key={`${c.city}·${c.country}`}>
+                          <button
+                            type="button"
+                            onClick={() => goToCity(c)}
+                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
+                          >
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
+                              <MapPin className="h-5 w-5" />
+                            </span>
+                            <span className="flex-1">
+                              <span className="block font-medium">
+                                {c.flag} {c.city}
+                              </span>
+                              <span className="block text-sm text-secondary-text">
+                                {c.country} ·{' '}
+                                {t('globe.placeArtists', {
+                                  count: c.count,
+                                  s: c.count > 1 ? 's' : '',
+                                })}
+                              </span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
+                              {t('globe.typePlace')}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {neighborhoodResults.length > 0 && (
+                  <section>
+                    <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
+                      <MapPin className="mr-1 inline h-3 w-3" /> {t('globe.neighborhoods')}
+                    </h3>
+                    <ul>
+                      {neighborhoodResults.map((n) => (
+                        <li key={`${n.name}·${n.lng}·${n.lat}`}>
+                          <button
+                            type="button"
+                            onClick={() => goToNeighborhood(n)}
+                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
+                          >
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
+                              <MapPin className="h-5 w-5" />
+                            </span>
+                            <span className="flex-1">
+                              <span className="block font-medium">{n.name}</span>
+                              <span className="block text-sm text-secondary-text">
+                                {[n.city, n.country].filter(Boolean).join(', ') || '—'}
+                              </span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-secondary-bg px-2.5 py-1 text-xs font-semibold text-secondary-text">
+                              {t('globe.typeNeighborhood')}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 )}
 
                 {genreResults.length > 0 && (
-                  <>
+                  <section>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
                       <Music2 className="mr-1 inline h-3 w-3" /> {t('globe.genres')}
                     </h3>
@@ -1441,12 +1447,12 @@ export default function GlobeExplore() {
                         </li>
                       ))}
                     </ul>
-                  </>
+                  </section>
                 )}
 
                 {/* Suggestions en ligne : artistes pas encore sur la carte */}
                 {(searchingWeb || onlineResults.length > 0) && (
-                  <>
+                  <section>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
                       {t('discovery.title')}
                     </h3>
@@ -1534,7 +1540,7 @@ export default function GlobeExplore() {
                       ))}
                     </ul>
                     )}
-                  </>
+                  </section>
                 )}
               </div>
             </div>

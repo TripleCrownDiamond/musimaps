@@ -6,7 +6,7 @@
  * — ni une fiche sans coordonnées, qu'on ne pourra pas poser sur la carte.
  */
 import { describe, expect, it } from 'vitest';
-import { isPlaceable, parsePlaceTokens, rankArtistResults, type RankableArtist } from './search';
+import { isPlaceable, parsePlaceTokens, rankArtistResults, rankSearchResults, type RankableArtist } from './search';
 
 /** Artiste minimal, complété au cas par cas. */
 const artist = (over: Partial<RankableArtist> & { name: string }): RankableArtist => ({
@@ -169,5 +169,29 @@ describe('rankArtistResults', () => {
     );
     expect(ranked[0].score).toBeGreaterThan(0.9);
     expect(ranked[0].score).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('rankSearchResults', () => {
+  it('place la correspondance exacte avant une inclusion', () => {
+    const ranked = rankSearchResults(
+      [{ label: 'Lagos Music' }, { label: 'Lagos' }],
+      'Lagos',
+      (item) => item.label,
+    );
+    expect(ranked.map((item) => item.label)).toEqual(['Lagos', 'Lagos Music']);
+  });
+
+  it('utilise le champ secondaire pour départager les lieux', () => {
+    const ranked = rankSearchResults(
+      [
+        { city: 'Paris', country: 'États-Unis' },
+        { city: 'Paris', country: 'France' },
+      ],
+      'France',
+      (item) => item.city,
+      (item) => item.country,
+    );
+    expect(ranked[0].country).toBe('France');
   });
 });

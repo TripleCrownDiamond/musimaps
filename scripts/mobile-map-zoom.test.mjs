@@ -76,15 +76,18 @@ test('l’adaptateur Expo Web ne laisse pas réapparaître le branding Mapbox', 
   assert.match(source, /document\.createElement\('style'\)/);
 });
 
-test('la recherche reste en bas et remonte les résultats au-dessus des contrôles', () => {
+test('la recherche reste en bas, garde la searchbox fixe et trie les résultats', () => {
   assert.match(source, /searchPanel: \{[^}]*justifyContent: 'flex-end'/);
   assert.match(source, /sheet: \{\s*height: '62%',/);
-  assert.match(source, /sheetWithQuery: \{ flexDirection: 'column-reverse' \}/);
+  assert.doesNotMatch(source, /resultsScrollTop/);
+  assert.match(source, /style=\{styles\.resultsScroll\}/);
   assert.match(source, /outputRange: \[28, 0\]/);
   assert.match(source, /input:focus/);
   assert.match(webExploreSource, /absolute inset-0 z-40 flex flex-col justify-end bg-black\/20 backdrop-blur-sm/);
-  assert.match(webExploreSource, /flex w-full flex-col \$\{query\.trim\(\) \? 'flex-col-reverse' : ''\}/);
-  assert.match(webExploreSource, /sheet-in relative z-10 mx-auto w-full max-w-2xl rounded-t/);
+  assert.doesNotMatch(webExploreSource, /search-results-top/);
+  assert.match(webExploreSource, /sheet-in relative z-10 mx-auto h-\[62vh\] w-full max-w-2xl rounded-t/);
+  assert.match(webExploreSource, /rankSearchResults\(/);
+  assert.match(source, /rankSearchResults\(/);
 });
 
 test('les étincelles pays/ville restent visibles au dézoom', () => {

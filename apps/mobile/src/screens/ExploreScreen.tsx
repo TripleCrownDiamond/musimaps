@@ -88,6 +88,9 @@ import {
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
+  normalizeArtistSearchQuery,
+  rankArtistResults,
+  rankSearchResults,
   searchArtistOnline,
   searchNeighborhoods,
   toArtist,
@@ -334,7 +337,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     const q = norm(query);
     if (!q) return [];
     const seen = new Set<string>();
-    return allArtists.filter((a) => {
+    const matches = allArtists.filter((a) => {
       if (seen.has(a.id)) return false;
       if (norm(a.name).includes(q)) {
         seen.add(a.id);
@@ -342,6 +345,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       }
       return false;
     });
+    return rankSearchResults(matches, query, (artist) => artist.name, (artist) => `${artist.city} ${artist.country}`);
   }, [allArtists, query]);
 
   const placeResults = useMemo(() => {
@@ -355,7 +359,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       if (current) current.count += 1;
       else map.set(key, { city: a.city, country: a.country, flag: a.flag, coordinates: a.coordinates, count: 1 });
     }
-    return [...map.values()];
+    return rankSearchResults([...map.values()], query, (place) => place.city, (place) => place.country);
   }, [allArtists, query]);
 
   const countryResults = useMemo(() => {
@@ -377,7 +381,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       if (current) current.count += 1;
       else map.set(code, { code, name, flag, coordinates: a.coordinates, count: 1 });
     }
-    return [...map.values()].sort((a, b) => b.count - a.count);
+    return rankSearchResults([...map.values()], query, (country) => country.name, (country) => country.code);
   }, [allArtists, query]);
 
   const genreResults = useMemo(() => {
@@ -389,7 +393,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       const current = map.get(a.genre);
       map.set(a.genre, { genre: a.genre, count: (current?.count ?? 0) + 1 });
     }
-    return [...map.values()];
+    return rankSearchResults([...map.values()], query, (genre) => genre.genre);
   }, [allArtists, query]);
 
   /** Pins affichés en direct pendant la saisie (jamais « tous »). */
@@ -442,12 +446,15 @@ export function ExploreScreen({ navigation, route }: Props) {
       setSearchingWeb(false);
       return;
     }
+    setOnlineResults([]);
+    setSearchingWeb(false);
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setSearchingWeb(true);
       void searchArtistOnline(q, controller.signal).then((found) => {
         if (controller.signal.aborted) return;
-        setOnlineResults(found.filter((r) => !knownNames.has(r.name.trim().toLowerCase())));
+        const candidates = found.filter((r) => !knownNames.has(r.name.trim().toLowerCase()));
+        setOnlineResults(rankArtistResults(candidates, normalizeArtistSearchQuery(q)).map((result) => result.artist));
         setSearchingWeb(false);
       });
     }, 450);
@@ -465,12 +472,14 @@ export function ExploreScreen({ navigation, route }: Props) {
       setSearchingNeighborhoods(false);
       return;
     }
+    setNeighborhoodResults([]);
+    setSearchingNeighborhoods(false);
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setSearchingNeighborhoods(true);
       void searchNeighborhoods(q, controller.signal).then((found) => {
         if (controller.signal.aborted) return;
-        setNeighborhoodResults(found);
+        setNeighborhoodResults(rankSearchResults(found, q, (result) => result.name, (result) => `${result.city} ${result.country}`));
         setSearchingNeighborhoods(false);
       });
     }, 350);
@@ -1698,7 +1707,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         </View>
       )}
 
-      {/* Panneau de recherche en bas : les résultats remontent au-dessus des contrôles */}
+      {/* Panneau de recherche en bas : searchbox fixe, résultats triés par pertinence */}
       {searchOpen && (
         <View style={styles.searchPanel}>
           <Pressable
@@ -1724,7 +1733,6 @@ export function ExploreScreen({ navigation, route }: Props) {
                   },
                 ],
               },
-              query.trim() ? styles.sheetWithQuery : null,
             ]}
           >
             <View style={styles.searchControls}>
@@ -1845,85 +1853,6 @@ export function ExploreScreen({ navigation, route }: Props) {
                 <Text style={styles.noResults}>{t('globe.noResults', { query })}</Text>
               )}
 
-              {countryResults.length > 0 && (
-                <>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="globe-outline" size={13} color={colors.inkSoft} />
-                    <Text style={styles.sectionLabel}>{t('globe.countries')}</Text>
-                  </View>
-                  {countryResults.map((c) => (
-                    <Pressable key={c.code} style={styles.resultRow} onPress={() => goToCountry(c)}>
-                      <View style={styles.resultAvatar}>
-                        <Text style={styles.resultFlag}>{c.flag}</Text>
-                      </View>
-                      <View style={styles.resultCopy}>
-                        <Text style={styles.resultTitle} numberOfLines={1}>{c.name}</Text>
-                        <Text style={styles.resultMeta}>
-                          {t('globe.countryArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
-                        </Text>
-                      </View>
-                      <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>{t('globe.typeCountry')}</Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
-              {neighborhoodResults.length > 0 && (
-                <>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="location-outline" size={13} color={colors.inkSoft} />
-                    <Text style={styles.sectionLabel}>{t('globe.neighborhoods')}</Text>
-                  </View>
-                  {neighborhoodResults.map((n) => (
-                    <Pressable
-                      key={`${n.name}·${n.lng}·${n.lat}`}
-                      style={styles.resultRow}
-                      onPress={() => goToNeighborhood(n)}
-                    >
-                      <View style={styles.resultAvatar}>
-                        <Ionicons name="location" size={20} color={colors.brandDeep} />
-                      </View>
-                      <View style={styles.resultCopy}>
-                        <Text style={styles.resultTitle} numberOfLines={1}>{n.name}</Text>
-                        <Text style={styles.resultMeta} numberOfLines={1}>
-                          {[n.city, n.country].filter(Boolean).join(', ') || '—'}
-                        </Text>
-                      </View>
-                      <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>{t('globe.typeNeighborhood')}</Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
-              {placeResults.length > 0 && (
-                <>
-                  <View style={styles.sectionHeader}>
-                    <Ionicons name="location-outline" size={13} color={colors.inkSoft} />
-                    <Text style={styles.sectionLabel}>{t('globe.places')}</Text>
-                  </View>
-                  {placeResults.map((c) => (
-                    <Pressable key={`${c.city}·${c.country}`} style={styles.resultRow} onPress={() => goToCity(c)}>
-                      <View style={styles.resultAvatar}>
-                        <Ionicons name="location" size={20} color={colors.brandDeep} />
-                      </View>
-                      <View style={styles.resultCopy}>
-                        <Text style={styles.resultTitle} numberOfLines={1}>{c.flag} {c.city}</Text>
-                        <Text style={styles.resultMeta}>
-                          {c.country} · {t('globe.placeArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
-                        </Text>
-                      </View>
-                      <View style={styles.typeBadge}>
-                        <Text style={styles.typeBadgeText}>{t('globe.typePlace')}</Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </>
-              )}
-
               {artistResults.length > 0 && (
                 <>
                   <View style={styles.sectionHeader}>
@@ -1957,6 +1886,85 @@ export function ExploreScreen({ navigation, route }: Props) {
                         <View style={styles.typeBadge}>
                           <Text style={styles.typeBadgeText}>{t('globe.typeArtist')}</Text>
                         </View>
+                      </View>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+
+              {countryResults.length > 0 && (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="globe-outline" size={13} color={colors.inkSoft} />
+                    <Text style={styles.sectionLabel}>{t('globe.countries')}</Text>
+                  </View>
+                  {countryResults.map((c) => (
+                    <Pressable key={c.code} style={styles.resultRow} onPress={() => goToCountry(c)}>
+                      <View style={styles.resultAvatar}>
+                        <Text style={styles.resultFlag}>{c.flag}</Text>
+                      </View>
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.resultTitle} numberOfLines={1}>{c.name}</Text>
+                        <Text style={styles.resultMeta}>
+                          {t('globe.countryArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
+                        </Text>
+                      </View>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeBadgeText}>{t('globe.typeCountry')}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+
+              {placeResults.length > 0 && (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="location-outline" size={13} color={colors.inkSoft} />
+                    <Text style={styles.sectionLabel}>{t('globe.places')}</Text>
+                  </View>
+                  {placeResults.map((c) => (
+                    <Pressable key={`${c.city}·${c.country}`} style={styles.resultRow} onPress={() => goToCity(c)}>
+                      <View style={styles.resultAvatar}>
+                        <Ionicons name="location" size={20} color={colors.brandDeep} />
+                      </View>
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.resultTitle} numberOfLines={1}>{c.flag} {c.city}</Text>
+                        <Text style={styles.resultMeta}>
+                          {c.country} · {t('globe.placeArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
+                        </Text>
+                      </View>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeBadgeText}>{t('globe.typePlace')}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </>
+              )}
+
+              {neighborhoodResults.length > 0 && (
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons name="location-outline" size={13} color={colors.inkSoft} />
+                    <Text style={styles.sectionLabel}>{t('globe.neighborhoods')}</Text>
+                  </View>
+                  {neighborhoodResults.map((n) => (
+                    <Pressable
+                      key={`${n.name}·${n.lng}·${n.lat}`}
+                      style={styles.resultRow}
+                      onPress={() => goToNeighborhood(n)}
+                    >
+                      <View style={styles.resultAvatar}>
+                        <Ionicons name="location" size={20} color={colors.brandDeep} />
+                      </View>
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.resultTitle} numberOfLines={1}>{n.name}</Text>
+                        <Text style={styles.resultMeta} numberOfLines={1}>
+                          {[n.city, n.country].filter(Boolean).join(', ') || '—'}
+                        </Text>
+                      </View>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeBadgeText}>{t('globe.typeNeighborhood')}</Text>
                       </View>
                     </Pressable>
                   ))}
@@ -2347,7 +2355,6 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       zIndex: 1,
       ...shadow,
     },
-    sheetWithQuery: { flexDirection: 'column-reverse' },
     searchControls: { width: '100%' },
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     sheetBack: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
