@@ -160,6 +160,25 @@ export function ExploreScreen({ navigation, route }: Props) {
   /** Voile des surfaces posées sur la carte — même jeu que le web. */
   const overlay = mapOverlays[theme];
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
+  // L'adaptateur Expo Web de @rnmapbox/maps ignore `logoEnabled` et
+  // `attributionEnabled` et ajoute donc ses contrôles Mapbox par défaut.
+  // Les masquer ici aligne le globe mobile sur le web, sans toucher au canvas
+  // ni aux gestes de rotation.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const style = document.createElement('style');
+    style.id = 'musimaps-mapbox-branding';
+    style.textContent = `
+      .mapboxgl-ctrl-logo,
+      .mapboxgl-ctrl-attrib,
+      .mapboxgl-ctrl-bottom-left,
+      .mapboxgl-ctrl-bottom-right {
+        display: none !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => style.remove();
+  }, []);
   // Une seule boucle native anime toutes les étincelles de clusters : aucun
   // timer par pin, donc pas de charge JS supplémentaire pendant la rotation.
   const clusterPulse = useRef(new Animated.Value(0)).current;

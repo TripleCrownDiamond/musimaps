@@ -65,6 +65,13 @@ test('l’interaction mobile ne désactive pas le mode rotation', () => {
   assert.doesNotMatch(source.slice(mapPressStart, mapPressEnd), /setSpinning\(false\)/);
 });
 
+test('l’adaptateur Expo Web ne laisse pas réapparaître le branding Mapbox', () => {
+  assert.match(source, /musimaps-mapbox-branding/);
+  assert.match(source, /mapboxgl-ctrl-logo/);
+  assert.match(source, /mapboxgl-ctrl-attrib/);
+  assert.match(source, /document\.createElement\('style'\)/);
+});
+
 test('les étincelles pays/ville restent visibles au dézoom', () => {
   // La pointe des pins artistes est masquée au loin, mais cette règle ne doit
   // jamais viser les pseudo-éléments des clusters : ils portent le seul point
