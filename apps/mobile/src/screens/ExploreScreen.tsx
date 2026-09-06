@@ -69,6 +69,8 @@ import {
   type Artist,
   type ClusterLevel,
   type PopularityTier,
+  radii,
+  spacing,
 } from '@musimaps/shared';
 import { Pause, Play } from 'lucide-react-native';
 import { AppBar } from '../components/AppBar';
@@ -82,6 +84,7 @@ import {
   addMapArtist,
   addOrUpdateMapArtist,
   fetchMapArtists,
+  hasCrossSourceEvidence,
   locateArtist,
   searchArtistOnline,
   searchNeighborhoods,
@@ -1976,6 +1979,11 @@ export function ExploreScreen({ navigation, route }: Props) {
                               <View style={styles.typeBadge}>
                                 <Text style={styles.typeBadgeText}>{t('globe.typeArtist')}</Text>
                               </View>
+                              {hasCrossSourceEvidence(candidate) && (
+                                <View style={styles.crossCheckedBadge}>
+                                  <Text style={styles.crossCheckedText}>{t('discovery.crossChecked')}</Text>
+                                </View>
+                              )}
                             </View>
                             <Text style={styles.resultMeta} numberOfLines={1}>
                               {candidate.genre} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
@@ -2380,8 +2388,10 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     resultSide: { alignItems: 'flex-end', gap: 4 },
     verifiedBadge: { borderRadius: 999, backgroundColor: colors.brand, paddingHorizontal: 8, paddingVertical: 2 },
     verifiedBadgeText: { color: colors.black, fontFamily: fonts.bold, fontSize: 11, lineHeight: 14 },
-    typeBadge: { borderRadius: 999, backgroundColor: colors.surfaceMuted, paddingHorizontal: 10, paddingVertical: 4 },
+    typeBadge: { borderRadius: radii.full, backgroundColor: colors.surfaceMuted, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
     typeBadgeText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 11 },
+    crossCheckedBadge: { borderRadius: radii.full, backgroundColor: colors.brandSoft, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+    crossCheckedText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 10 },
     onlineCard: { borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 12, marginVertical: 4 },
     onlineTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     addBtn: { alignSelf: 'flex-start', minHeight: 38, borderRadius: 19, backgroundColor: colors.brandDeep, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 15, marginTop: 10 },

@@ -34,8 +34,11 @@ export function ProfileScreen({ navigation }: Props) {
   const { user } = useAuth();
   const [unread, setUnread] = useState(0);
   const [streak, setStreak] = useState<StreakInfo | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const name = profile?.displayName ?? t('profile.defaultName');
   const city = profile?.city ?? t('profile.defaultCity');
+  const isArtist = user?.role === 'artist';
+  const isBusiness = user?.accountType === 'business';
   const level = getLevelInfo(points);
   const earnedCount = badges.filter((badge) => badge.earned).length;
   const earnedBadgesList = badges.filter((badge) => badge.earned);
@@ -104,8 +107,57 @@ export function ProfileScreen({ navigation }: Props) {
           </Pressable>
         </View>
         <Text style={styles.email}>{city}</Text>
+        {user && (
+          <View style={styles.roleRow}>
+            <View style={styles.roleChip}>
+              <Ionicons name={isArtist ? 'mic-outline' : 'headset-outline'} size={14} color={colors.brandDeep} />
+              <Text style={styles.roleChipText}>{isArtist ? t('dash.roleArtist') : t('dash.roleMelomane')}</Text>
+            </View>
+            {isBusiness && (
+              <View style={styles.businessChip}>
+                <Text style={styles.businessChipText}>{t('dash.business')}</Text>
+              </View>
+            )}
+          </View>
+        )}
         {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
       </View>
+
+      {/* Même hiérarchie d'actions que le Dashboard web : explorer d'abord,
+          puis modifier le compte. */}
+      <View style={styles.actionRow}>
+        <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Explore')}>
+          <Ionicons name="globe-outline" size={19} color={colors.white} />
+          <Text style={styles.actionPrimaryText}>{t('dash.explore')}</Text>
+        </Pressable>
+        <Pressable style={styles.actionGhost} onPress={() => navigation.navigate('ProfileEdit')}>
+          <Ionicons name="create-outline" size={19} color={colors.ink} />
+          <Text style={styles.actionGhostText}>{t('dash.editProfile')}</Text>
+        </Pressable>
+      </View>
+
+      {/* Guide repliable aligné sur le Dashboard web et le Dashboard natif. */}
+      {user && (
+        <Pressable
+          style={styles.guideCard}
+          onPress={() => setGuideOpen((open) => !open)}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: guideOpen }}
+        >
+          <View style={styles.guideHeader}>
+            <Ionicons name="book-outline" size={19} color={colors.brandDeep} />
+            <Text style={styles.guideTitle}>{t('dash.guideTitle')}</Text>
+            <Text style={styles.guideToggle}>{guideOpen ? t('dash.guideHide') : t('dash.guideToggle')}</Text>
+          </View>
+          {guideOpen && (
+            <View style={styles.guideBody}>
+              <Text style={styles.guideText}>{isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}</Text>
+              {isArtist && <Text style={styles.guideText}>{t('dash.guideArtistTracks')}</Text>}
+              <Text style={styles.guideText}>{isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal')}</Text>
+            </View>
+          )}
+        </Pressable>
+      )}
 
       <Card style={styles.stats}>
         <Pressable style={styles.stat} onPress={() => navigation.navigate('Saved')}>
@@ -196,6 +248,32 @@ export function ProfileScreen({ navigation }: Props) {
               <Text style={styles.seeAllText}>{t('profile.seeAll')}</Text>
               <Ionicons name="chevron-forward" size={15} color={colors.brandPrimary} />
             </View>
+          </View>
+        </Card>
+      )}
+
+      {user && (
+        <Card style={styles.accountInfoCard}>
+          <Text style={styles.accountInfoTitle}>{t('dash.accountInfo')}</Text>
+          <View style={styles.accountInfoRow}>
+            <Ionicons name="mail-outline" size={17} color={colors.brandDeep} />
+            <Text style={styles.accountInfoText} numberOfLines={1}>{user.email}</Text>
+          </View>
+          <View style={styles.accountInfoRow}>
+            <Ionicons name="location-outline" size={17} color={colors.brandDeep} />
+            <Text style={styles.accountInfoText}>{user.city ?? city}</Text>
+          </View>
+          <View style={styles.accountInfoRow}>
+            <Ionicons name="person-outline" size={17} color={colors.brandDeep} />
+            <Text style={styles.accountInfoText}>
+              {t('dash.roleLabel')} : {isArtist ? t('auth.roleArtist') : t('auth.roleMelomane')}
+            </Text>
+          </View>
+          <View style={styles.accountInfoRow}>
+            <Ionicons name="briefcase-outline" size={17} color={colors.brandDeep} />
+            <Text style={styles.accountInfoText}>
+              {t('dash.accountType')} : {isBusiness ? t('dash.business') : t('dash.personal')}
+            </Text>
           </View>
         </Card>
       )}
@@ -382,13 +460,33 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   email: { color: colors.inkSoft, fontFamily: fonts.body, marginTop: 3 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  roleChip: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radii.full, backgroundColor: colors.brandSoft, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
+  roleChipText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11 },
+  businessChip: { borderRadius: radii.full, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  businessChipText: { color: colors.brandSecondary, fontFamily: fonts.bold, fontSize: 10 },
   bio: { color: colors.inkSoft, fontFamily: fonts.body, lineHeight: 20, marginTop: spacing.md },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: GUTTER, marginTop: spacing.lg },
+  actionPrimary: { flex: 1, borderRadius: radii.full, backgroundColor: colors.brandPrimary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  actionPrimaryText: { color: colors.white, fontFamily: fonts.bold, fontSize: 13 },
+  actionGhost: { flex: 1, borderRadius: radii.full, borderWidth: 1.5, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  actionGhostText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13 },
+  guideCard: { marginHorizontal: GUTTER, marginTop: spacing.lg, borderRadius: radii['3xl'], borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surfaceMuted, padding: spacing.lg },
+  guideHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  guideTitle: { flex: 1, color: colors.ink, fontFamily: fonts.bold, fontSize: 13 },
+  guideToggle: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11 },
+  guideBody: { marginTop: spacing.md, gap: spacing.sm },
+  guideText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 18 },
   stats: { flexDirection: 'row', alignItems: 'center', margin: GUTTER, paddingVertical: spacing.lg },
   stat: { flex: 1, alignItems: 'center' },
   statValue: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 20 },
   statLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 2 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: colors.line },
   progressCard: { margin: GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.md },
+  accountInfoCard: { marginHorizontal: GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.sm },
+  accountInfoTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15, marginBottom: spacing.xs },
+  accountInfoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  accountInfoText: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12 },
   badgesRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 },
   seeAll: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   seeAllText: { color: colors.brandPrimary, fontFamily: fonts.bold, fontSize: 12 },

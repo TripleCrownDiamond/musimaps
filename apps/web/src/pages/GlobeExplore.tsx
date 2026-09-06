@@ -22,8 +22,10 @@ import {
   addMapArtist,
   addOrUpdateMapArtist,
   fetchMapArtists,
+  hasCrossSourceEvidence,
   locateArtist,
   rankArtistResults,
+  normalizeArtistSearchQuery,
   searchArtistOnline,
   searchNeighborhoods,
   toArtist,
@@ -218,7 +220,7 @@ export default function GlobeExplore() {
         // eux : « Booba Paris » pouvait remonter un homonyme d'un autre pays
         // en tête. On classe par pertinence — nom, cohérence ville/pays, et
         // capacité à être posé sur la carte.
-        setOnlineResults(rankArtistResults(results, q).map((r) => r.artist))
+        setOnlineResults(rankArtistResults(results, normalizeArtistSearchQuery(q)).map((r) => r.artist))
         setSearchingWeb(false)
       })
     }, 450)
@@ -1440,6 +1442,11 @@ export default function GlobeExplore() {
                                 <span className="shrink-0 rounded-full bg-secondary-bg px-2 py-0.5 text-[10px] font-semibold text-secondary-text">
                                   {t('globe.typeArtist')}
                                 </span>
+                                {hasCrossSourceEvidence(candidate) && (
+                                  <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand-deep">
+                                    {t('discovery.crossChecked')}
+                                  </span>
+                                )}
                               </p>
                               <p className="truncate text-sm text-secondary-text">
                                 {candidate.genre} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}

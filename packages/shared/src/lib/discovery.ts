@@ -2,6 +2,7 @@ import { getMapboxToken, getSupabase } from '../runtime'
 import { triggerDiscoveryNotification } from './notifications'
 import type { Artist, ArtistEvent } from '../index'
 import { countryByName } from '../geo'
+import { rankArtistResults } from './search'
 
 /**
  * MusicBrainz exige un User-Agent descriptif (identification du client) :
@@ -19,6 +20,18 @@ export type ArtistPlatforms = Partial<
 export type ArtistSocials = Partial<
   Record<'facebook' | 'instagram' | 'twitter' | 'tiktok' | 'wikipedia', string>
 >
+
+/** Preuves indépendantes réunies avant d'afficher un résultat découvert. */
+export interface DiscoveryEvidence {
+  musicbrainz?: boolean
+  wikipedia?: boolean
+  wikidata?: boolean
+  official?: boolean
+}
+
+/** Verdict de l'agent IA, conservé pour que les deux interfaces sachent
+ * pourquoi un résultat a été retenu sans exposer de chaîne de pensée. */
+export type DiscoveryAiVerdict = 'keep' | 'review' | 'reject'
 
 /** Artiste trouvé en ligne (MusicBrainz), prêt à être ajouté à la carte. */
 export interface DiscoveredArtist {
@@ -48,6 +61,35 @@ export interface DiscoveredArtist {
   followers?: string
   /** Slug personnalisé pour le lien de profil (/artist/mon-slug). */
   slug?: string | null
+  /** Sources indépendantes effectivement consultées pour cette entrée. */
+  evidence?: DiscoveryEvidence
+  /** Verdict structuré de Mistral, jamais une explication interne. */
+  aiVerdict?: DiscoveryAiVerdict
+  aiReason?: string
+}
+
+/** Nombre de sources indépendantes réunies pour un artiste. */
+export function discoveryEvidenceCount(artist: Pick<DiscoveredArtist, 'evidence'>): number {
+  const evidence = artist.evidence ?? {}
+  // Un lien officiel trouvé dans MusicBrainz n'est pas une seconde source :
+  // seules les bases effectivement consultées et comparées comptent.
+  return [evidence.musicbrainz, evidence.wikipedia, evidence.wikidata].filter(Boolean).length
+}
+
+/** Un résultat est publiable seulement après un croisement multi-source. */
+export function hasCrossSourceEvidence(artist: Pick<DiscoveredArtist, 'evidence'>): boolean {
+  return discoveryEvidenceCount(artist) >= 2
+}
+
+/** Corrections de saisie connues : le nom officiel reste celui des sources. */
+const ARTIST_QUERY_ALIASES: Record<string, string> = {
+  'arya star': 'Ayra Starr',
+  'arya starr': 'Ayra Starr',
+}
+
+export function normalizeArtistSearchQuery(query: string): string {
+  const clean = query.trim().replace(/\s+/g, ' ')
+  return ARTIST_QUERY_ALIASES[clean.toLowerCase()] ?? clean
 }
 
 /** Couleur par défaut pour un artiste découvert (aucune identité visuelle). */
@@ -644,11 +686,18 @@ async function searchMusicBrainz(query: string, signal?: AbortSignal): Promise<D
     // Anti-politicien : si on peut identifier l'entité (Wikidata direct ou
     // via sa page Wikipedia), on vérifie que c'est bien un artiste musical.
     let qid = wikidataId ?? null
+    let hasWikidataEvidence = Boolean(qid)
     if (!qid && wikipediaUrl && !signal?.aborted) {
       qid = await resolveWikidataId(wikipediaUrl, signal)
+      hasWikidataEvidence = Boolean(qid)
     }
     if (qid && !signal?.aborted) {
       const wd = await fetchWikidataArtist(qid, signal)
+      hasWikidataEvidence =
+        wd.isArtist ||
+        Boolean(wd.mbid || wd.countryQid) ||
+        Object.keys(wd.platforms).length > 0 ||
+        Object.keys(wd.socials).length > 0
       // Personne connue mais pas musicienne (politicien, acteur, sportif…) : on écarte.
       if (!wd.isArtist && !wd.mbid) continue
     }
@@ -698,6 +747,12 @@ async function searchMusicBrainz(query: string, signal?: AbortSignal): Promise<D
       socials,
       // Type artiste (solo) / groupe, exposé pour l'admin.
       type: enriched.type ?? item.type,
+      evidence: {
+        musicbrainz: true,
+        wikipedia: Boolean(wikipediaUrl),
+        wikidata: hasWikidataEvidence,
+        official: Object.values(platforms).some((url) => Boolean(url)),
+      },
     })
   }
   return out
@@ -776,6 +831,15 @@ async function searchWikipediaFallback(
         ...wd.socials,
         wikipedia: `https://en.wikipedia.org/wiki/${page.title.replace(/ /g, '_')}`,
       },
+      evidence: {
+        wikipedia: source === 'wikipedia',
+        wikidata:
+          source === 'wikidata' ||
+          wd.isArtist ||
+          Boolean(wd.mbid || wd.countryQid) ||
+          Object.keys(wd.platforms).length > 0 ||
+          Object.keys(wd.socials).length > 0,
+      },
     })
   }
   return out
@@ -790,7 +854,7 @@ export async function searchArtistOnline(
   query: string,
   signal?: AbortSignal,
 ): Promise<DiscoveredArtist[]> {
-  const q = query.trim()
+  const q = normalizeArtistSearchQuery(query)
   if (!q) return []
 
   const mbResults = await searchMusicBrainz(q, signal)
@@ -806,7 +870,20 @@ export async function searchArtistOnline(
   const merged: DiscoveredArtist[] = []
   for (const artist of [...mbResults, ...fallback]) {
     const key = artist.name.trim().toLowerCase()
-    if (seen.has(key)) continue
+    if (seen.has(key)) {
+      const existing = merged.find((item) => item.name.trim().toLowerCase() === key)
+      if (existing) {
+        existing.evidence = {
+          ...existing.evidence,
+          ...artist.evidence,
+        }
+        if (!existing.image && artist.image) existing.image = artist.image
+        if (!existing.bio || existing.bio.includes('Musibrainz')) existing.bio = artist.bio
+        existing.platforms = { ...existing.platforms, ...artist.platforms }
+        existing.socials = { ...existing.socials, ...artist.socials }
+      }
+      continue
+    }
     seen.add(key)
     merged.push(artist)
   }
@@ -822,6 +899,7 @@ export async function searchArtistOnline(
       (f) => f.name.trim().toLowerCase() === artist.name.trim().toLowerCase(),
     )
     if (!match) continue
+    artist.evidence = { ...artist.evidence, ...match.evidence }
     if (match.bio) artist.bio = match.bio
     if (match.image && !artist.image) artist.image = match.image
     if (Object.keys(match.platforms ?? {}).length) {
@@ -852,19 +930,17 @@ export async function searchArtistOnline(
   }
   if (signal?.aborted) return merged
   // Vérification IA (Mistral) des candidats consolidés : filtrage intelligent
-  // des non-musiciens + normalisation genre/bio. Dégradation silencieuse si
-  // l'edge function n'est pas déployée ou si Mistral est indisponible.
+  // des non-musiciens + normalisation genre/bio. Aucun résultat « brut » ne
+  // sort : le repli local exige au minimum deux sources indépendantes.
   try {
     const verified = await aiVerifyCandidates(merged)
-    // `verified === null` → vérification indisponible : on garde le brut.
-    // `verified === []` → l'IA a rejeté les candidats (non-musiciens) : on
-    //   ne montre AUCUNE section en ligne ni bouton ajout/revendication.
-    if (verified && verified.length > 0) return verified
-    if (verified !== null) return []
+    // `verified === null` → vérification indisponible : le croisement local
+    // reste obligatoire. `[]` signifie que l'IA a écarté tous les candidats.
+    if (verified !== null) return rankArtistResults(verified, q).map((item) => item.artist)
   } catch {
-    /* on garde le résultat brut */
+    /* repli local multi-source ci-dessous */
   }
-  return merged
+  return rankArtistResults(merged.filter(hasCrossSourceEvidence), q).map((item) => item.artist)
 }
 
 interface AiVerdict {
@@ -933,8 +1009,10 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
             image?: string
             lat?: number
             lng?: number
+            evidence?: DiscoveryEvidence
           }
           verdict?: { verdict?: string; genre?: string; bio?: string }
+          log?: string[]
         }
       }
     | 'timeout'
@@ -944,9 +1022,9 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
     const candidate = data.candidate
     if (
       candidate?.name &&
-      data.status !== 'empty' &&
-      data.status !== 'rejected' &&
-      data.verdict?.verdict !== 'reject'
+      data.status === 'done' &&
+      data.verdict?.verdict === 'keep' &&
+      hasCrossSourceEvidence({ evidence: candidate.evidence })
     ) {
       const name = candidate.name
       const country = candidate.country ?? ''
@@ -972,6 +1050,11 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
         source: 'musicbrainz',
         platforms: {},
         socials: {},
+        evidence: candidate.evidence ?? {
+          musicbrainz: true,
+          wikipedia: Boolean(data.log?.includes('wikipedia_summary')),
+          wikidata: Boolean(data.log?.includes('wikidata_entity')),
+        },
         verified: false,
         claimedBy: null,
       }
@@ -986,8 +1069,8 @@ async function agentDeepSearch(query: string): Promise<DiscoveredArtist | null> 
 /**
  * Vérification IA des candidats (edge function ai_verify → Mistral) :
  * filtre les non-musiciens (politiciens, acteurs…) et normalise genre/bio.
- * Retourne null si la fonction n'est pas déployée, si Mistral échoue ou si
- * l'IA rejette tout (dégradation silencieuse : on garde le résultat brut).
+ * Retourne null si la fonction n'est pas déployée ou si Mistral échoue ; le
+ * caller applique alors le même garde-fou multi-source en local.
  */
 async function aiVerifyCandidates(
   artists: DiscoveredArtist[],
@@ -1006,6 +1089,7 @@ async function aiVerifyCandidates(
         bio: (a.bio ?? '').slice(0, 800),
         source: a.source,
         type: a.type,
+        evidence: a.evidence,
         links: [...Object.values(a.platforms ?? {}), ...Object.values(a.socials ?? {})]
           .filter(Boolean),
       })),
@@ -1027,28 +1111,33 @@ async function aiVerifyCandidates(
     // frappe — la recherche est le chemin le plus chaud de l'app.
     const cached = cachedVerdict(artist)
     const verdict = cached ?? byId.get(artist.id)
-    // Un artiste SANS verdict (non révisé) est conservé tel quel — seul un
-    // rejet EXPLICITE de l'IA le retire. Gating Musibrainz : si l'IA juge
-    // que ce n'est pas un musicien, on ne propose plus d'ajout/revendication.
+    // Un résultat sans verdict IA n'est conservé que si deux sources ont déjà
+    // confirmé l'identité. Sans ce croisement, il ne sort jamais du pipeline.
     if (!verdict) {
-      kept.push(artist)
+      if (hasCrossSourceEvidence(artist)) kept.push(artist)
       continue
     }
-    if (verdict.verdict === 'reject') continue
+    // `review` reste réservé à l'admin : le globe public ne propose que les
+    // artistes dont le modèle a rendu un verdict explicite `keep`.
+    if (verdict.verdict !== 'keep' || !hasCrossSourceEvidence(artist)) continue
     const genre =
       verdict.genre && verdict.genre !== artist.genre ? verdict.genre : artist.genre
     const bio = verdict.bio && verdict.bio.length >= 40 ? verdict.bio : artist.bio
     if (cached) {
-      kept.push({ ...artist, genre, bio })
+      kept.push({ ...artist, genre, bio, aiVerdict: 'keep' })
       continue
     }
-    if (verdict.verdict === 'keep') {
-      aiVerdictCache.set(artist.id, { at: Date.now(), genre, bio })
-    }
-    kept.push({ ...artist, genre, bio })
+    aiVerdictCache.set(artist.id, { at: Date.now(), genre, bio })
+    kept.push({
+      ...artist,
+      genre,
+      bio,
+      aiVerdict: 'keep',
+      aiReason: verdict.reason,
+    })
   }
-  // `null` = vérification indisponible (dégradation silencieuse) ;
-  // `[]` = tous rejetés → la recherche en ligne est vide (gating Brainz).
+  // `null` = vérification indisponible ; `[]` = aucun résultat suffisamment
+  // confirmé ou tous rejetés → la recherche en ligne reste vide par sécurité.
   return kept.length > 0 ? kept : []
 }
 
@@ -1692,5 +1781,3 @@ export async function fetchMyClaims(): Promise<ArtistClaim[]> {
 // ------------------------------------------------------------
 // Compte business
 // ------------------------------------------------------------
-
-

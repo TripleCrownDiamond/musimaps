@@ -490,6 +490,7 @@ export const en: Record<MessageKey, string> = {
   'discovery.referTitle': 'Referencing request',
   'discovery.searching': 'Searching online…',
   'discovery.title': 'Search the web',
+  'discovery.crossChecked': 'Cross-checked sources',
   'discovery.updated': 'Artist profile updated',
   'explore.globeUnavailable': 'The globe is temporarily unavailable',
   'explore.globeUnavailableText': 'Check the Mapbox configuration of this version of the app.',

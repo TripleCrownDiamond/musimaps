@@ -493,6 +493,7 @@ export const fr = {
   'discovery.referTitle': 'Demande de référencement',
   'discovery.searching': 'Recherche en ligne…',
   'discovery.title': 'Rechercher sur le web',
+  'discovery.crossChecked': 'Sources croisées',
   'discovery.updated': 'Profil de l’artiste mis à jour',
   'explore.globeUnavailable': 'Le globe est momentanément indisponible',
   'explore.globeUnavailableText': 'Vérifie la configuration Mapbox de cette version de l\'application.',
