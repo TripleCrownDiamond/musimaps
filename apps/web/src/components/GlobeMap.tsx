@@ -35,6 +35,7 @@ import {
   TIER_SIZE_FACTOR,
   pinRingWidthFor,
   mapLocationLabel,
+  normalizeArtistImageUrl,
   type ClusterLevel,
   type MapLocation,
   type PopularityMap,
@@ -679,10 +680,11 @@ export default function GlobeMap({
         .join('')
         .slice(0, 2)
         .toUpperCase()
-      if (artist.image) {
+      const imageUrl = normalizeArtistImageUrl(artist.image)
+      if (imageUrl) {
         el.classList.add('artist-pin--img')
         const img = document.createElement('img')
-        img.src = artist.image
+        img.src = imageUrl
         img.alt = ''
         img.draggable = false
         img.onerror = () => {

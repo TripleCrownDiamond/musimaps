@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Image, StyleSheet, Text } from 'react-native';
-import type { Artist } from '@musimaps/shared';
+import { normalizeArtistImageUrl, type Artist } from '@musimaps/shared';
 import { colors, fonts } from '../theme';
 
 export function ArtistAvatar({
@@ -42,12 +42,7 @@ export function ArtistAvatar({
   // Les URLs historiques peuvent être protocol-relative ou encore en HTTP.
   // Android bloque le HTTP en clair : on passe systématiquement en HTTPS pour
   // que la photo reste visible dans un MarkerView natif.
-  const rawImage = artist.image?.trim();
-  const imageUri = rawImage
-    ? rawImage.startsWith('//')
-      ? `https:${rawImage}`
-      : rawImage.replace(/^http:\/\//i, 'https://')
-    : '';
+  const imageUri = normalizeArtistImageUrl(artist.image);
 
   // Photo HD (Wikipedia / Wikidata) quand elle existe — sinon dégradé + initiales.
   // Le repli est important sur la carte : une image distante peut être expirée,
