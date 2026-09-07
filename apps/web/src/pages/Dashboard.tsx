@@ -74,7 +74,9 @@ import {
 import { badgeIcon } from '../lib/badgeIcons'
 import {
   fetchNotifications,
+  formatNotificationTime,
   markAllNotificationsRead,
+  markNotificationRead,
   notificationIcon,
   type AppNotification,
 } from '@musimaps/shared'
@@ -98,20 +100,6 @@ function dayLabel(iso: string, lang: 'fr' | 'en'): string {
     day: '2-digit',
     month: 'short',
   })
-}
-
-/** Durée relative localisée (fr/en). */
-function timeAgo(iso: string, lang: 'fr' | 'en'): string {
-  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000)
-  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' })
-  if (seconds < 60) return rtf.format(-seconds, 'second')
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return rtf.format(-minutes, 'minute')
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return rtf.format(-hours, 'hour')
-  const days = Math.floor(hours / 24)
-  if (days < 7) return rtf.format(-days, 'day')
-  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR')
 }
 
 function statusClass(status: string) {
@@ -494,6 +482,22 @@ export default function Dashboard() {
         { icon: Briefcase, label: t('dash.accountType'), value: isBusiness ? t('dash.business') : t('dash.personal') },
       ]
 
+  const guideSteps = [
+    {
+      id: 'explore',
+      icon: isArtist ? Mic2 : Globe2,
+      text: isArtist ? t('dash.guideArtist') : t('dash.guideMelomane'),
+    },
+    ...(isArtist
+      ? [{ id: 'music', icon: Link2, text: t('dash.guideArtistTracks') }]
+      : []),
+    {
+      id: 'account',
+      icon: isBusiness ? Briefcase : Heart,
+      text: isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal'),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-warm-white px-5 pt-36 pb-24 sm:px-6 md:px-12 md:pt-44">
       <div className="mx-auto w-full max-w-5xl">
@@ -543,11 +547,27 @@ export default function Dashboard() {
           {guideOpen && (
             <div
               id="dash-guide"
-              className="mt-4 grid gap-3 text-sm leading-relaxed text-secondary-text"
+              className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
             >
-              <p>{isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}</p>
-              {isArtist && <p>{t('dash.guideArtistTracks')}</p>}
-              <p>{isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal')}</p>
+              {guideSteps.map((step, index) => {
+                const Icon = step.icon
+                return (
+                  <div
+                    key={step.id}
+                    className="flex items-start gap-3 rounded-2xl border border-hairline bg-surface p-4"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-deep">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.14em] text-brand-deep">
+                        {String(index + 1).padStart(2, '0')}
+                      </span>
+                      <p className="text-sm leading-relaxed text-secondary-text">{step.text}</p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -1404,14 +1424,19 @@ export default function Dashboard() {
         {/* Notifications récentes — pliable */}
         {notifications !== null && notifications.length > 0 && (
           <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
-            <button type="button" onClick={() => setShowNotifications((v) => !v)} className="flex w-full items-center justify-between gap-3">
-              <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
-                <Bell className="h-5 w-5 text-brand-deep" /> {t('dash.notifications')}
-                <HelpHint text={t('dash.helpNotifications')} label={t('dash.helpNotificationsAria')} />
-                <span className="ml-2 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand-deep">{notifications.filter((n) => !n.read).length || notifications.length}</span>
-              </h2>
-              <ChevronDown className={`h-5 w-5 text-secondary-text transition-transform ${showNotifications ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setShowNotifications((v) => !v)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
+                <h2 className="display-font flex items-center gap-2 text-xl font-bold sm:text-2xl">
+                  <Bell className="h-5 w-5 text-brand-deep" /> {t('dash.notifications')}
+                  <HelpHint text={t('dash.helpNotifications')} label={t('dash.helpNotificationsAria')} />
+                  <span className="ml-2 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand-deep">{notifications.filter((n) => !n.read).length || notifications.length}</span>
+                </h2>
+                <ChevronDown className={`h-5 w-5 shrink-0 text-secondary-text transition-transform ${showNotifications ? 'rotate-180' : ''}`} />
+              </button>
+              <Link to={localize('/notifications')} className="shrink-0 text-xs font-bold text-brand-deep hover:underline">
+                {t('notif.viewAll')}
+              </Link>
+            </div>
             {notifications.some((n) => !n.read) && (
               <button
                 type="button"
@@ -1426,19 +1451,25 @@ export default function Dashboard() {
               {notifications.slice(0, 6).map((n) => (
                 <li
                   key={n.id}
-                  className={`flex items-start gap-3 rounded-xl px-3 py-2.5 text-sm ${
+                  className={`rounded-xl text-sm ${
                     n.read ? '' : 'bg-brand-soft/50'
                   }`}
                 >
-                  <span className="mt-0.5 text-base">{notificationIcon(n.type)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block leading-snug">
-                      {n.message ??
-                        (n.artist_name ? `${n.artist_name} ${n.city ? `· ${n.city}` : ''}` : t('dash.notifications'))}
+                  <Link
+                    to={n.artist_id ? localize(`/artist/${n.artist_id}`) : localize('/globe')}
+                    onClick={() => void markNotificationRead(n.id)}
+                    className="flex items-start gap-3 px-3 py-2.5 transition-colors hover:bg-secondary-bg"
+                  >
+                    <span className="mt-0.5 text-base">{notificationIcon(n.type)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block leading-snug">
+                        {n.message ??
+                          (n.artist_name ? `${n.artist_name} ${n.city ? `· ${n.city}` : ''}` : t('dash.notifications'))}
+                      </span>
+                      <span className="text-xs text-secondary-text">{formatNotificationTime(n.created_at, lang)}</span>
                     </span>
-                    <span className="text-xs text-secondary-text">{timeAgo(n.created_at, lang)}</span>
-                  </span>
-                  {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-deep" />}
+                    {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-deep" />}
+                  </Link>
                 </li>
               ))}
             </ul>

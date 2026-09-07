@@ -62,8 +62,20 @@ interface AppContextValue {
   lastEarnedBadge: BadgeDef | null;
   clearLastEarnedBadge: () => void;
   /** Toast générique (message + icône Ionicons + ton succès/erreur), auto-fermeture 2,5 s. */
-  toast: { id: number; message: string; icon?: string; tone?: 'success' | 'error' } | null;
-  showToast: (message: string, icon?: string, tone?: 'success' | 'error') => void;
+  toast: {
+    id: number;
+    message: string;
+    icon?: string;
+    tone?: 'success' | 'error';
+    action?: { label: string; onPress: () => void };
+    durationMs?: number;
+  } | null;
+  showToast: (
+    message: string,
+    icon?: string,
+    tone?: 'success' | 'error',
+    options?: { action?: { label: string; onPress: () => void }; durationMs?: number },
+  ) => void;
   saveProfile: (profile: LocalProfile) => Promise<void>;
   deleteProfile: () => Promise<void>;
   recordCityVisit: (city: string) => Promise<void>;
@@ -79,7 +91,14 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [visitedCities, setVisitedCities] = useState<string[]>([]);
   const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([]);
   const [lastEarnedBadge, setLastEarnedBadge] = useState<BadgeDef | null>(null);
-  const [toast, setToast] = useState<{ id: number; message: string; icon?: string; tone?: 'success' | 'error' } | null>(null);
+  const [toast, setToast] = useState<{
+    id: number;
+    message: string;
+    icon?: string;
+    tone?: 'success' | 'error';
+    action?: { label: string; onPress: () => void };
+    durationMs?: number;
+  } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   /** Catalogue actif : publié par le CMS (site_content, clé 'badges'), sinon défauts. */
@@ -428,10 +447,23 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   const clearLastEarnedBadge = useCallback(() => setLastEarnedBadge(null), []);
 
-  const showToast = useCallback((message: string, icon?: string, tone: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((
+    message: string,
+    icon?: string,
+    tone: 'success' | 'error' = 'success',
+    options?: { action?: { label: string; onPress: () => void }; durationMs?: number },
+  ) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToast({ id: Date.now(), message, icon, tone });
-    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+    setToast({
+      id: Date.now(),
+      message,
+      icon,
+      tone,
+      action: options?.action,
+      durationMs: options?.durationMs,
+    });
+    const duration = options?.durationMs ?? 2500;
+    toastTimerRef.current = setTimeout(() => setToast(null), duration);
   }, []);
 
   const points = useMemo(

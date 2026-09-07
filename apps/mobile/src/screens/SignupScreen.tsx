@@ -64,7 +64,7 @@ export function SignupScreen({ navigation, route }: Props) {
     } else {
       void checkin(); // streak de connexion quotidienne (fire-and-forget)
       showToast(t('toast.welcomeBack'), 'checkmark-circle');
-      navigation.navigate('Main', { screen: 'Dashboard' });
+      navigation.navigate('Main', { screen: 'Profile' });
     }
   };
 

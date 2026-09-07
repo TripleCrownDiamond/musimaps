@@ -7,6 +7,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import {
   fetchNotifications,
+  formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
   notificationIcon,
@@ -17,19 +18,6 @@ import { fonts, type AppColors } from '../theme';
 import { NotificationButton } from '../components/NotificationButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
-
-function timeAgo(iso: string, lang: 'fr' | 'en'): string {
-  const seconds = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
-  if (seconds < 60) return rtf.format(-seconds, 'second');
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return rtf.format(-minutes, 'minute');
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return rtf.format(-hours, 'hour');
-  const days = Math.floor(hours / 24);
-  if (days < 7) return rtf.format(-days, 'day');
-  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR');
-}
 
 export function NotificationsScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
@@ -61,6 +49,11 @@ export function NotificationsScreen({ navigation }: Props) {
     if (!item.read) {
       await markNotificationRead(item.id);
       setItems((prev) => prev?.map((n) => (n.id === item.id ? { ...n, read: true } : n)) ?? null);
+    }
+    if (item.artist_id) {
+      navigation.navigate('ArtistProfile', { artistId: item.artist_id });
+    } else {
+      navigation.navigate('Main', { screen: 'Explore' });
     }
   };
 
@@ -108,7 +101,7 @@ export function NotificationsScreen({ navigation }: Props) {
                   {item.message ??
                     (item.artist_name ? `${item.artist_name}${item.city ? ` · ${item.city}` : ''}` : '')}
                 </Text>
-                <Text style={styles.cardTime}>{timeAgo(item.created_at, lang)}</Text>
+                <Text style={styles.cardTime}>{formatNotificationTime(item.created_at, lang)}</Text>
               </View>
               {!item.read && <View style={styles.unreadDot} />}
             </Pressable>

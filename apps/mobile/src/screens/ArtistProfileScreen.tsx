@@ -10,6 +10,7 @@ import {
   artistUrl,
   trackListenUrl,
   fetchFollowing,
+  GUEST_NUDGE_DURATION_MS,
   loadArtistTracks,
   fetchMapArtists,
   hexToRgba,
@@ -156,7 +157,13 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
 
   const requireUser = () => {
     if (user) return true;
-    navigation.navigate('Login');
+    showToast(t('guest.authRequired'), 'person-add-outline', 'success', {
+      durationMs: GUEST_NUDGE_DURATION_MS,
+      action: {
+        label: t('guest.createAccount'),
+        onPress: () => navigation.navigate('Signup'),
+      },
+    });
     return false;
   };
 

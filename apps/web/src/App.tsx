@@ -4,6 +4,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import Loader from './components/Loader'
 import SeoApplier from './components/SeoApplier'
+import GuestExperienceToast from './components/GuestExperienceToast'
 import { useLanguage } from './i18n/LanguageContext'
 import type { Lang } from './i18n/translations'
 
@@ -16,6 +17,7 @@ const Login = lazy(() => import('./pages/Login'))
 const Signup = lazy(() => import('./pages/Signup'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
+const Notifications = lazy(() => import('./pages/Notifications'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ProfileEdit = lazy(() => import('./pages/ProfileEdit'))
 const Admin = lazy(() => import('./admin/AdminApp'))
@@ -48,6 +50,7 @@ const PUBLIC_ROUTES: { path: string; element: ReactElement }[] = [
   { path: '/signup', element: <Signup /> },
   { path: '/forgot-password', element: <ForgotPassword /> },
   { path: '/reset-password', element: <ResetPassword /> },
+  { path: '/notifications', element: <Notifications /> },
   { path: '/dashboard', element: <Dashboard /> },
 ]
 
@@ -68,6 +71,7 @@ export default function App() {
   return (
     <>
       <SeoApplier />
+      <GuestExperienceToast />
       {showNavbar && <Navbar />}
       <Suspense fallback={<Loader />}>
         <Routes>

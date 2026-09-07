@@ -17,6 +17,7 @@ import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
 import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
+import { GuestExperienceNudge } from './src/components/GuestExperienceNudge';
 import { Toast } from './src/components/Toast';
 import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
@@ -112,7 +113,6 @@ function MainTabs() {
             Explore: focused ? 'map' : 'map-outline',
             Discover: focused ? 'compass' : 'compass-outline',
             Saved: focused ? 'heart' : 'heart-outline',
-            Dashboard: focused ? 'stats-chart' : 'stats-chart-outline',
             Profile: focused ? 'person' : 'person-outline',
           };
           return (
@@ -126,7 +126,6 @@ function MainTabs() {
       <Tabs.Screen name="Explore" component={ExploreScreen} options={{ title: t('tab.explore') }} />
       <Tabs.Screen name="Discover" component={DiscoverScreen} options={{ title: t('tab.discover') }} />
       <Tabs.Screen name="Saved" component={SavedScreen} options={{ title: t('tab.saved') }} />
-      <Tabs.Screen name="Dashboard" component={DashboardScreen} options={{ title: t('tab.dashboard') }} />
       <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tab.profile') }} />
     </Tabs.Navigator>
   );
@@ -201,6 +200,7 @@ function AppNavigator() {
             <RootStack.Screen name="Onboarding" component={OnboardingScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="Welcome" component={WelcomeScreen} />
             <RootStack.Screen name="Main" component={MainTabs} />
+            <RootStack.Screen name="Dashboard" component={DashboardScreen} />
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen name="ArtistJoin" component={ArtistJoinScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen name="Badges" component={BadgesScreen} />
@@ -213,6 +213,7 @@ function AppNavigator() {
             <RootStack.Screen name="ClaimedProfile" component={ClaimedProfileScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>
+          <GuestExperienceNudge />
         </NavigationContainer>
         {/* Au-dessus de la navigation : une mise à jour imposée doit
             couvrir tout l'écran, quel que soit l'écran affiché. */}

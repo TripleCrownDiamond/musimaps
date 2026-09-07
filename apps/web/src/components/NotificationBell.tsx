@@ -8,17 +8,10 @@ import {
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationIcon,
   type AppNotification,
 } from '@musimaps/shared'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './ui/dropdown-menu'
-
-/** Icône par type de notification. */
-const TYPE_ICONS: Record<string, string> = {
-  discovery: '✨',
-  followed_artist: '🔔',
-  preference: '🎯',
-  nearby: '📍',
-}
 
 export default function NotificationBell({ showWhenLoggedOut = false }: { showWhenLoggedOut?: boolean } = {}) {
   const { user } = useAuth()
@@ -119,7 +112,7 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
                 }`}
               >
                 <span className="mt-0.5 text-lg" aria-hidden="true">
-                  {TYPE_ICONS[item.type] ?? '✨'}
+                  {notificationIcon(item.type)}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-medium leading-snug">
@@ -136,6 +129,15 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
               </Link>
             ))
           )}
+        </div>
+        <div className="border-t border-hairline p-2">
+          <Link
+            to={localize('/notifications')}
+            onClick={() => setOpen(false)}
+            className="flex items-center justify-center rounded-xl px-3 py-2 text-xs font-bold text-brand-deep transition-colors hover:bg-brand-soft"
+          >
+            {t('notif.viewAll')}
+          </Link>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

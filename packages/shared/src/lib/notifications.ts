@@ -6,6 +6,7 @@
  * n'est pas configuré — une notification ne doit jamais bloquer un écran.
  */
 import { getSupabase } from '../runtime';
+import type { MapLocation } from '../map/location';
 
 export type NotificationType =
   | 'discovery'
@@ -29,6 +30,20 @@ export interface AppNotification {
   message: string | null;
   read: boolean;
   created_at: string;
+}
+
+/** Durée relative localisée, partagée par les listes web et mobile. */
+export function formatNotificationTime(iso: string, lang: 'fr' | 'en', now = Date.now()): string {
+  const seconds = Math.round((now - new Date(iso).getTime()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' });
+  if (seconds < 60) return rtf.format(-seconds, 'second');
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return rtf.format(-minutes, 'minute');
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return rtf.format(-hours, 'hour');
+  const days = Math.floor(hours / 24);
+  if (days < 7) return rtf.format(-days, 'day');
+  return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR');
 }
 
 /**
@@ -127,5 +142,34 @@ export async function triggerDiscoveryNotification(artist: {
     });
   } catch {
     /* silencieux : la notif ne bloque jamais l'ajout */
+  }
+}
+
+/**
+ * Crée une seule alerte récapitulative pour l'utilisateur connecté après une
+ * autorisation de localisation. Le RPC ne conserve jamais les coordonnées :
+ * il les utilise uniquement pour compter les artistes proches.
+ */
+export async function notifyNearbyLocation(
+  location: MapLocation,
+  message: string,
+): Promise<number> {
+  const supabase = getSupabase();
+  if (!supabase) return 0;
+  const [lng, lat] = location.coordinates;
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return 0;
+  try {
+    const { data, error } = await supabase.rpc('notify_nearby_location', {
+      p_lat: lat,
+      p_lng: lng,
+      p_label: location.label ?? '',
+      p_city: location.city ?? '',
+      p_country: location.country ?? location.countryCode ?? '',
+      p_message: message,
+    });
+    if (error) return 0;
+    return typeof data === 'number' ? data : Number(data ?? 0) || 0;
+  } catch {
+    return 0;
   }
 }

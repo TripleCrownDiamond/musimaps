@@ -6,6 +6,7 @@ import {
   bucketKey,
   CAMERA,
   clusterBy,
+  clusterAnchor,
   countryByCode,
   declump,
   PIN_LAYOUT_ZOOM,
@@ -33,7 +34,9 @@ import {
   tierOf,
   TIER_SIZE_FACTOR,
   pinRingWidthFor,
+  mapLocationLabel,
   type ClusterLevel,
+  type MapLocation,
   type PopularityMap,
   type PopularityTier,
 } from '@musimaps/shared'
@@ -112,6 +115,8 @@ interface GlobeMapProps {
   cluster?: boolean
   /** Score de popularité par artiste (id → vues + likes). */
   popularityById?: PopularityMap
+  /** Position de l'utilisateur, centrée après autorisation et visible par un point discret. */
+  userLocation?: MapLocation | null
   /**
    * Artiste dont le pin doit être mis en évidence (nav flèches de la
    * mini-barre « lieu ») : le pin grossit, son anneau devient lime et son
@@ -174,6 +179,7 @@ export default function GlobeMap({
   extraArtists = EMPTY,
   cluster = false,
   popularityById,
+  userLocation = null,
   highlightedArtistId,
   editable = false,
   onMoveArtist,
@@ -182,6 +188,7 @@ export default function GlobeMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])    // Les callbacks passent par des refs : la carte n'est construite qu'une fois.
+  const userMarkerRef = useRef<mapboxgl.Marker | null>(null)
   // Artistes actuellement affichés (pour focusArtist : recalcul du déclump).
   const artistsRef = useRef<Artist[]>([])
   const popularityRef = useRef(popularityById)
@@ -444,6 +451,8 @@ export default function GlobeMap({
       map.off('zoomend', onLevelChange)
       markersRef.current.forEach((m) => m.remove())
       markersRef.current = []
+      userMarkerRef.current?.remove()
+      userMarkerRef.current = null
       map.remove()
       mapRef.current = null
       setStyleReady(false)
@@ -451,6 +460,32 @@ export default function GlobeMap({
     }
     // autoRotate est volontairement absent : il est lu via spinRef.
   }, [decorative, interactive, theme])
+
+  // Point utilisateur séparé des pins artistes : il ne participe jamais au
+  // clustering et reste stable pendant la rotation/les vols Mapbox.
+  useEffect(() => {
+    const map = mapRef.current
+    userMarkerRef.current?.remove()
+    userMarkerRef.current = null
+    if (!map || !mapLoaded || decorative || !userLocation || !isValidCoordinate(userLocation.coordinates)) return
+
+    const wrapper = document.createElement('div')
+    wrapper.className = 'map-location-marker'
+    const dot = document.createElement('span')
+    dot.className = 'map-location-marker__dot'
+    const label = mapLocationLabel(userLocation)
+    if (label) {
+      wrapper.setAttribute('aria-label', label)
+      const text = document.createElement('span')
+      text.className = 'map-location-marker__label'
+      text.textContent = label
+      wrapper.appendChild(text)
+    }
+    wrapper.appendChild(dot)
+    userMarkerRef.current = new mapboxgl.Marker({ element: wrapper, anchor: 'center' })
+      .setLngLat(userLocation.coordinates)
+      .addTo(map)
+  }, [decorative, mapLoaded, userLocation])
 
   // Pins : rendu indépendant de la construction de la carte. Uniquement après
   // `load` (mapLoaded) pour éviter les markers décalés, et uniquement pour des
@@ -515,7 +550,9 @@ export default function GlobeMap({
       const el = document.createElement('button')
       el.type = 'button'
       el.className =
-        'artist-pin artist-pin--cluster' + (variant === 'sub' ? ' artist-pin--sub' : '')
+        'artist-pin artist-pin--cluster' +
+        (variant === 'sub' ? ' artist-pin--sub' : '') +
+        (place?.kind === 'country' ? ' artist-pin--country' : '')
       el.setAttribute('aria-label', `${label} — ${count} artistes`)
       // Le pin de cluster ne porte que le lieu et le NOMBRE D'ARTISTES. Il
       // affichait aussi un total d'abonnés agrégé (« 12 K fans ») : une
@@ -525,12 +562,13 @@ export default function GlobeMap({
       content.className = 'artist-pin__cluster-content'
       const main = document.createElement('span')
       main.className = 'artist-pin__cluster-main'
-      // Pays : code ISO court uniquement. Une ville garde son contexte et
-      // son compteur ; les longues pilules pays gênaient surtout sur mobile.
+      // Même au zoom globe, le pays reste identifiable : une étincelle garde
+      // son drapeau et son code ISO court. Le compteur n'apparaît qu'en vue
+      // rapprochée pour préserver la légèreté de la vue monde.
       main.textContent = variant === 'sub'
         ? `${count}`
         : place?.kind === 'country'
-          ? label
+          ? `${flag} ${label}`
           : `${flag} ${label} · ${count}`
       content.appendChild(main)
       el.appendChild(content)
@@ -725,13 +763,19 @@ export default function GlobeMap({
           // Garde 1 : on ecarte les artistes dont la coordonnee contredit le
           // groupe (donnee fausse) — sinon la nav du panneau teleporte.
           const members = geoConsistent(located.filter((a) => clusterKey(a) === c.key))
+          // Le centre d'un cluster doit être une coordonnée d'artiste réelle,
+          // y compris après le filtre de cohérence géographique. Un barycentre
+          // ou un cluster calculé sur d'autres membres pouvait placer le pin
+          // dans le vide (et faire commencer le vol loin de tout artiste).
+          if (members.length === 0) continue
+          const anchor = clusterAnchor(members)
           const countryName =
             countryByCode(geo.code)?.fr ?? countryByCode(geo.code)?.en ?? geo.code
           addClusterPin(
             geo.code,
             geo.flag,
-            c.count,
-            c.coordinates,
+            members.length,
+            anchor,
             CAMERA.country.zoom,
             undefined,
             members,
@@ -766,11 +810,13 @@ export default function GlobeMap({
         for (const c of clusterBy(located, cityKey)) {
           const code = c.key.split('|')[1] ?? ''
           const members = geoConsistent(located.filter((a) => cityKey(a) === c.key), 'city')
+          if (members.length === 0) continue
+          const anchor = clusterAnchor(members)
           addClusterPin(
             c.label.split('|')[0],
             flagByCity.get(code) ?? c.flag,
-            c.count,
-            c.coordinates,
+            members.length,
+            anchor,
             CAMERA.city.zoom,
             undefined,
             members,
@@ -805,13 +851,11 @@ export default function GlobeMap({
             addArtistPin(group[0], group[0].coordinates)
             continue
           }
-          const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length
-          const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length
           addClusterPin(
             group[0].name,
             group[0].flag,
             group.length,
-            [cLng, cLat],
+            clusterAnchor(group),
             CAMERA.sub.zoom,
             'sub',
             group,

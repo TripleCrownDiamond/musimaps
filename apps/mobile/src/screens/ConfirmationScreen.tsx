@@ -30,7 +30,7 @@ export function ConfirmationScreen({ navigation, route }: Props) {
     });
 
   const continueAccount = () => {
-    if (user) navigation.navigate('Main', { screen: 'Dashboard' });
+    if (user) navigation.navigate('Main', { screen: 'Profile' });
     else navigation.navigate('Signup', { role: isArtist ? 'artist' : 'melomane', email });
   };
 

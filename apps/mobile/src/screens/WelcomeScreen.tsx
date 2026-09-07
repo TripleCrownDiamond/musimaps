@@ -3,12 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import {
+  LOCATION_PERMISSION_TIMEOUT_MS,
+  resolveWithin,
+} from '@musimaps/shared';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
@@ -19,6 +23,10 @@ const LOCATION_KEY = 'musimaps.mobile.location';
 
 interface ChosenLocation {
   city: string;
+  district?: string;
+  country?: string;
+  countryCode?: string;
+  locationLabel?: string;
   coordinates: [number, number];
 }
 
@@ -42,7 +50,20 @@ export function WelcomeScreen({ navigation }: Props) {
         const onboarded = await AsyncStorage.getItem(ONBOARDED_KEY);
         if (onboarded !== 'true') return;
         if (cancelled) return;
-        navigation.replace('Main', { screen: 'Explore' });
+        const savedRaw = await AsyncStorage.getItem(LOCATION_KEY).catch(() => null);
+        let saved: ChosenLocation | null = null;
+        try {
+          saved = savedRaw ? (JSON.parse(savedRaw) as ChosenLocation) : null;
+        } catch {
+          saved = null;
+        }
+        navigation.replace('Main', {
+          screen: 'Explore',
+          params: {
+            skipLocation: true,
+            ...(saved?.coordinates ? saved : {}),
+          },
+        });
       } catch {
         /* stockage indisponible : on laisse l'écran s'afficher */
       }
@@ -65,7 +86,16 @@ export function WelcomeScreen({ navigation }: Props) {
             // La décision de localisation est déjà prise ici (Welcome) :
             // Explorer ne doit pas re-demander l'autorisation.
             skipLocation: true,
-            ...(chosen ? { city: chosen.city, coordinates: chosen.coordinates } : {}),
+            ...(chosen
+              ? {
+                  city: chosen.city,
+                  district: chosen.district,
+                  country: chosen.country,
+                  countryCode: chosen.countryCode,
+                  locationLabel: chosen.locationLabel,
+                  coordinates: chosen.coordinates,
+                }
+              : {}),
           },
         });
       })();
@@ -76,20 +106,28 @@ export function WelcomeScreen({ navigation }: Props) {
   const authorize = async () => {
     setLocating(true);
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
+      // Sur Expo Web, expo-location ne relaie pas toujours la permission du
+      // navigateur. L'écran Carte appelle ensuite navigator.geolocation et
+      // affiche la carte sans attendre cette étape.
+      if (Platform.OS === 'web') {
+        goToMap();
+        return;
+      }
+      const permission = await resolveWithin(
+        Location.requestForegroundPermissionsAsync(),
+        LOCATION_PERMISSION_TIMEOUT_MS,
+      );
+      if (!permission || permission.status !== 'granted') {
         // Refus : on laisse quand même accéder au globe sans localisation.
         goToMap();
         return;
       }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const [place] = await Location.reverseGeocodeAsync(position.coords);
-      goToMap({
-        city: [place?.city, place?.country].filter(Boolean).join(', ') || 'Cotonou, Benin',
-        coordinates: [position.coords.longitude, position.coords.latitude],
-      });
+      // L'écran carte s'ouvre immédiatement après la permission. Explore
+      // récupère ensuite le GPS et le géocodage avec ses propres délais : un
+      // navigateur/émulateur lent ne peut plus bloquer l'onboarding.
+      goToMap();
     } catch {
-      goToMap({ city: 'Cotonou, Benin', coordinates: [2.36, 6.37] });
+      goToMap();
     } finally {
       setLocating(false);
     }

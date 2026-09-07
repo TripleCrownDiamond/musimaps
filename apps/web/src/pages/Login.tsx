@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Headphones, Loader2, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
@@ -11,17 +11,23 @@ export default function Login() {
   const { user, loading, signIn } = useAuth()
   const { t } = useLanguage()
   const localize = useLocalizedPath()
+  const location = useLocation()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
+  const requestedPath = (location.state as { from?: unknown } | null)?.from
+  const redirectTo =
+    typeof requestedPath === 'string' && requestedPath.startsWith('/')
+      ? requestedPath
+      : localize('/dashboard')
 
   useEffect(() => {
-    if (!loading && user) navigate(localize('/dashboard'), { replace: true })
-  }, [user, loading, navigate, localize])
+    if (!loading && user) navigate(redirectTo, { replace: true })
+  }, [user, loading, navigate, redirectTo])
 
-  if (!loading && user) return <Navigate to={localize('/dashboard')} replace />
+  if (!loading && user) return <Navigate to={redirectTo} replace />
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -12,11 +12,14 @@ import type { Artist } from '@musimaps/shared'
 import {
   CAMERA,
   COUNTRIES,
+  artistsNearLocation,
   countryByName,
   distanceKm,
   flagFor,
   geoCountryOf,
   isScopeArmed,
+  mapLocationLabel,
+  notifyNearbyLocation,
   NEIGHBORHOOD_RADIUS_DEG,
   renderedPosition,
   shouldReleaseScope,
@@ -24,6 +27,7 @@ import {
   POPULARITY_RING_COLORS,
   TIER_RING_WIDTH,
   type PopularityTier,
+  type MapLocation,
 } from '@musimaps/shared'
 import { GLOBE_VIEW, hasMapboxToken } from '../lib/mapbox'
 import { useThemeValue } from '../lib/theme'
@@ -56,6 +60,7 @@ import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
+import { reverseGeocodeBrowser } from '../lib/geolocate'
 
 /** Normalise une chaîne : minuscules + accents retirés (recherche tolérante).
  *  Tolère null/undefined (certains artistes n'ont pas de ville ni de pays). */
@@ -77,6 +82,9 @@ export default function GlobeExplore() {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState<Artist | null>(null)
   const [spinning, setSpinning] = useState(true)
+  const [userLocation, setUserLocation] = useState<MapLocation | null>(null)
+  const [locationBusy, setLocationBusy] = useState(false)
+  const locationNoticeRef = useRef<string | null>(null)
 
   /*
    * Édition administrateur.
@@ -278,12 +286,72 @@ export default function GlobeExplore() {
 
   const handleReady = useCallback((handle: GlobeMapHandle) => {
     mapRef.current = handle
-  }, [])
+    if (userLocation) handle.flyTo(userLocation.coordinates, CAMERA.location.zoom, CAMERA.location.duration)
+  }, [userLocation])
 
   // La recherche distingue trois types de résultats : artistes (nom seul),
   // lieux (ville/pays) et genres musicaux. Source unique : la table
   // map_artists (tout pin du globe existe en base → Suivre/Like valides).
   const allArtists = useMemo(() => mapArtists, [mapArtists])
+
+  /** Demande navigateur bornée : une permission qui ne répond pas ne bloque
+   * jamais le globe. Le point précis est conservé même si le reverse geocode
+   * est indisponible ; le libellé retombe alors sur la ville/pays connus. */
+  const requestLocation = useCallback(async () => {
+    if (locationBusy) return
+    setLocationBusy(true)
+    try {
+      const result = await reverseGeocodeBrowser()
+      if (!result?.coordinates) {
+        toast.error(result?.denied ? t('auth.locationDenied') : t('loc.locationUnavailable'))
+        return
+      }
+      const next: MapLocation = {
+        coordinates: result.coordinates,
+        district: result.district,
+        city: result.city,
+        country: result.country,
+        countryCode: result.countryCode,
+      }
+      next.label = mapLocationLabel(next)
+      setSelected(null)
+      setSelectedPlace(null)
+      setPlaceIndex(0)
+      setHighlightedId(null)
+      setUserLocation(next)
+      mapRef.current?.flyTo(next.coordinates, CAMERA.location.zoom, CAMERA.location.duration)
+    } finally {
+      setLocationBusy(false)
+    }
+  }, [locationBusy, t])
+
+  // Une fois les artistes chargés, le cadrage de la position révèle en priorité
+  // le voisinage réel. Le serveur reçoit seulement la demande de notification,
+  // jamais une position persistée.
+  useEffect(() => {
+    if (!userLocation || allArtists.length === 0) return
+    const nearbyArtists = artistsNearLocation(allArtists, userLocation.coordinates)
+    setVisiblePins(nearbyArtists)
+    const key = `${userLocation.coordinates.join(',')}|${nearbyArtists.length}`
+    if (locationNoticeRef.current === key) return
+    locationNoticeRef.current = key
+    const label = mapLocationLabel(userLocation) || t('loc.title')
+    if (nearbyArtists.length > 0) {
+      toast.success(t('loc.nearbyFound', { count: nearbyArtists.length, s: nearbyArtists.length > 1 ? 's' : '' }), {
+        description: t('loc.detected', { location: label }),
+      })
+      void notifyNearbyLocation(
+        userLocation,
+        t('loc.nearbyNotification', {
+          count: nearbyArtists.length,
+          s: nearbyArtists.length > 1 ? 's' : '',
+          location: label,
+        }),
+      )
+    } else {
+      toast.info(t('loc.nearbyNone'), { description: t('loc.detected', { location: label }) })
+    }
+  }, [allArtists, t, userLocation])
 
   /** Artistes dont le NOM contient la requête (pas la ville ni le genre). */
   const artistResults = useMemo(() => {
@@ -556,21 +624,15 @@ export default function GlobeExplore() {
         })
         setPlaceIndex(0)
       }
-      // Barycentre des artistes du pays (plus précis que la première
-      // coordonnée, surtout pour les grands pays). Repli : coordonnée du
-      // premier résultat.
-      const center: [number, number] =
-        countryArtists.length > 1
-          ? ([
-              countryArtists.reduce((s, a) => s + a.coordinates[0], 0) /
-                countryArtists.length,
-              countryArtists.reduce((s, a) => s + a.coordinates[1], 0) /
-                countryArtists.length,
-            ] as [number, number])
-          : c.coordinates
       // 12 = niveau quartier : pendant le vol le clustering se met à jour
       // en continu et les pins apparaissent progressivement, détachés.
-      mapRef.current?.flyTo(center, CAMERA.country.zoom, CAMERA.country.duration)
+      // `focusFirst` choisit une position dés-empilée d'artiste réel : un
+      // barycentre de pays pouvait tomber dans le vide (océan/désert).
+      if (countryArtists.length > 0) {
+        mapRef.current?.focusFirst(countryArtists, CAMERA.country.zoom)
+        return
+      }
+      mapRef.current?.flyTo(c.coordinates, CAMERA.country.zoom, CAMERA.country.duration)
     },
     [allArtists, rememberQuery],
   )
@@ -851,6 +913,7 @@ export default function GlobeExplore() {
                 : undefined
           }
           extraArtists={mapArtists}
+          userLocation={userLocation}
           popularityById={popularityById}
           highlightedArtistId={highlightedId}
           cluster
@@ -1030,6 +1093,16 @@ export default function GlobeExplore() {
               className="pointer-events-auto"
             />
           )}
+          <button
+            type="button"
+            onClick={() => void requestLocation()}
+            disabled={locationBusy}
+            aria-label={userLocation ? t('loc.recenter') : t('loc.allow')}
+            className="pointer-events-auto flex items-center gap-2 rounded-full bg-surface/85 px-5 py-3 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface disabled:cursor-wait disabled:opacity-70"
+          >
+            {locationBusy ? <Loader2 className="h-4 w-4 animate-spin text-brand-deep" /> : <MapPin className="h-4 w-4 text-brand-deep" />}
+            <span className="hidden sm:inline">{userLocation ? t('loc.recenter') : t('loc.allow')}</span>
+          </button>
           {isAdmin && (
             <button
               type="button"
@@ -1051,6 +1124,12 @@ export default function GlobeExplore() {
               {editMode ? t('mapAdmin.disable') : t('mapAdmin.enable')}
             </button>
           )}
+        </div>
+      )}
+
+      {userLocation && !selected && !searchOpen && (
+        <div className="pointer-events-none absolute left-1/2 top-5 z-20 max-w-[calc(100vw-8rem)] -translate-x-1/2 truncate rounded-full border border-hairline bg-surface/90 px-4 py-2 text-xs font-semibold text-ink shadow-lg backdrop-blur-xl">
+          {t('loc.detected', { location: mapLocationLabel(userLocation) || t('loc.title') })}
         </div>
       )}
 

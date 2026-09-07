@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
-import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { CompositeNavigationProp, NavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +25,9 @@ type Navigation = CompositeNavigationProp<
  * écrans principaux pour une cohérence totale.
  */
 interface AppBarProps {
-  navigation: Navigation;
+  navigation: Navigation | NavigationProp<RootStackParamList>;
+  /** Navigation racine fournie par un écran ouvert hors des onglets. */
+  rootNavigation?: NavigationProp<RootStackParamList>;
   /** Recherche repliée (zoom/fiche ouverte) : l'icône search remplace la cloche. */
   searchCollapsed?: boolean;
   onOpenSearch?: () => void;
@@ -36,6 +38,7 @@ interface AppBarProps {
 
 export function AppBar({
   navigation,
+  rootNavigation,
   searchCollapsed = false,
   onOpenSearch,
   backOverride = false,
@@ -66,6 +69,14 @@ export function AppBar({
   }, [searchCollapsed, ringAnim]);
   const ringScale = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.55] });
   const ringOpacity = ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
+  const openHome = () => {
+    if (rootNavigation) return rootNavigation.navigate('Main', { screen: 'Explore' });
+    return (navigation as Navigation).navigate('Explore');
+  };
+  const openNotifications = () => {
+    if (rootNavigation) return rootNavigation.navigate('Notifications');
+    return (navigation as Navigation).navigate('Notifications');
+  };
 
   // Badge de notifications rafraîchi à chaque focus de l'écran hôte.
   useFocusEffect(
@@ -97,7 +108,7 @@ export function AppBar({
           accessibilityRole="button"
           accessibilityLabel="Musimaps — accueil"
           hitSlop={8}
-          onPress={() => navigation.navigate('Explore')}
+          onPress={openHome}
           style={styles.logoPress}
         >
           <BrandMark size={40} />
@@ -130,7 +141,7 @@ export function AppBar({
             accessibilityLabel={t('notif.title')}
             hitSlop={6}
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Notifications')}
+            onPress={openNotifications}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.ink} />
             {unread > 0 && (

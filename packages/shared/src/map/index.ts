@@ -13,6 +13,8 @@ import type { Artist } from '../index';
 import { distanceKm, geoConsistent, isValidCoordinate, medianCentre } from './geo-consistency';
 import { parseFollowersCount, popularityTier, type PopularityTier } from '../index';
 
+export * from './location';
+
 /* ------------------------------------------------------------------ */
 /* Coordonnées                                                        */
 /* ------------------------------------------------------------------ */
@@ -384,7 +386,7 @@ export function clusterBy(artists: Artist[], keyOf: (a: Artist) => string): Clus
  * ainsi toujours posé là où quelqu'un se trouve vraiment, et le vol qui suit
  * n'a plus rien d'une téléportation.
  */
-function clusterAnchor(members: Artist[]): [number, number] {
+export function clusterAnchor(members: Artist[]): [number, number] {
   if (members.length === 1) return members[0].coordinates;
   const centre = medianCentre(members);
   let best = members[0];

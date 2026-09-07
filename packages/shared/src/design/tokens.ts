@@ -231,6 +231,9 @@ export const mapUi = {
   selectedPinScale: 1.28,
   pinLabelWidth: 200,
   placeControlSize: 36,
+  /** Point utilisateur : précis sur la carte, mais visuellement discret. */
+  locationDotDiameter: 14,
+  locationMarkerHitSize: 28,
 } as const;
 
 /**

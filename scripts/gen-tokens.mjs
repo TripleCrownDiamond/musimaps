@@ -102,6 +102,8 @@ const lines = [
   `  --map-cluster-padding-x: ${mapUi.clusterPaddingX}px;`,
   `  --map-cluster-padding-y: ${mapUi.clusterPaddingY}px;`,
   `  --map-subcluster-diameter: ${mapUi.subclusterDiameter}px;`,
+  `  --map-location-dot-diameter: ${mapUi.locationDotDiameter}px;`,
+  `  --map-location-marker-hit-size: ${mapUi.locationMarkerHitSize}px;`,
   ...OVERLAY_KEYS.map(([css, key]) => `  ${css}: ${mapOverlays.light[key]};`),
   '}',
   '',

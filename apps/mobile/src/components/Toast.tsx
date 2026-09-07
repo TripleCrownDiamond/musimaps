@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -29,16 +29,17 @@ export function Toast() {
     Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }).start();
     const timer = setTimeout(() => {
       Animated.timing(opacity, { toValue: 0, duration: 240, useNativeDriver: true }).start();
-    }, 2200);
+    }, Math.max(0, (toast.durationMs ?? 2500) - 300));
     return () => clearTimeout(timer);
   }, [toast, opacity, progress]);
 
   if (!toast || lastEarnedBadge) return null;
 
-  return (    <Animated.View
-        pointerEvents="none"
-        style={[styles.wrap, { top: insets.top + 12, opacity }]}
-      >
+  return (
+    <Animated.View
+      pointerEvents={toast.action ? 'auto' : 'none'}
+      style={[styles.wrap, { top: insets.top + 12, opacity }]}
+    >
       <Animated.View
         style={[
           styles.card,
@@ -52,6 +53,16 @@ export function Toast() {
           </View>
         )}
         <Text style={styles.label}>{toast.message}</Text>
+        {toast.action && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={toast.action.label}
+            onPress={toast.action.onPress}
+            style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
+          >
+            <Text style={styles.actionLabel}>{toast.action.label}</Text>
+          </Pressable>
+        )}
         <Ionicons
           name={(toast.icon ?? (isError ? 'alert-circle' : 'checkmark-circle')) as never}
           size={22}
@@ -106,5 +117,20 @@ const createStyles = (colors: AppColors) =>
       fontFamily: fonts.bold,
       fontSize: 14,
       lineHeight: 19,
+    },
+    action: {
+      minHeight: 34,
+      borderRadius: 17,
+      backgroundColor: colors.brand,
+      justifyContent: 'center',
+      paddingHorizontal: 12,
+    },
+    actionPressed: {
+      opacity: 0.76,
+    },
+    actionLabel: {
+      color: colors.black,
+      fontFamily: fonts.bold,
+      fontSize: 12,
     },
   });

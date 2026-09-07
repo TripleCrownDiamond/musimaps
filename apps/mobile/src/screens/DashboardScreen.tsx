@@ -1,7 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import type { CompositeScreenProps } from '@react-navigation/native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
-import { fetchBookings, fetchMyReferralRequest, getLevelInfo, type BookingRecord, type BookingStatus, type MyReferralRequest } from '@musimaps/shared';
+import { fetchBookings, fetchMyReferralRequest, getLevelInfo, radii, spacing, type BookingRecord, type BookingStatus, type MyReferralRequest } from '@musimaps/shared';
 import {
   fetchArtistIdByName,
   fetchArtistStatsDetail,
@@ -18,13 +16,10 @@ import {
 } from '@musimaps/shared';
 import { BarChart, ChartCard, HBarList, SegmentedBar } from '../components/Charts';
 import { AppBar } from '../components/AppBar';
-import type { MainTabParamList, RootStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
-type Props = CompositeScreenProps<
-  BottomTabScreenProps<MainTabParamList, 'Dashboard'>,
-  NativeStackScreenProps<RootStackParamList>
->;
+type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 function statusColor(status: BookingStatus, colors: AppColors): string {
   if (status === 'confirmed') return colors.success;
@@ -84,7 +79,7 @@ export function DashboardScreen({ navigation }: Props) {
     return (
       <View style={styles.root}>
         <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
-          <AppBar navigation={navigation} />
+          <AppBar navigation={navigation} rootNavigation={navigation} />
         </View>
         <View style={[styles.center, styles.guestBody]}>
           <ActivityIndicator color={colors.brandDeep} />
@@ -97,7 +92,7 @@ export function DashboardScreen({ navigation }: Props) {
     return (
       <View style={styles.root}>
         <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
-          <AppBar navigation={navigation} />
+          <AppBar navigation={navigation} rootNavigation={navigation} />
         </View>
         <View style={[styles.center, styles.gap, styles.guestBody]}>
           {/* Mêmes libellés que le tableau de bord web : l'état invité parlait
@@ -124,7 +119,7 @@ export function DashboardScreen({ navigation }: Props) {
   return (
     <View style={styles.root}>
       <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
-        <AppBar navigation={navigation} />
+        <AppBar navigation={navigation} rootNavigation={navigation} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
@@ -142,7 +137,7 @@ export function DashboardScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Explore')}>
+        <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Main', { screen: 'Explore' })}>
           <Ionicons name="globe-outline" size={20} color={colors.white} />
           <Text style={styles.actionPrimaryText}>{t('dash.explore')}</Text>
         </Pressable>
@@ -194,19 +189,44 @@ export function DashboardScreen({ navigation }: Props) {
         <View style={styles.guideHeader}>
           <Ionicons name="help-circle-outline" size={20} color={colors.brandDeep} />
           <Text style={[styles.guideTitle, { color: colors.ink }]}>{t('dash.guideTitle')}</Text>
+          <Text style={styles.guideToggle}>{guideOpen ? t('dash.guideHide') : t('dash.guideToggle')}</Text>
           <Ionicons name={guideOpen ? 'chevron-up' : 'chevron-down'} size={18} color={colors.brandDeep} />
         </View>
         {guideOpen && (
           <View style={styles.guideBody}>
-            <Text style={[styles.guideText, { color: colors.inkSoft }]}>
-              {isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}
-            </Text>
+            <View style={[styles.guideStep, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+              <View style={[styles.guideStepIcon, { backgroundColor: colors.brandSoft }]}>
+                <Ionicons name={isArtist ? 'mic-outline' : 'globe-outline'} size={17} color={colors.brandDeep} />
+              </View>
+              <View style={styles.guideStepCopy}>
+                <Text style={styles.guideStepNumber}>01</Text>
+                <Text style={[styles.guideText, { color: colors.inkSoft }]}>
+                  {isArtist ? t('dash.guideArtist') : t('dash.guideMelomane')}
+                </Text>
+              </View>
+            </View>
             {isArtist && (
-              <Text style={[styles.guideText, { color: colors.inkSoft }]}>{t('dash.guideArtistTracks')}</Text>
+              <View style={[styles.guideStep, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+                <View style={[styles.guideStepIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Ionicons name="link-outline" size={17} color={colors.brandDeep} />
+                </View>
+                <View style={styles.guideStepCopy}>
+                  <Text style={styles.guideStepNumber}>02</Text>
+                  <Text style={[styles.guideText, { color: colors.inkSoft }]}>{t('dash.guideArtistTracks')}</Text>
+                </View>
+              </View>
             )}
-            <Text style={[styles.guideText, { color: colors.inkSoft }]}>
-              {user.accountType === 'business' ? t('dash.guideBusiness') : t('dash.guidePersonal')}
-            </Text>
+            <View style={[styles.guideStep, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+              <View style={[styles.guideStepIcon, { backgroundColor: colors.brandSoft }]}>
+                <Ionicons name={user.accountType === 'business' ? 'briefcase-outline' : 'heart-outline'} size={17} color={colors.brandDeep} />
+              </View>
+              <View style={styles.guideStepCopy}>
+                <Text style={styles.guideStepNumber}>{isArtist ? '03' : '02'}</Text>
+                <Text style={[styles.guideText, { color: colors.inkSoft }]}>
+                  {user.accountType === 'business' ? t('dash.guideBusiness') : t('dash.guidePersonal')}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
       </Pressable>
@@ -246,7 +266,7 @@ export function DashboardScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             style={styles.actionPrimary}
-            onPress={() => navigation.navigate('Explore')}
+            onPress={() => navigation.navigate('Main', { screen: 'Explore' })}
           >
             <Text style={styles.actionPrimaryText}>{t('dash.firstStepsCta')}</Text>
           </Pressable>
@@ -504,6 +524,11 @@ const createStyles = (colors: AppColors) =>
     guideCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
     guideHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     guideTitle: { flex: 1, fontFamily: fonts.bold, fontSize: 14 },
+    guideToggle: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11 },
     guideBody: { marginTop: 12, gap: 8 },
+    guideStep: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, borderRadius: radii.xl, borderWidth: 1, padding: spacing.md },
+    guideStepIcon: { width: 34, height: 34, borderRadius: radii.lg, alignItems: 'center', justifyContent: 'center' },
+    guideStepCopy: { flex: 1, gap: 2 },
+    guideStepNumber: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 10, letterSpacing: 1.2 },
     guideText: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   });

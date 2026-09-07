@@ -1317,9 +1317,63 @@ export async function geocodeCityWithCountry(
  */
 export interface GeocodeReverseResult {
   city: string
+  /** Quartier/localité quand le fournisseur peut le déterminer. */
+  district?: string
+  /** Pays lisible, utile quand le code ISO n'est pas disponible. */
+  country?: string
   countryCode: string | null
+  /** Coordonnées GPS brutes : elles servent uniquement à centrer la carte. */
+  coordinates?: [longitude: number, latitude: number]
   /** true si l'utilisateur a refusé la permission de géolocalisation. */
   denied?: boolean
+}
+
+/**
+ * Géocodage inverse partagé entre le web et le build Expo Web.
+ * La permission et la lecture GPS restent propres à chaque plateforme ;
+ * l'interprétation de la réponse Mapbox, elle, doit rester identique.
+ */
+export async function reverseGeocodeCoordinates(
+  coordinates: [longitude: number, latitude: number],
+  token = getMapboxToken(),
+  signal?: AbortSignal,
+): Promise<GeocodeReverseResult> {
+  if (!token) return { city: '', countryCode: null, coordinates }
+  const [lng, lat] = coordinates
+  try {
+    const res = await fetch(
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${token}&limit=5&types=neighborhood,locality,place&language=fr`,
+      { signal },
+    )
+    if (!res.ok) return { city: '', countryCode: null, coordinates }
+    const data = (await res.json()) as {
+      features?: Array<{
+        text?: string
+        place_type?: string[]
+        context?: Array<{ id?: string; short_code?: string; text?: string }>
+      }>
+    }
+    const features = data.features ?? []
+    const first = features[0]
+    if (!first?.text) return { city: '', countryCode: null, coordinates }
+    const context = first.context ?? []
+    const cityFeature = features.find((feature) => feature.place_type?.includes('place'))
+    const districtFeature = features.find((feature) =>
+      feature.place_type?.some((type) => type === 'neighborhood' || type === 'locality'),
+    )
+    const countryFeature = context.find((item) => (item.id ?? '').startsWith('country'))
+    const city = cityFeature?.text ?? (first.place_type?.includes('place') ? first.text : '')
+    const district = districtFeature?.text && districtFeature.text !== city ? districtFeature.text : undefined
+    return {
+      city,
+      district,
+      country: countryFeature?.text,
+      countryCode: countryCodeOfFeature(first),
+      coordinates,
+    }
+  } catch {
+    return { city: '', countryCode: null, coordinates }
+  }
 }
 
 export interface CitySuggestion {
