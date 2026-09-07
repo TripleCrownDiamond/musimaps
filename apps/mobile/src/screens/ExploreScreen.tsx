@@ -64,6 +64,7 @@ import {
   notifyNearbyLocation,
   reverseGeocodeCoordinates,
   LOCATION_GEOCODE_TIMEOUT_MS,
+  LOCATION_LAST_KNOWN_TIMEOUT_MS,
   LOCATION_PERMISSION_TIMEOUT_MS,
   LOCATION_POSITION_TIMEOUT_MS,
   NEIGHBORHOOD_RADIUS_DEG,
@@ -176,7 +177,15 @@ async function readExpoMapLocation(): Promise<MapLocation | null> {
     return next;
   }
   try {
-    const position = await resolveWithin(
+    // Android peut garder le premier fix GPS en attente plusieurs secondes
+    // (surtout dans un émulateur). Une position connue permet de répondre
+    // immédiatement au bouton Allow/Recenter ; on tente le fix frais si
+    // aucune position en cache n'est disponible.
+    const lastKnown = await resolveWithin(
+      Location.getLastKnownPositionAsync(),
+      LOCATION_LAST_KNOWN_TIMEOUT_MS,
+    );
+    const position = lastKnown ?? await resolveWithin(
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
       LOCATION_POSITION_TIMEOUT_MS,
     );

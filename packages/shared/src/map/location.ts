@@ -23,6 +23,10 @@ export interface MapLocation {
 export const LOCATION_PERMISSION_TIMEOUT_MS = 10_000
 /** Position GPS : le globe reste accessible si le capteur ne répond pas. */
 export const LOCATION_POSITION_TIMEOUT_MS = 12_000
+/** Lecture de la dernière position connue : réponse rapide sur mobile lorsque
+ * le fournisseur GPS n'a pas encore livré de nouveau fix (notamment au
+ * démarrage d'un émulateur). */
+export const LOCATION_LAST_KNOWN_TIMEOUT_MS = 1_500
 /** Géocodage inverse : la position reste exploitable même sans réseau. */
 export const LOCATION_GEOCODE_TIMEOUT_MS = 6_000
 /** Rayon de découverte autour de la position utilisateur. */
