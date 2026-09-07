@@ -3,7 +3,8 @@
  *
  * Les originales Wikimedia sont parfois très lourdes ou refusées par le
  * chargeur natif. Leur miniature publique est stable, plus légère et garde
- * une résolution suffisante pour un avatar de pin.
+ * une résolution suffisante pour un avatar de pin. Wikimedia ne sert pas
+ * toutes les tailles arbitraires : 500 px fait partie des tailles garanties.
  */
 export function normalizeArtistImageUrl(raw: string | null | undefined): string {
   const value = raw?.trim();
@@ -18,5 +19,5 @@ export function normalizeArtistImageUrl(raw: string | null | undefined): string 
   if (!match) return https;
 
   const [, path, filename] = match;
-  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}${filename}/320px-${filename}`;
+  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}${filename}/500px-${filename}`;
 }
