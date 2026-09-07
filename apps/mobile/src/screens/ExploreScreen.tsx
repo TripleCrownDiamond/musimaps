@@ -23,6 +23,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GuestExperienceNudge } from '../components/GuestExperienceNudge';
 import {
   bucketKey,
   CAMERA,
@@ -1483,6 +1484,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container}>
+      {showMap && <GuestExperienceNudge />}
       {!showMap ? (
         /* Premier écran : demande de localisation (Autoriser / Explorer le globe). */
         <View style={styles.locView}>

@@ -17,7 +17,6 @@ import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
 import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
-import { GuestExperienceNudge } from './src/components/GuestExperienceNudge';
 import { Toast } from './src/components/Toast';
 import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
@@ -213,7 +212,6 @@ function AppNavigator() {
             <RootStack.Screen name="ClaimedProfile" component={ClaimedProfileScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>
-          <GuestExperienceNudge />
         </NavigationContainer>
         {/* Au-dessus de la navigation : une mise à jour imposée doit
             couvrir tout l'écran, quel que soit l'écran affiché. */}

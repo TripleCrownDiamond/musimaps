@@ -1,5 +1,5 @@
 import type { NavigationProp } from '@react-navigation/native';
-import { useNavigation, useNavigationState } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useEffect, useRef } from 'react';
 import { GUEST_NUDGE_DELAY_MS, GUEST_NUDGE_DURATION_MS } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
@@ -17,11 +17,10 @@ export function GuestExperienceNudge() {
   const { showToast } = useApp();
   const { t } = useI18n();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
-  const rootRouteName = useNavigationState((state) => state.routes[state.index]?.name);
   const shownRef = useRef(false);
 
   useEffect(() => {
-    if (loading || user || rootRouteName !== 'Main' || shownRef.current) return;
+    if (loading || user || shownRef.current) return;
     const timer = setTimeout(() => {
       if (shownRef.current) return;
       shownRef.current = true;
@@ -34,7 +33,7 @@ export function GuestExperienceNudge() {
       });
     }, GUEST_NUDGE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [loading, navigation, rootRouteName, showToast, t, user]);
+  }, [loading, navigation, showToast, t, user]);
 
   return null;
 }
