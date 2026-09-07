@@ -39,6 +39,10 @@ export function ProfileScreen({ navigation }: Props) {
   const city = profile?.city ?? t('profile.defaultCity');
   const isArtist = user?.role === 'artist';
   const isBusiness = user?.accountType === 'business';
+  const openAccountAction = () => {
+    if (user) navigation.navigate('ProfileEdit');
+    else navigation.navigate('Signup');
+  };
   const level = getLevelInfo(points);
   const earnedCount = badges.filter((badge) => badge.earned).length;
   const earnedBadgesList = badges.filter((badge) => badge.earned);
@@ -102,8 +106,8 @@ export function ProfileScreen({ navigation }: Props) {
       <View style={styles.identity}>
         <View style={styles.identityTitle}>
           <Text style={styles.name}>{name}</Text>
-          <Pressable style={styles.editMini} onPress={() => navigation.navigate('ProfileEdit')}>
-            <Ionicons name="pencil" size={17} color={colors.ink} />
+          <Pressable style={styles.editMini} onPress={openAccountAction}>
+            <Ionicons name={user ? 'pencil' : 'person-add-outline'} size={17} color={colors.ink} />
           </Pressable>
         </View>
         <Text style={styles.email}>{city}</Text>
@@ -130,9 +134,9 @@ export function ProfileScreen({ navigation }: Props) {
           <Ionicons name="globe-outline" size={19} color={colors.white} />
           <Text style={styles.actionPrimaryText}>{t('dash.explore')}</Text>
         </Pressable>
-        <Pressable style={styles.actionGhost} onPress={() => navigation.navigate('ProfileEdit')}>
-          <Ionicons name="create-outline" size={19} color={colors.ink} />
-          <Text style={styles.actionGhostText}>{t('dash.editProfile')}</Text>
+        <Pressable style={styles.actionGhost} onPress={openAccountAction}>
+          <Ionicons name={user ? 'create-outline' : 'person-add-outline'} size={19} color={colors.ink} />
+          <Text style={styles.actionGhostText}>{user ? t('dash.editProfile') : t('profile.createProfile')}</Text>
         </Pressable>
       </View>
 
@@ -279,13 +283,13 @@ export function ProfileScreen({ navigation }: Props) {
       )}
 
       <View style={styles.menu}>
-        <Card style={styles.primaryCard} onPress={() => navigation.navigate('ProfileEdit')}>
+        <Card style={styles.primaryCard} onPress={openAccountAction}>
           <View style={styles.menuIconBrand}>
-            <Ionicons name={profile ? 'create-outline' : 'person-add-outline'} size={23} color={colors.black} />
+            <Ionicons name={user ? 'create-outline' : 'person-add-outline'} size={23} color={colors.black} />
           </View>
           <View style={styles.menuCopy}>
             <Text style={[styles.menuTitle, styles.primaryTitle]}>
-              {profile ? t('profile.editProfile') : t('profile.createProfile')}
+              {user ? t('profile.editProfile') : t('profile.createProfile')}
             </Text>
             <Text style={[styles.menuText, styles.primaryText]}>{t('profile.editHint')}</Text>
           </View>
