@@ -1,7 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
@@ -14,21 +17,25 @@ import {
   type ArtistStatsDetail,
 } from '@musimaps/shared';
 import { BarChart, ChartCard, HBarList, SegmentedBar } from '../components/Charts';
-import { NotificationButton } from '../components/NotificationButton';
-import type { RootStackParamList } from '../navigation/types';
+import { AppBar } from '../components/AppBar';
+import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Dashboard'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
-function statusColor(status: BookingStatus): string {
-  if (status === 'confirmed') return '#1B7F45';
-  if (status === 'rejected') return '#C62828';
-  return '#8A5B00';
+function statusColor(status: BookingStatus, colors: AppColors): string {
+  if (status === 'confirmed') return colors.success;
+  if (status === 'rejected') return colors.danger;
+  return colors.brandDeep;
 }
 
 export function DashboardScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const insets = useSafeAreaInsets();
   const { t, lang } = useI18n();
   const { user, loading } = useAuth();
   const { favorites, visitedCities, points, earnedBadges } = useApp();
@@ -75,22 +82,32 @@ export function DashboardScreen({ navigation }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.root, styles.center]}>
-        <ActivityIndicator color={colors.brandDeep} />
+      <View style={styles.root}>
+        <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+          <AppBar navigation={navigation} />
+        </View>
+        <View style={[styles.center, styles.guestBody]}>
+          <ActivityIndicator color={colors.brandDeep} />
+        </View>
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={[styles.root, styles.center, styles.gap]}>
-        {/* Mêmes libellés que le tableau de bord web : l'état invité parlait
-            de réservation d'artistes (`booking.loginText`), hors sujet ici. */}
-        <Text style={styles.emptyTitle}>{t('dash.loginTitle')}</Text>
-        <Text style={styles.emptyText}>{t('dash.loginText')}</Text>
-        <Pressable style={styles.primaryCta} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.primaryCtaText}>{t('auth.login')}</Text>
-        </Pressable>
+      <View style={styles.root}>
+        <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+          <AppBar navigation={navigation} />
+        </View>
+        <View style={[styles.center, styles.gap, styles.guestBody]}>
+          {/* Mêmes libellés que le tableau de bord web : l'état invité parlait
+              de réservation d'artistes (`booking.loginText`), hors sujet ici. */}
+          <Text style={styles.emptyTitle}>{t('dash.loginTitle')}</Text>
+          <Text style={styles.emptyText}>{t('dash.loginText')}</Text>
+          <Pressable style={styles.primaryCta} onPress={() => navigation.navigate('Login')}>
+            <Text style={styles.primaryCtaText}>{t('auth.login')}</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -105,13 +122,11 @@ export function DashboardScreen({ navigation }: Props) {
   });
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerRow}>
-        <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={27} color={colors.ink} />
-        </Pressable>
-        <NotificationButton onPress={() => navigation.navigate('Notifications')} />
+    <View style={styles.root}>
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+        <AppBar navigation={navigation} />
       </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
       <View style={styles.hero}>
         <View style={styles.heroIcon}>
@@ -127,7 +142,7 @@ export function DashboardScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Main', { screen: 'Explore' })}>
+        <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Explore')}>
           <Ionicons name="globe-outline" size={20} color={colors.white} />
           <Text style={styles.actionPrimaryText}>{t('dash.explore')}</Text>
         </Pressable>
@@ -158,8 +173,8 @@ export function DashboardScreen({ navigation }: Props) {
               <Text style={[styles.referralName, { color: colors.ink }]} numberOfLines={1}>
                 {myReferral.artistName ?? user.displayName}
               </Text>
-              <View style={[styles.referralStatus, { backgroundColor: myReferral.convertedAt ? '#E8F5E9' : '#FFF8E1' }]}>
-                <Text style={[styles.referralStatusText, { color: myReferral.convertedAt ? '#1B7F45' : '#8A5B00' }]}>
+              <View style={[styles.referralStatus, { backgroundColor: myReferral.convertedAt ? colors.brand : colors.brandSoft }]}>
+                <Text style={[styles.referralStatusText, { color: myReferral.convertedAt ? colors.black : colors.brandDeep }]}>
                   {myReferral.convertedAt ? t('dash.referralValidated') : t('dash.referralPending')}
                 </Text>
               </View>
@@ -231,7 +246,7 @@ export function DashboardScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             style={styles.actionPrimary}
-            onPress={() => navigation.navigate('Main', { screen: 'Explore' })}
+            onPress={() => navigation.navigate('Explore')}
           >
             <Text style={styles.actionPrimaryText}>{t('dash.firstStepsCta')}</Text>
           </Pressable>
@@ -324,22 +339,36 @@ export function DashboardScreen({ navigation }: Props) {
                 <Ionicons name="calendar" size={17} color={colors.brandDeep} />
                 <Text style={styles.cardArtist}>{booking.artist_name}</Text>
               </View>
-              <View style={[styles.statusChip, { backgroundColor: `${statusColor(booking.status)}18` }]}>
-                <Text style={[styles.statusText, { color: statusColor(booking.status) }]}>
+              <View style={[styles.statusChip, { backgroundColor: `${statusColor(booking.status, colors)}18` }]}>
+                <Text style={[styles.statusText, { color: statusColor(booking.status, colors) }]}>
                   {t(`dash.status.${booking.status}`)}
                 </Text>
               </View>
             </View>
-            <Text style={styles.cardMeta}>
-              {booking.event_type} · {booking.flexible_date ? '📆' : '📅'} {booking.event_date ?? t('booking.flexible')}
-            </Text>
+            <View style={styles.cardMetaRow}>
+              <Ionicons name="calendar-outline" size={15} color={colors.inkSoft} />
+              <Text style={styles.cardMeta}>
+                {booking.event_type} · {booking.event_date ?? t('booking.flexible')}
+              </Text>
+            </View>
             {booking.city || booking.country ? (
-              <Text style={styles.cardMeta}>📍 {booking.city} {booking.country}</Text>
+              <View style={styles.cardMetaRow}>
+                <Ionicons name="location-outline" size={15} color={colors.inkSoft} />
+                <Text style={styles.cardMeta}>{booking.city} {booking.country}</Text>
+              </View>
             ) : null}
             {(booking.budget_range || booking.budget_amount) && (
-              <Text style={styles.cardMeta}>💰 {booking.budget_range ?? `~${booking.budget_amount} €`}</Text>
+              <View style={styles.cardMetaRow}>
+                <Ionicons name="cash-outline" size={15} color={colors.inkSoft} />
+                <Text style={styles.cardMeta}>{booking.budget_range ?? `~${booking.budget_amount} €`}</Text>
+              </View>
             )}
-            {booking.audience_size ? <Text style={styles.cardMeta}>👥 {booking.audience_size}</Text> : null}
+            {booking.audience_size ? (
+              <View style={styles.cardMetaRow}>
+                <Ionicons name="people-outline" size={15} color={colors.inkSoft} />
+                <Text style={styles.cardMeta}>{booking.audience_size}</Text>
+              </View>
+            ) : null}
             {booking.message ? <Text style={styles.cardMessage}>{booking.message}</Text> : null}
             {booking.contact_name ? (
               <Text style={styles.cardContact}>
@@ -352,7 +381,8 @@ export function DashboardScreen({ navigation }: Props) {
       )}
       </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -361,16 +391,9 @@ const createStyles = (colors: AppColors) =>
     root: { flex: 1, backgroundColor: colors.background },
     center: { alignItems: 'center', justifyContent: 'center' },
     gap: { gap: 14 },
-    content: { paddingHorizontal: 20, paddingBottom: 48 },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12 },
-    back: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
+    guestBody: { flex: 1, paddingHorizontal: 20 },
+    appBarWrap: { paddingHorizontal: 20, paddingBottom: 12 },
+    content: { paddingHorizontal: 20, paddingBottom: 128 },
     hero: { alignItems: 'center', marginTop: 18, marginBottom: 18 },
     heroIcon: {
       width: 70,
@@ -437,6 +460,7 @@ const createStyles = (colors: AppColors) =>
     cardArtist: { color: colors.ink, fontFamily: fonts.bold, fontSize: 16 },
     statusChip: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 },
     statusText: { fontFamily: fonts.bold, fontSize: 11 },
+    cardMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     cardMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, marginTop: 2 },
     cardMessage: {
       color: colors.ink,

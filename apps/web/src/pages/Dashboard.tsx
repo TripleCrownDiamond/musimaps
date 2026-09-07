@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BadgeCheck,
+  Banknote,
   Bell,
   BookOpenCheck,
   Briefcase,
@@ -114,9 +115,9 @@ function timeAgo(iso: string, lang: 'fr' | 'en'): string {
 }
 
 function statusClass(status: string) {
-  if (status === 'confirmed') return 'bg-green-100 text-green-700'
-  if (status === 'rejected') return 'bg-red-100 text-red-700'
-  return 'bg-amber-100 text-amber-700'
+  if (status === 'confirmed') return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+  if (status === 'rejected') return 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+  return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
 }
 
 function BookingCard({ booking, t }: { booking: BookingRecord; t: (k: string) => string }) {
@@ -129,9 +130,9 @@ function BookingCard({ booking, t }: { booking: BookingRecord; t: (k: string) =>
           </span>
           <div>
             <p className="font-bold">{booking.artist_name}</p>
-            <p className="text-xs text-secondary-text">
-              {booking.event_type} · {booking.flexible_date ? '📆' : '📅'}{' '}
-              {booking.event_date ?? t('booking.flexible')}
+            <p className="flex items-center gap-1.5 text-xs text-secondary-text">
+              <CalendarDays className="h-3.5 w-3.5" />
+              {booking.event_type} · {booking.event_date ?? t('booking.flexible')}
             </p>
           </div>
         </div>
@@ -146,7 +147,9 @@ function BookingCard({ booking, t }: { booking: BookingRecord; t: (k: string) =>
       )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
         {booking.budget_range && (
-          <span className="rounded-full bg-secondary-bg px-3 py-1 font-medium">💰 {booking.budget_range}</span>
+          <span className="flex items-center gap-1.5 rounded-full bg-secondary-bg px-3 py-1 font-medium">
+            <Banknote className="h-3 w-3" /> {booking.budget_range}
+          </span>
         )}
         {booking.audience_size && (
           <span className="rounded-full bg-secondary-bg px-3 py-1 font-medium">

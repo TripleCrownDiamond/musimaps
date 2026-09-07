@@ -112,6 +112,7 @@ function MainTabs() {
             Explore: focused ? 'map' : 'map-outline',
             Discover: focused ? 'compass' : 'compass-outline',
             Saved: focused ? 'heart' : 'heart-outline',
+            Dashboard: focused ? 'stats-chart' : 'stats-chart-outline',
             Profile: focused ? 'person' : 'person-outline',
           };
           return (
@@ -125,6 +126,7 @@ function MainTabs() {
       <Tabs.Screen name="Explore" component={ExploreScreen} options={{ title: t('tab.explore') }} />
       <Tabs.Screen name="Discover" component={DiscoverScreen} options={{ title: t('tab.discover') }} />
       <Tabs.Screen name="Saved" component={SavedScreen} options={{ title: t('tab.saved') }} />
+      <Tabs.Screen name="Dashboard" component={DashboardScreen} options={{ title: t('tab.dashboard') }} />
       <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tab.profile') }} />
     </Tabs.Navigator>
   );
@@ -208,7 +210,6 @@ function AppNavigator() {
             <RootStack.Screen name="ArtistProfile" component={ArtistProfileScreen} />
             <RootStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ animation: 'fade' }} />
-            <RootStack.Screen name="Dashboard" component={DashboardScreen} />
             <RootStack.Screen name="ClaimedProfile" component={ClaimedProfileScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
           </RootStack.Navigator>

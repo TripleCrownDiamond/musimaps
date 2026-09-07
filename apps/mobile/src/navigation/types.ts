@@ -12,6 +12,7 @@ export type MainTabParamList = {
   } | undefined;
   Discover: undefined;
   Saved: undefined;
+  Dashboard: undefined;
   Profile: undefined;
 };
 
@@ -34,7 +35,6 @@ export type RootStackParamList = {
   ArtistProfile: { artistId: string };
   ForgotPassword: undefined;
   ResetPassword: undefined;
-  Dashboard: undefined;
   ClaimedProfile: undefined;
   Notifications: undefined;
 };

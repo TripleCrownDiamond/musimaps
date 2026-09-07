@@ -876,6 +876,7 @@ export const fr = {
   'streak.days': '{current} jours consécutifs · record {best}',
   'streak.title': 'Série de connexion',
   'tab.discover': 'Découvrir',
+  'tab.dashboard': 'Tableau',
   'tab.explore': 'Carte',
   'tab.profile': 'Profil',
   'tab.saved': 'Sauvegardés',

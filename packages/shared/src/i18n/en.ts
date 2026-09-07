@@ -873,6 +873,7 @@ export const en: Record<MessageKey, string> = {
   'streak.days': '{current} consecutive days · best {best}',
   'streak.title': 'Login streak',
   'tab.discover': 'Discover',
+  'tab.dashboard': 'Dashboard',
   'tab.explore': 'Map',
   'tab.profile': 'Profile',
   'tab.saved': 'Saved',
