@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,12 +16,13 @@ import {
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useAppTheme } from '../context/ThemeContext';
 import { LocationFields } from '../components/LocationFields';
 import { NotificationButton } from '../components/NotificationButton';
 import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
-import { colors, fonts } from '../theme';
+import { fonts, type AppColors } from '../theme';
 import { fetchMyArtistProfile, updateMyArtistProfile, uploadArtistImage } from '@musimaps/shared';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArtistJoin'>;
@@ -72,6 +73,8 @@ const initialForm: FormState = {
 };
 
 export function ArtistJoinScreen({ navigation, route }: Props) {
+  const { colors } = useAppTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { applyAsArtist } = useApp();
   const { user, loading: authLoading } = useAuth();
@@ -237,8 +240,8 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
 
         <View style={styles.form}>
           {/* ── Core fields ───────────────────────────── */}
-          <Field label={t('join.artistName')} value={form.artistName} placeholder="Votre nom de scène" onChangeText={(v) => update('artistName', v)} />
-          <Field label={t('join.email')} value={form.email} placeholder="vous@email.com" keyboardType="email-address" onChangeText={(v) => update('email', v)} />
+          <Field colors={colors} styles={styles} label={t('join.artistName')} value={form.artistName} placeholder="Votre nom de scène" onChangeText={(v) => update('artistName', v)} />
+          <Field colors={colors} styles={styles} label={t('join.email')} value={form.email} placeholder="vous@email.com" keyboardType="email-address" onChangeText={(v) => update('email', v)} />
           <LocationFields
             city={form.city}
             country={form.country}
@@ -261,8 +264,8 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
             />
             <Text style={styles.hint}>{t('join.districtHint')}</Text>
           </View>
-          <Field label={t('join.genre')} value={form.genre} placeholder="Afro-Soul" onChangeText={(v) => update('genre', v)} />
-          <Field label={t('join.bio')} value={form.bio} placeholder={t('join.bioPlaceholder')} multiline onChangeText={(v) => update('bio', v)} />
+          <Field colors={colors} styles={styles} label={t('join.genre')} value={form.genre} placeholder="Afro-Soul" onChangeText={(v) => update('genre', v)} />
+          <Field colors={colors} styles={styles} label={t('join.bio')} value={form.bio} placeholder={t('join.bioPlaceholder')} multiline onChangeText={(v) => update('bio', v)} />
 
           {/* ── Photo ─────────────────────────────────── */}
           <View style={styles.field}>
@@ -307,7 +310,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
               </View>
             </View>
 
-            <Field label={t('join.platform').replace('{platform}', platformLabel)} value={form.platformUrl} placeholder={platformUrlPlaceholder(form.platform)} autoCapitalize="none" onChangeText={(v) => update('platformUrl', v)} />
+            <Field colors={colors} styles={styles} label={t('join.platform').replace('{platform}', platformLabel)} value={form.platformUrl} placeholder={platformUrlPlaceholder(form.platform)} autoCapitalize="none" onChangeText={(v) => update('platformUrl', v)} />
 
             {/* Platform selector */}
             <View style={styles.selectorRow}>
@@ -324,7 +327,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
               ))}
             </View>
 
-            <Field label={t('join.social').replace('{social}', socialLabel)} value={form.socialUrl} placeholder={socialUrlPlaceholder(form.social)} autoCapitalize="none" onChangeText={(v) => update('socialUrl', v)} />
+            <Field colors={colors} styles={styles} label={t('join.social').replace('{social}', socialLabel)} value={form.socialUrl} placeholder={socialUrlPlaceholder(form.social)} autoCapitalize="none" onChangeText={(v) => update('socialUrl', v)} />
 
             {/* Social selector */}
             <View style={styles.selectorRow}>
@@ -367,6 +370,8 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
 
 function Field({
   label,
+  colors,
+  styles,
   ...props
 }: {
   label: string;
@@ -376,6 +381,8 @@ function Field({
   keyboardType?: 'default' | 'email-address';
   autoCapitalize?: 'none' | 'sentences' | 'words';
   multiline?: boolean;
+  colors: AppColors;
+  styles: ReturnType<typeof createStyles>;
 }) {
   return (
     <View style={styles.field}>
@@ -393,11 +400,11 @@ function Field({
 
 /* ── Styles ──────────────────────────────────────────────────────────── */
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: 21, paddingTop: 54, paddingBottom: 55 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  back: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  back: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandSoft, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },
   badgeText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 10, letterSpacing: 1 },
   title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 40, lineHeight: 45, letterSpacing: -2, marginTop: 52 },
@@ -406,14 +413,14 @@ const styles = StyleSheet.create({
   field: { gap: 7 },
   label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginLeft: 4 },
   hint: { color: colors.muted, fontFamily: fonts.body, fontSize: 11, marginLeft: 4, marginTop: -2 },
-  input: { height: 59, borderRadius: 20, backgroundColor: colors.white, color: colors.ink, fontFamily: fonts.body, fontSize: 16, paddingHorizontal: 17, borderWidth: 0, outlineWidth: 0 },
+  input: { height: 59, borderRadius: 20, backgroundColor: colors.surface, color: colors.ink, fontFamily: fonts.body, fontSize: 16, paddingHorizontal: 17, borderWidth: 0, outlineWidth: 0 },
   inputMultiline: { height: 110, paddingTop: 15, textAlignVertical: 'top' },
   /* Photo */
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   photoPreview: { width: 80, height: 80, borderRadius: 20 },
-  photoPlaceholder: { backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  photoPlaceholder: { backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   photoButtons: { flex: 1, gap: 6 },
-  photoBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 10 },
+  photoBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 20, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 10 },
   photoBtnText: { color: colors.ink, fontFamily: fonts.medium, fontSize: 13 },
   photoRemove: { color: colors.danger, fontFamily: fonts.body, fontSize: 12, paddingHorizontal: 14 },
   /* Links section */
@@ -424,13 +431,13 @@ const styles = StyleSheet.create({
   linksBadge: { backgroundColor: colors.brand, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   linksBadgeText: { fontFamily: fonts.bold, fontSize: 10, color: colors.black },
   selectorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  selectorChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.white },
+  selectorChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface },
   selectorChipActive: { borderColor: colors.brandDeep, backgroundColor: colors.brandSoft },
   selectorText: { fontFamily: fonts.medium, fontSize: 12, color: colors.inkSoft },
   selectorTextActive: { color: colors.brandDeep, fontFamily: fonts.bold },
   premiumHint: { fontFamily: fonts.body, fontSize: 11, color: colors.muted },
   /* Submit */
-  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, backgroundColor: '#FFE8EB', borderRadius: 16, padding: 12 },
+  error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, backgroundColor: colors.surface, borderRadius: 16, padding: 12 },
   submit: { minHeight: 62, borderRadius: 31, backgroundColor: colors.brandDeep, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 6, paddingHorizontal: 20 },
   submitBusy: { opacity: 0.6 },
   submitText: { color: colors.white, fontFamily: fonts.bold, fontSize: 16 },

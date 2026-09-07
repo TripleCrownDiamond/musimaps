@@ -210,7 +210,7 @@ export default function ArtistSignup() {
     })
 
   const field =
-    'w-full rounded-2xl border border-hairline-strong px-6 py-4 outline-none focus:ring-2 focus:ring-brand-deep'
+    'w-full rounded-2xl border border-hairline-strong bg-surface px-6 py-4 text-primary-text placeholder:text-secondary-text outline-none focus:ring-2 focus:ring-brand-deep'
 
   if (sent) {
     return (
