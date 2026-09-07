@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { useState } from 'react';
 import { Image, StyleSheet, Text } from 'react-native';
 import type { Artist } from '@musimaps/shared';
 import { colors, fonts } from '../theme';
@@ -29,6 +30,7 @@ export function ArtistAvatar({
    */
   casing?: string;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const borderRadius = rounded ? size / 2 : Math.min(26, size * 0.24);
   // Bordure PROPORTIONNELLE au diamètre. Elle valait 3 px quelle que soit la
   // taille : sur un pin de carte dézoomé (9 à 14 px), 3 px de chaque côté
@@ -37,11 +39,26 @@ export function ArtistAvatar({
   const borderWidth = borderless ? 0 : Math.max(1, Math.min(3, Math.round(size * 0.085)));
   const borderColor = borderless ? 'transparent' : casing;
 
+  // Les URLs historiques peuvent être protocol-relative ou encore en HTTP.
+  // Android bloque le HTTP en clair : on passe systématiquement en HTTPS pour
+  // que la photo reste visible dans un MarkerView natif.
+  const rawImage = artist.image?.trim();
+  const imageUri = rawImage
+    ? rawImage.startsWith('//')
+      ? `https:${rawImage}`
+      : rawImage.replace(/^http:\/\//i, 'https://')
+    : '';
+
   // Photo HD (Wikipedia / Wikidata) quand elle existe — sinon dégradé + initiales.
-  if (artist.image) {
+  // Le repli est important sur la carte : une image distante peut être expirée,
+  // refusée par le serveur ou indisponible hors connexion ; le pin ne doit
+  // jamais devenir un cercle vide.
+  if (imageUri && !imageFailed) {
     return (
       <Image
-        source={{ uri: artist.image }}
+        source={{ uri: imageUri }}
+        resizeMode="cover"
+        onError={() => setImageFailed(true)}
         style={{
           width: size,
           height: size,
@@ -49,6 +66,7 @@ export function ArtistAvatar({
           borderWidth,
           borderColor,
           backgroundColor: colors.surfaceMuted,
+          overflow: 'hidden',
         }}
       />
     );
