@@ -41,10 +41,18 @@ test('le dézoom reclustre toujours le catalogue complet, sans filtre de viewpor
   assert.doesNotMatch(source, /base = regionArtists;/);
 });
 
-test('les petits clusters pays restent touchables et n’envoient pas le geste à la carte', () => {
-  assert.match(source, /stopGesturePropagation/);
+test('les petits clusters pays restent touchables sans bloquer le geste de la carte', () => {
+  // Un MarkerView par défaut garde les taps mais laisse un pan/pinch atteindre
+  // Mapbox. `stopGesturePropagation` rendait le globe immobile dès que le drag
+  // commençait sur une étincelle.
+  assert.doesNotMatch(source, /allowOverlap stopGesturePropagation/);
   assert.match(source, /hitSlop=\{mapUi\.clusterHitSlop\}/);
   assert.match(source, /clusterPulse\.interpolate/);
+  assert.match(source, /gestureSettings=\{\{/);
+  assert.match(source, /panEnabled: true/);
+  assert.match(source, /pinchPanEnabled: true/);
+  assert.match(source, /requestDisallowInterceptTouchEvent/);
+  assert.match(source, /onTouchStart=\{markMapGesture\}/);
 });
 
 test('la rotation native utilise le déplacement Mapbox direct, sans réinjecter un centre périmé', () => {

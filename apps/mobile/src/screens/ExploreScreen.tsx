@@ -1039,6 +1039,15 @@ export function ExploreScreen({ navigation, route }: Props) {
   /** Intervalle de rotation stocké dans une ref pour arrêter immédiatement
    *  un vol programmatique sans attendre un re-render. */
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * Le callback caméra arrive après le premier événement tactile sur certains
+   * appareils Android. Marquer le geste dès le toucher évite qu'un tick de
+   * rotation (120 ms) ne reprenne la main pendant le drag. On ne coupe pas le
+   * mode Play/Pause : `onMapIdle` remettra simplement ce verrou à false.
+   */
+  const markMapGesture = useCallback(() => {
+    gestureActiveRef.current = true;
+  }, []);
   useEffect(() => {
     if (!spinning) return;
     // Rotation en degrés par SECONDE (valeur partagée avec le web) et pas
@@ -1355,6 +1364,18 @@ export function ExploreScreen({ navigation, route }: Props) {
         scrollEnabled
         rotateEnabled
         pitchEnabled
+        gestureSettings={{
+          panEnabled: true,
+          pinchPanEnabled: true,
+          pinchZoomEnabled: true,
+          rotateEnabled: true,
+          pitchEnabled: true,
+        }}
+        // Android peut laisser le navigateur de l'écran parent intercepter
+        // le drag. Cette option donne la priorité au geste de la carte.
+        requestDisallowInterceptTouchEvent
+        onTouchStart={markMapGesture}
+        onTouchMove={markMapGesture}
         compassEnabled={false}
         scaleBarEnabled={false}
         logoEnabled={false}
@@ -1420,7 +1441,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         )}
         {orderedPins.map((pin) =>
           pin.kind === 'cluster' ? (
-            <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap stopGesturePropagation>
+            <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
               <Animated.View
                 pointerEvents="box-none"
                 style={globeView ? {
