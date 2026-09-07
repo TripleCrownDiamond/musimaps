@@ -38,6 +38,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { BookingModal } from '../components/BookingModal';
+import { NotificationButton } from '../components/NotificationButton';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -214,14 +215,17 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
             <Image source={{ uri: artist.image }} style={styles.cover} resizeMode="cover" />
           ) : null}
           <View style={[styles.coverVeil, { backgroundColor: colors.brandPrimary }]} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-            style={[styles.back, { backgroundColor: colors.surface }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={27} color={colors.ink} />
-          </Pressable>
+          <View style={styles.heroActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('common.back')}
+              style={[styles.back, { backgroundColor: colors.surface }]}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="chevron-back" size={27} color={colors.ink} />
+            </Pressable>
+            <NotificationButton onPress={() => navigation.navigate('Notifications')} />
+          </View>
           <View style={styles.heroContent}>
             <ArtistAvatar
               artist={artist}
@@ -396,6 +400,7 @@ const styles = StyleSheet.create({
   cover: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.42 },
   coverVeil: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.48 },
   back: { width: 46, height: 46, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
+  heroActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' },
   heroContent: { flex: 1, justifyContent: 'flex-end', alignItems: 'flex-start', gap: spacing.md },
   locationBadge: { borderRadius: radii.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   locationText: { fontFamily: fonts.medium, fontSize: 13 },

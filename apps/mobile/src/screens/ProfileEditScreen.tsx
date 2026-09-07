@@ -12,7 +12,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BrandMark } from '../components/Brand';
+import { LocationFields } from '../components/LocationFields';
+import { NotificationButton } from '../components/NotificationButton';
+import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -31,6 +33,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const { user, signOut } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
+  const [country, setCountry] = useState(profile?.country ?? user?.country ?? '');
   const [district, setDistrict] = useState(profile?.district ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [genres, setGenres] = useState(profile?.favoriteGenres.join(', ') ?? '');
@@ -49,6 +52,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     if (!profile) return;
     setDisplayName((current) => current || profile.displayName);
     setCity((current) => current || profile.city);
+    setCountry((current) => current || profile.country || user?.country || '');
     setDistrict((current) => current || profile.district);
     setBio((current) => current || profile.bio);
     setGenres((current) => current || profile.favoriteGenres.join(', '));
@@ -60,6 +64,10 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     if (user?.email) setNewEmail((current) => current || user.email);
   }, [user?.email]);
 
+  useEffect(() => {
+    if (user?.country) setCountry((current) => current || user.country || '');
+  }, [user?.country]);
+
   const finish = () => {
     if (route.params?.fromStart) navigation.replace('Main', { screen: 'Profile' });
     else navigation.goBack();
@@ -68,9 +76,11 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const submit = async () => {
     if (!displayName.trim()) return setError(t('pedit.errName'));
     if (!city.trim()) return setError(t('pedit.errCity'));
+    if (!country.trim()) return setError(t('auth.missingCountry'));
     await saveProfile({
       displayName,
       city,
+      country,
       district,
       bio,
       favoriteGenres: genres.split(','),
@@ -164,7 +174,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
           <Pressable style={styles.back} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={27} color={colors.ink} />
           </Pressable>
-          <BrandMark size={40} />
+          <NotificationButton onPress={() => navigation.navigate('Notifications')} />
         </View>
 
         <Text style={styles.kicker}>{t('pedit.kickerDevice')}</Text>
@@ -175,9 +185,26 @@ export function ProfileEditScreen({ navigation, route }: Props) {
 
         <View style={styles.form}>
           <Field label={t('pedit.nameLabel')} value={displayName} onChangeText={setDisplayName} placeholder={t('pedit.namePh')} colors={colors} styles={styles} />
-          <Field label={t('pedit.cityLabel')} value={city} onChangeText={setCity} placeholder="Cotonou, Bénin" colors={colors} styles={styles} />
-          <Field label={t('pedit.districtLabel')} value={district} onChangeText={setDistrict} placeholder="Ex. Yopougon, Bastille…" colors={colors} styles={styles} />
-          <Field label={t('pedit.genresLabel')} value={genres} onChangeText={setGenres} placeholder="Afrobeats, Soul, Rap" colors={colors} styles={styles} />
+          <LocationFields
+            city={city}
+            country={country}
+            onChange={(location) => {
+              setCity(location.city);
+              setCountry(location.country);
+            }}
+          />
+          <View style={styles.field}>
+            <Text style={styles.label}>{t('pedit.districtLabel')}</Text>
+            <NeighborhoodField
+              value={district}
+              onChange={(value, suggestion) => {
+                setDistrict(value);
+                if (suggestion?.city) setCity(suggestion.city);
+                if (suggestion?.countryCode) setCountry(suggestion.countryCode);
+              }}
+            />
+          </View>
+          <Field label={t('pedit.genresLabel')} value={genres} onChangeText={setGenres} placeholder={t('pedit.genresPlaceholder')} colors={colors} styles={styles} />
           <View style={styles.field}>
             <Text style={styles.label}>{t('pedit.bioLabel')}</Text>
             <TextInput

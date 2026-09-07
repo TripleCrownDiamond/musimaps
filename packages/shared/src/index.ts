@@ -75,6 +75,8 @@ export interface WaitlistEntry {
   profile: WaitlistProfile;
   artistName?: string;
   city?: string;
+  /** Code pays ISO sélectionné dans le formulaire de localisation. */
+  country?: string;
   genre?: string;
   link?: string;
   bio?: string;

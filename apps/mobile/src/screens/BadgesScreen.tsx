@@ -11,6 +11,7 @@ import { getLevelInfo, radii, spacing } from '@musimaps/shared';
 import { useI18n, type MessageKey } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { Button, Card, ScreenHeader, Section } from '../ui';
+import { NotificationButton } from '../components/NotificationButton';
 import { fonts, type AppColors } from '../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Badges'>;
@@ -64,7 +65,11 @@ export function BadgesScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safe}>
-      <ScreenHeader title={t('badges.title')} onBack={() => navigation.goBack()} />
+      <ScreenHeader
+        title={t('badges.title')}
+        onBack={() => navigation.goBack()}
+        action={<NotificationButton onPress={() => navigation.navigate('Notifications')} />}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {/*

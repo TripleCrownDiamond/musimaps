@@ -32,6 +32,7 @@ import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 import { Button, Card, Field, Input, Section } from '../ui';
+import { NotificationButton } from '../components/NotificationButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClaimedProfile'>;
 
@@ -234,7 +235,7 @@ export function ClaimedProfileScreen({ navigation }: Props) {
           <Ionicons name="chevron-back" size={27} color={colors.ink} />
         </Pressable>
         <Text style={[styles.title, { color: colors.ink }]}>{t('dash.claimedProfile')}</Text>
-        <View style={{ width: 46 }} />
+        <NotificationButton onPress={() => navigation.navigate('Notifications')} />
       </View>
 
       {/* ── Cover ── */}

@@ -1,21 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Headphones, MicVocal } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import * as Location from 'expo-location';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
-  COUNTRIES,
   checkin,
-  continentName,
-  countryName,
-  flagFor,
   radii,
   spacing,
-  suggestCities,
 } from '@musimaps/shared';
+import { LocationFields } from '../components/LocationFields';
 import { PasswordGauge } from '../components/PasswordGauge';
-import { SearchablePicker, type PickerItem } from '../components/SearchablePicker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -38,7 +32,7 @@ const ROLE_ICONS: Record<AccountRole, typeof MicVocal | typeof Headphones> = {
 export function SignupScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const { signUp, resendSignUpConfirmation } = useAuth();
   const { showToast } = useApp();
   const [role, setRole] = useState<AccountRole | null>(route.params?.role ?? null);
@@ -51,88 +45,6 @@ export function SignupScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [resending, setResending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [countryOpen, setCountryOpen] = useState(false);
-  const [cityOpen, setCityOpen] = useState(false);
-  const [countryQuery, setCountryQuery] = useState('');
-  const [cityQuery, setCityQuery] = useState('');
-  const [cityItems, setCityItems] = useState<PickerItem[]>([]);
-  const [cityLoading, setCityLoading] = useState(false);
-  const [locating, setLocating] = useState(false);
-
-  // Liste des pays filtrée par la recherche (dataset partagé @musimaps/shared).
-  const countryItems = useMemo<PickerItem[]>(() => {
-    const q = countryQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-    return COUNTRIES.filter((c) => {
-      const name = (lang === 'fr' ? c.fr : c.en).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      return !q || name.includes(q) || c.code.toLocaleLowerCase() === q;
-    }).map((c) => ({
-      key: c.code,
-      label: lang === 'fr' ? c.fr : c.en,
-      sublabel: continentName(c.continent, lang),
-      emoji: flagFor(c.code),
-    }));
-  }, [countryQuery, lang]);
-
-  // Suggestions de villes (Mapbox) filtrées par le pays choisi.
-  useEffect(() => {
-    if (!cityOpen) return;
-    const q = cityQuery.trim();
-    if (q.length < 2) {
-      setCityItems([]);
-      setCityLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setCityLoading(true);
-    const timer = setTimeout(() => {
-      void suggestCities(q, country || null)
-        .then((res) => {
-          if (cancelled) return;
-          setCityItems(
-            res.map((r) => ({
-              key: `${r.lng},${r.lat},${r.city}`,
-              label: r.label,
-              value: r.city,
-              sublabel: r.countryCode ? countryName(r.countryCode, lang) : undefined,
-            })),
-          );
-        })
-        .finally(() => {
-          if (!cancelled) setCityLoading(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [cityOpen, cityQuery, country, lang]);
-
-  // Remplit pays + ville automatiquement via la géolocalisation de l'appareil.
-  const geolocate = async () => {
-    setLocating(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') {
-        showToast(t('auth.locationDenied'), 'alert-circle', 'error');
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const [place] = await Location.reverseGeocodeAsync(position.coords);
-      const cityName = place?.city || place?.subregion || place?.region || '';
-      const code = (place?.isoCountryCode ?? '').toUpperCase();
-      if (!cityName && !code) {
-        showToast(t('auth.locationNotFound'), 'alert-circle', 'error');
-        return;
-      }
-      if (cityName) setCity(cityName);
-      if (code) setCountry(code);
-      showToast(t('auth.locationFilled'), 'checkmark-circle');
-    } catch {
-      showToast(t('auth.locationNotFound'), 'alert-circle', 'error');
-    } finally {
-      setLocating(false);
-    }
-  };
 
   const submit = async () => {
     if (!role) return showToast(t('auth.missingRole'), 'alert-circle', 'error');
@@ -253,61 +165,14 @@ export function SignupScreen({ navigation, route }: Props) {
         />
       </Field>
 
-      <Field>
-        <View style={styles.locationHeader}>
-          <Text style={[styles.locationLabel, { color: colors.inkSoft }]}>
-            {t('auth.location')} *
-          </Text>
-          <Button
-            variant="link"
-            size="sm"
-            disabled={locating}
-            loading={locating}
-            label={t('auth.geolocate')}
-            onPress={() => void geolocate()}
-            icon={<Ionicons name="locate" size={18} color={colors.brandPrimary} />}
-          />
-        </View>
-
-        <Pressable style={styles.pickerField} onPress={() => setCountryOpen(true)}>
-          <View style={styles.pickerCopy}>
-            {country ? (
-              <>
-                <Text style={styles.pickerEmoji}>{flagFor(country)}</Text>
-                <Text numberOfLines={1} style={styles.pickerValue}>
-                  {countryName(country, lang)}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.pickerPlaceholder}>{t('auth.country')}</Text>
-            )}
-          </View>
-          <Ionicons name="chevron-down" size={20} color={colors.inkSoft} />
-        </Pressable>
-
-        <Pressable
-          style={styles.pickerField}
-          onPress={() => {
-            setCityQuery('');
-            setCityItems([]);
-            setCityOpen(true);
-          }}
-        >
-          <View style={styles.pickerCopy}>
-            {city ? (
-              <>
-                <Ionicons name="location" size={18} color={colors.brandPrimary} />
-                <Text numberOfLines={1} style={styles.pickerValue}>
-                  {city}
-                </Text>
-              </>
-            ) : (
-              <Text style={styles.pickerPlaceholder}>{t('auth.city')}</Text>
-            )}
-          </View>
-          <Ionicons name="chevron-down" size={20} color={colors.inkSoft} />
-        </Pressable>
-      </Field>
+      <LocationFields
+        city={city}
+        country={country}
+        onChange={(location) => {
+          setCity(location.city);
+          setCountry(location.country);
+        }}
+      />
 
       <Field label={t('auth.email')}>
         <Input
@@ -350,39 +215,6 @@ export function SignupScreen({ navigation, route }: Props) {
         icon={<Ionicons name="person-add-outline" size={20} color={colors.white} />}
       />
 
-      <SearchablePicker
-        visible={countryOpen}
-        onClose={() => setCountryOpen(false)}
-        title={t('auth.country')}
-        placeholder={t('auth.searchCountry')}
-        query={countryQuery}
-        onQueryChange={setCountryQuery}
-        items={countryItems}
-        emptyText={t('auth.noCountry')}
-        onSelect={(item) => {
-          setCountry(item.key);
-          setCity('');
-          setCountryOpen(false);
-          setCountryQuery('');
-        }}
-      />
-
-      <SearchablePicker
-        visible={cityOpen}
-        onClose={() => setCityOpen(false)}
-        title={t('auth.city')}
-        placeholder={t('auth.searchCity')}
-        query={cityQuery}
-        onQueryChange={setCityQuery}
-        items={cityItems}
-        loading={cityLoading}
-        emptyText={cityQuery.trim().length < 2 ? t('auth.typeMin2') : t('auth.noCity')}
-        onSelect={(item) => {
-          setCity(item.value ?? item.label.split(',')[0].trim());
-          setCityOpen(false);
-          setCityQuery('');
-        }}
-      />
     </AuthLayout>
   );
 }
@@ -390,32 +222,6 @@ export function SignupScreen({ navigation, route }: Props) {
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     sentEmail: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
-    locationHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    locationLabel: {
-      fontFamily: fonts.bold,
-      fontSize: 12,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    pickerField: {
-      minHeight: 52,
-      borderRadius: radii['2xl'],
-      borderWidth: 1.5,
-      borderColor: colors.line,
-      backgroundColor: colors.surface,
-      paddingHorizontal: spacing.lg,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    pickerCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-    pickerEmoji: { fontSize: 20 },
-    pickerValue: { color: colors.ink, fontFamily: fonts.medium, fontSize: 15 },
-    pickerPlaceholder: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15 },
     roles: { gap: spacing.md },
     roleCard: {
       minHeight: 74,

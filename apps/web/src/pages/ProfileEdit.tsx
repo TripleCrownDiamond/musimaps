@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, Loader2, Trash2 } from 'lucide-react'
+import { Camera, Check, Loader2, LocateFixed, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { uploadArtistPhoto } from '../lib/waitlist'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
 import { deleteAccount } from '@musimaps/shared'
+import { LocationSelect, type LocationValue } from '../components/LocationSelect'
+import { SecondaryPageHeader } from '../components/SecondaryPageHeader'
+import { NeighborhoodSelect } from '../components/NeighborhoodSelect'
+import { reverseGeocodeBrowser } from '../lib/geolocate'
 
 /**
  * Complétion / modification du PROFIL DE COMPTE (table profiles) :
@@ -15,12 +19,13 @@ import { deleteAccount } from '@musimaps/shared'
  */
 export default function ProfileEdit() {
   const { user, loading, updateProfile, signOut } = useAuth()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const localize = useLocalizedPath()
   const navigate = useNavigate()
 
   const [displayName, setDisplayName] = useState('')
   const [city, setCity] = useState('')
+  const [country, setCountry] = useState('')
   const [district, setDistrict] = useState('')
   const [genres, setGenres] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -29,6 +34,7 @@ export default function ProfileEdit() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [locating, setLocating] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   // Pré-remplissage à la première arrivée du profil uniquement : un champ
   // vidé par l'utilisateur ne doit jamais être ré-rempli par un refresh.
@@ -39,10 +45,26 @@ export default function ProfileEdit() {
     hydrated.current = true
     setDisplayName(user.displayName || '')
     setCity(user.city || '')
+    setCountry(user.country || '')
     setDistrict(user.district || '')
     setGenres((user.favoriteGenres ?? []).join(', '))
     setAvatarUrl(user.avatarUrl)
   }, [user])
+
+  const geolocate = async () => {
+    setLocating(true)
+    try {
+      const result = await reverseGeocodeBrowser()
+      if (result?.denied) return setError(t('auth.locationDenied'))
+      if (!result || (!result.city && !result.countryCode)) return setError(t('auth.locationNotFound'))
+      if (result.city) setCity(result.city)
+      if (result.countryCode) setCountry(result.countryCode)
+    } catch {
+      setError(t('auth.locationNotFound'))
+    } finally {
+      setLocating(false)
+    }
+  }
 
   // Progression de complétion affichée sous le formulaire.
   const completion = useMemo(() => {
@@ -69,11 +91,13 @@ export default function ProfileEdit() {
     e.preventDefault()
     if (!displayName.trim()) return setError(t('pedit.errName'))
     if (!city.trim()) return setError(t('pedit.errCity'))
+    if (!country.trim()) return setError(t('auth.missingCountry'))
     setError(null)
     setBusy(true)
     const { error: err } = await updateProfile({
       displayName,
       city,
+      country,
       district,
       favoriteGenres: genres.split(',').map((g) => g.trim()).filter(Boolean),
       avatarUrl,
@@ -90,13 +114,10 @@ export default function ProfileEdit() {
   return (
     <div className="min-h-screen bg-warm-white px-5 pt-36 pb-24 sm:px-6 md:px-12 md:pt-44">
       <div className="mx-auto w-full max-w-2xl">
-        <button
-          type="button"
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(localize('/dashboard')))}
-          className="mb-6 flex items-center gap-2 rounded-full border border-hairline-strong px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary-bg"
-        >
-          <ArrowLeft className="h-4 w-4" /> {t('common.back')}
-        </button>
+        <SecondaryPageHeader
+          onBack={() => (window.history.length > 1 ? navigate(-1) : navigate(localize('/dashboard')))}
+          backLabel={t('common.back')}
+        />
 
         <div className="rounded-[2rem] border border-hairline bg-surface p-8 shadow-xl">
           <p className="text-xs font-bold tracking-[0.2em] text-brand-deep uppercase">{t('pedit.kicker')}</p>
@@ -149,24 +170,38 @@ export default function ProfileEdit() {
                 className={field}
               />
             </label>
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium">{t('pedit.cityLabel')}</span>
-              <input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="Cotonou, Bénin"
-                autoComplete="address-level2"
-                className={field}
+            <div className="block">
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <span className="block text-sm font-medium">{t('auth.location')} *</span>
+                <button
+                  type="button"
+                  onClick={() => void geolocate()}
+                  disabled={locating}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-brand-deep transition-colors hover:text-brand-deep/80 disabled:opacity-60 dark:text-brand"
+                >
+                  {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
+                  {t('auth.geolocate')}
+                </button>
+              </div>
+              <LocationSelect
+                lang={lang}
+                value={{ city, country, flag: '', lat: 0, lng: 0, continent: '' }}
+                onChange={(location: LocationValue) => {
+                  setCity(location.city)
+                  setCountry(location.country)
+                }}
               />
-            </label>
+            </div>
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium">{t('pedit.districtLabel')}</span>
-              <input
+              <NeighborhoodSelect
                 value={district}
-                onChange={(e) => setDistrict(e.target.value)}
-                placeholder="Ex. Yopougon, Bastille, Almadies…"
-                autoComplete="address-line1"
-                className={field}
+                placeholder={t('pedit.districtPlaceholder')}
+                onChange={(value, suggestion) => {
+                  setDistrict(value)
+                  if (suggestion?.city) setCity(suggestion.city)
+                  if (suggestion?.countryCode) setCountry(suggestion.countryCode)
+                }}
               />
             </label>
             <label className="block">
@@ -174,7 +209,7 @@ export default function ProfileEdit() {
               <input
                 value={genres}
                 onChange={(e) => setGenres(e.target.value)}
-                placeholder="Afrobeats, Soul, Rap"
+                placeholder={t('pedit.genresPlaceholder')}
                 className={field}
               />
             </label>

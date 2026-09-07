@@ -31,6 +31,7 @@ const DEVICE_KEY = 'musimaps.mobile.device-id';
 export interface LocalProfile {
   displayName: string;
   city: string;
+  country: string;
   district: string;
   bio: string;
   favoriteGenres: string[];
@@ -40,6 +41,7 @@ type ArtistApplication = Required<
   Pick<WaitlistEntry, 'artistName' | 'email' | 'city' | 'genre' | 'link'>
 > & {
   userId?: string;
+  country?: string;
   bio?: string;
   district?: string;
   spotify?: string;
@@ -144,6 +146,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         const next: LocalProfile = {
           displayName: account.displayName ?? current?.displayName ?? '',
           city: account.city ?? current?.city ?? '',
+          country: account.country ?? current?.country ?? '',
           district: account.district ?? current?.district ?? '',
           // La bio ne vit que sur l'appareil : le compte ne la porte pas, on
           // ne l'écrase donc jamais avec du vide.
@@ -272,6 +275,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       ...nextProfile,
       displayName: nextProfile.displayName.trim(),
       city: nextProfile.city.trim(),
+      country: (nextProfile.country ?? '').trim(),
       // Profils stockés avant la migration « district » : repli sur chaîne vide.
       district: (nextProfile.district ?? '').trim(),
       bio: nextProfile.bio.trim(),
@@ -284,6 +288,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     void updateProfile({
       displayName: normalized.displayName,
       city: normalized.city,
+      country: normalized.country,
       district: normalized.district,
       bio: normalized.bio,
       favoriteGenres: normalized.favoriteGenres,
@@ -343,6 +348,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       profile: 'artiste',
       artist_name: application.artistName.trim(),
       city: application.city.trim(),
+      country: application.country?.trim() || null,
       district: application.district?.trim() || null,
       genre: application.genre.trim(),
       link: application.link.trim(),
@@ -355,7 +361,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     const { error } = await supabase.from('waitlist').upsert(enriched, { onConflict: 'email' });
     // Colonnes bio/photo/liens absentes (migration 00021 pas encore appliquée) :
     // on retombe sur l'upsert historique pour ne jamais perdre la waitlist.
-    if (error && /bio|photo|spotify|youtube|instagram|user_id/i.test(error.message)) {
+    if (error && /bio|photo|spotify|youtube|instagram|user_id|country/i.test(error.message)) {
       const retry = await supabase.from('waitlist').upsert(
         {
           email: application.email.trim(),

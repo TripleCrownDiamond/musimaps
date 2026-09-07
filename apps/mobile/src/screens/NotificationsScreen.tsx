@@ -14,6 +14,7 @@ import {
 } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { NotificationButton } from '../components/NotificationButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
@@ -72,11 +73,14 @@ export function NotificationsScreen({ navigation }: Props) {
           <Ionicons name="chevron-back" size={27} color={colors.ink} />
         </Pressable>
         <Text style={styles.headerTitle}>{t('notif.title')}</Text>
-        <Pressable style={[styles.markAll, unread === 0 && styles.markAllDisabled]} onPress={() => void markAll()}>
-          <Text style={[styles.markAllText, unread === 0 && styles.markAllTextDisabled]}>
-            {t('notif.markAll')}
-          </Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <NotificationButton onPress={() => navigation.navigate('Notifications')} />
+          <Pressable style={[styles.markAll, unread === 0 && styles.markAllDisabled]} onPress={() => void markAll()}>
+            <Text style={[styles.markAllText, unread === 0 && styles.markAllTextDisabled]}>
+              {t('notif.markAll')}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {items === null ? (
@@ -128,6 +132,7 @@ const createStyles = (colors: AppColors) =>
       justifyContent: 'center',
     },
     headerTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 22, letterSpacing: -0.7, flex: 1 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     markAll: { borderRadius: 18, backgroundColor: colors.brandSoft, paddingHorizontal: 13, paddingVertical: 8 },
     markAllDisabled: { opacity: 0.45 },
     markAllText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 12 },

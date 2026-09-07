@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Camera, Globe2, ImagePlus, Link2, Loader2, Mic2, Radar, Users } from 'lucide-react'
+import { Camera, Globe2, ImagePlus, Link2, Loader2, LocateFixed, Mic2, Radar, Users } from 'lucide-react'
+import { toast } from 'sonner'
 import PulseDots from '../components/PulseDots'
 import Footer from '../components/Footer'
 import RichText from '../components/RichText'
@@ -10,6 +11,9 @@ import { LocationSelect, type LocationValue } from '../components/LocationSelect
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import { reverseGeocodeBrowser } from '../lib/geolocate'
+import { SecondaryPageHeader } from '../components/SecondaryPageHeader'
+import { NeighborhoodSelect } from '../components/NeighborhoodSelect'
 
 const perkIcons = [Radar, Users, Globe2]
 
@@ -34,7 +38,7 @@ export default function ArtistSignup() {
   const navigate = useNavigate()
   const location = useLocation()
   const localize = useLocalizedPath()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const { content } = useCms()
   const page = content.artistSignup
   const fileInput = useRef<HTMLInputElement>(null)
@@ -49,7 +53,7 @@ export default function ArtistSignup() {
     email: user?.email ?? prefillEmail,
     city: user?.city ?? '',
     district: user?.district ?? '',
-    country: '',
+    country: user?.country ?? '',
     lat: 0,
     lng: 0,
     genre: '',
@@ -72,6 +76,7 @@ export default function ArtistSignup() {
       artistName: f.artistName || user.displayName || '',
       email: user.email || f.email,
       city: f.city || user.city || '',
+      country: f.country || user.country || '',
     }))
     void fetchMyArtistProfile().then((claimed) => {
       if (cancelled || !claimed) return
@@ -98,6 +103,7 @@ export default function ArtistSignup() {
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [locating, setLocating] = useState(false)
 
   const update =
     (field: keyof FormState) =>
@@ -116,11 +122,31 @@ export default function ArtistSignup() {
     e.target.value = ''
   }
 
+  const geolocate = async () => {
+    setLocating(true)
+    try {
+      const result = await reverseGeocodeBrowser()
+      if (result?.denied) return toast.error(t('auth.locationDenied'))
+      if (!result || (!result.city && !result.countryCode)) return toast.error(t('auth.locationNotFound'))
+      setForm((current) => ({
+        ...current,
+        city: result.city || current.city,
+        country: result.countryCode || current.country,
+      }))
+      toast.success(t('auth.locationFilled'))
+    } catch {
+      toast.error(t('auth.locationNotFound'))
+    } finally {
+      setLocating(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.artistName.trim()) return setError('Indiquez votre nom d’artiste.')
-    if (!isValidEmail(form.email)) return setError('Cette adresse email est invalide.')
-    if (!form.city.trim()) return setError('Indiquez la ville depuis laquelle vous créez.')
+    if (!form.artistName.trim()) return setError(t('join.errName'))
+    if (!isValidEmail(form.email)) return setError(t('join.errEmail'))
+    if (!form.city.trim()) return setError(t('join.errCity'))
+    if (!form.country.trim()) return setError(t('auth.missingCountry'))
     setError(null)
     await saveSignup(
       {
@@ -128,6 +154,7 @@ export default function ArtistSignup() {
         profile: 'artiste',
         artistName: form.artistName.trim(),
         city: form.city.trim(),
+        country: form.country.trim() || undefined,
         district: form.district.trim() || undefined,
         genre: form.genre.trim(),
         bio: form.bio.trim(),
@@ -141,8 +168,13 @@ export default function ArtistSignup() {
     )
     // Utilisateur connecté : la photo devient aussi l'avatar du compte
     // (navbar, dashboard) — pas seulement une entrée de waitlist.
-    if (user && form.photo) {
-      await updateProfile({ avatarUrl: form.photo })
+    if (user) {
+      await updateProfile({
+        avatarUrl: form.photo || undefined,
+        city: form.city,
+        country: form.country,
+        district: form.district,
+      })
     }
     // Utilisateur connecté : on rattache aussi les données au profil de la
     // carte revendiqué (best-effort, ignoré s'il n'a pas encore de pin).
@@ -193,6 +225,10 @@ export default function ArtistSignup() {
             ]}
           />
           <div className="relative z-20 mx-auto flex w-full max-w-2xl flex-col items-center gap-8 px-6 text-center">
+            <SecondaryPageHeader
+              onBack={() => (window.history.length > 1 ? navigate(-1) : navigate(localize('/')))}
+              backLabel={t('common.back')}
+            />
             <div className="fade-in-up space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-4 py-2 text-sm font-medium text-brand-deep">
                 <Mic2 className="h-4 w-4" /> Demande enregistrée
@@ -287,6 +323,10 @@ export default function ArtistSignup() {
         />
 
         <div className="relative z-20 mx-auto flex w-full max-w-5xl flex-col items-center gap-12 px-6">
+          <SecondaryPageHeader
+            onBack={() => (window.history.length > 1 ? navigate(-1) : navigate(localize('/')))}
+            backLabel={t('common.back')}
+          />
           <div className="fade-in-up space-y-4 text-center">
             <span className="inline-flex items-center gap-2 rounded-full bg-brand-soft px-4 py-2 text-sm font-medium text-brand-deep">
               <Mic2 className="h-4 w-4" /> {page.badge}
@@ -317,8 +357,20 @@ export default function ArtistSignup() {
               </label>
             </div>
             <div className="block">
-              <span className="mb-2 block text-sm font-medium">Ville *</span>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="block text-sm font-medium">{t('auth.location')} *</span>
+                <button
+                  type="button"
+                  onClick={() => void geolocate()}
+                  disabled={locating}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-brand-deep transition-colors hover:text-brand-deep/80 disabled:opacity-60 dark:text-brand"
+                >
+                  {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LocateFixed className="h-3.5 w-3.5" />}
+                  {t('auth.geolocate')}
+                </button>
+              </div>
               <LocationSelect
+                lang={lang}
                 value={{
                   city: form.city,
                   country: form.country,
@@ -339,10 +391,19 @@ export default function ArtistSignup() {
               />
             </div>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium">Quartier / district</span>
-              <input value={form.district} onChange={update('district')} className={field} placeholder="Ex. Yopougon, Bastille, Almadies…" />
+              <span className="mb-2 block text-sm font-medium">{t('join.district')}</span>
+              <NeighborhoodSelect
+                value={form.district}
+                placeholder={t('join.districtPlaceholder')}
+                onChange={(value, suggestion) => setForm((current) => ({
+                  ...current,
+                  district: value,
+                  city: suggestion?.city || current.city,
+                  country: suggestion?.countryCode || current.country,
+                }))}
+              />
               <span className="mt-1 block text-xs text-secondary-text">
-                Optionnel — ancre votre pin dans le bon quartier au lieu du centre-ville.
+                {t('join.districtHint')}
               </span>
             </label>
             <label className="block">

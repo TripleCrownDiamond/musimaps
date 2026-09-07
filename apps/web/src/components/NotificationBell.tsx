@@ -20,7 +20,7 @@ const TYPE_ICONS: Record<string, string> = {
   nearby: '📍',
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ showWhenLoggedOut = false }: { showWhenLoggedOut?: boolean } = {}) {
   const { user } = useAuth()
   const { t } = useLanguage()
   const localize = useLocalizedPath()
@@ -60,7 +60,17 @@ export default function NotificationBell() {
     }
   }
 
-  if (!user) return null
+  if (!user) {
+    return showWhenLoggedOut ? (
+      <Link
+        to={localize('/login')}
+        aria-label={t('nav.notifications')}
+        className="flex h-10 w-10 items-center justify-center rounded-full border border-hairline-strong text-secondary-text transition-colors hover:bg-secondary-bg"
+      >
+        <Bell className="h-5 w-5" />
+      </Link>
+    ) : null
+  }
 
   const unreadItems = items.filter((item) => !item.read)
 

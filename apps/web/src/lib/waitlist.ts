@@ -23,6 +23,7 @@ export interface Signup {
   profile: Profile
   artistName?: string
   city?: string
+  country?: string
   /** Quartier / district saisi au référencement (ex. « Yopougon »). */
   district?: string
   genre?: string
@@ -69,6 +70,7 @@ export async function saveSignup(
       profile: signup.profile,
       artist_name: signup.artistName,
       city: signup.city,
+      country: signup.country,
       district: signup.district,
       genre: signup.genre,
       link: signup.link,
@@ -94,7 +96,7 @@ export async function saveSignup(
     // Colonnes bio/photo/liens/user_id absentes (migrations 00021/00044 pas
     // encore appliquées) : on retombe sur l'upsert historique pour ne jamais
     // perdre la waitlist.
-    if (error && /bio|photo|spotify|youtube|instagram|user_id/i.test(error.message)) {
+    if (error && /bio|photo|spotify|youtube|instagram|user_id|country/i.test(error.message)) {
       const retry = await supabase!.from('waitlist').upsert(base, { onConflict: 'email' })
       if (retry.error) console.error('Supabase insert failed, falling back to localStorage', retry.error.message)
       else return signup

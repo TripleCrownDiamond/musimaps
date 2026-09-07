@@ -14,6 +14,7 @@ import {
   type ArtistStatsDetail,
 } from '@musimaps/shared';
 import { BarChart, ChartCard, HBarList, SegmentedBar } from '../components/Charts';
+import { NotificationButton } from '../components/NotificationButton';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -109,6 +110,7 @@ export function DashboardScreen({ navigation }: Props) {
         <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={27} color={colors.ink} />
         </Pressable>
+        <NotificationButton onPress={() => navigation.navigate('Notifications')} />
       </View>
 
       <View style={styles.hero}>

@@ -77,6 +77,7 @@ import {
 } from '@musimaps/shared';
 import { Pause, Play } from 'lucide-react-native';
 import { AppBar } from '../components/AppBar';
+import { NotificationButton } from '../components/NotificationButton';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { ArtistSheet } from '../components/ArtistSheet';
 import { PlacePanel, type PlacePanelData } from '../components/PlacePanel';
@@ -1777,7 +1778,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                   <Ionicons name="chevron-back" size={22} color={colors.ink} />
                 </Pressable>
                 <Text style={styles.sheetTitle}>{t('globe.searchPlaceholder')}</Text>
-                <View style={styles.sheetBackSpacer} />
+                <NotificationButton onPress={() => navigation.navigate('Notifications')} />
               </View>
 
               <View style={styles.inputWrap}>

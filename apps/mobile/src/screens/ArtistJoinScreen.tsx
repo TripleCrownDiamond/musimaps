@@ -16,6 +16,9 @@ import {
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { LocationFields } from '../components/LocationFields';
+import { NotificationButton } from '../components/NotificationButton';
+import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, fonts } from '../theme';
@@ -42,6 +45,7 @@ interface FormState {
   artistName: string;
   email: string;
   city: string;
+  country: string;
   district: string;
   genre: string;
   bio: string;
@@ -56,6 +60,7 @@ const initialForm: FormState = {
   artistName: '',
   email: '',
   city: '',
+  country: '',
   district: '',
   genre: '',
   bio: '',
@@ -95,6 +100,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
       artistName: f.artistName || user.displayName || '',
       email: f.email || user.email || '',
       city: f.city || user.city || '',
+      country: f.country || user.country || '',
       district: f.district || user.district || '',
     }));
     // Load claimed profile for genre/bio/photo/platforms/socials
@@ -163,7 +169,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
 
   // ── Submit ──────────────────────────────────────────────────────────
   const submit = async () => {
-    if (!form.artistName.trim() || !form.city.trim() || !form.email.includes('@')) {
+    if (!form.artistName.trim() || !form.city.trim() || !form.country.trim() || !form.email.includes('@')) {
       return setError(t('join.errRequired'));
     }
     setLoading(true);
@@ -172,6 +178,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
       artistName: form.artistName.trim(),
       email: form.email.trim(),
       city: form.city.trim(),
+      country: form.country.trim(),
       district: form.district.trim(),
       genre: form.genre.trim(),
       bio: form.bio.trim(),
@@ -222,10 +229,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
           <Pressable style={styles.back} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={28} color={colors.ink} />
           </Pressable>
-          <View style={styles.badge}>
-            <Ionicons name="mic" size={16} color={colors.brandDeep} />
-            <Text style={styles.badgeText}>{t('join.badge')}</Text>
-          </View>
+          <NotificationButton onPress={() => navigation.navigate('Notifications')} />
         </View>
 
         <Text style={styles.title}>{t('join.title')}</Text>
@@ -235,16 +239,25 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
           {/* ── Core fields ───────────────────────────── */}
           <Field label={t('join.artistName')} value={form.artistName} placeholder="Votre nom de scène" onChangeText={(v) => update('artistName', v)} />
           <Field label={t('join.email')} value={form.email} placeholder="vous@email.com" keyboardType="email-address" onChangeText={(v) => update('email', v)} />
-          <Field label={t('join.city')} value={form.city} placeholder="Cotonou, Bénin" onChangeText={(v) => update('city', v)} />
+          <LocationFields
+            city={form.city}
+            country={form.country}
+            onChange={(location) => setForm((current) => ({
+              ...current,
+              city: location.city,
+              country: location.country,
+            }))}
+          />
           <View style={styles.field}>
             <Text style={styles.label}>{t('join.district')}</Text>
-            <TextInput
-              placeholderTextColor={colors.muted}
-              underlineColorAndroid="transparent"
-              style={styles.input}
+            <NeighborhoodField
               value={form.district}
-              placeholder="Ex. Yopougon, Bastille…"
-              onChangeText={(v) => update('district', v)}
+              onChange={(value, suggestion) => setForm((current) => ({
+                ...current,
+                district: value,
+                city: suggestion?.city || current.city,
+                country: suggestion?.countryCode || current.country,
+              }))}
             />
             <Text style={styles.hint}>{t('join.districtHint')}</Text>
           </View>
