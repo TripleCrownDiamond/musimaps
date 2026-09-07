@@ -2,10 +2,12 @@
  * URL d'image d'artiste utilisable par les deux surfaces.
  *
  * Les originales Wikimedia sont parfois très lourdes ou refusées par le
- * chargeur natif. Leur miniature publique est stable, plus légère et garde
- * une résolution suffisante pour un avatar de pin. Wikimedia ne sert pas
- * toutes les tailles arbitraires : 500 px fait partie des tailles garanties.
+ * chargeur natif (Android peut renvoyer 403). Le proxy d'image public fournit
+ * une miniature stable, plus légère et garde une résolution suffisante pour
+ * un avatar de pin.
  */
+const ARTIST_IMAGE_PROXY_WIDTH = 500;
+
 export function normalizeArtistImageUrl(raw: string | null | undefined): string {
   const value = raw?.trim();
   if (!value) return '';
@@ -18,6 +20,5 @@ export function normalizeArtistImageUrl(raw: string | null | undefined): string 
   );
   if (!match) return https;
 
-  const [, path, filename] = match;
-  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${path}${filename}/500px-${filename}`;
+  return `https://images.weserv.nl/?url=${encodeURIComponent(https)}&w=${ARTIST_IMAGE_PROXY_WIDTH}`;
 }
