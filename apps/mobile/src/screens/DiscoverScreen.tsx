@@ -1,13 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   artists as catalogue,
+  fetchAllArtistPopularity,
   fetchMapArtists,
+  parseFollowersCount,
   radii,
   spacing,
   toArtist,
@@ -25,6 +28,9 @@ type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Discover'>,
   NativeStackScreenProps<RootStackParamList>
 >;
+
+const DISCOVER_INITIAL_RESULT_LIMIT = 12;
+const DISCOVER_TRENDING_LIMIT = 8;
 
 /**
  * Onglet Découvrir.
@@ -47,21 +53,45 @@ export function DiscoverScreen({ navigation }: Props) {
   const [genre, setGenre] = useState<string | null>(null);
   const [city, setCity] = useState<string | null>(null);
   const [mapArtists, setMapArtists] = useState<Artist[]>([]);
+  const [popularityById, setPopularityById] = useState<Map<string, number>>(new Map());
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
-  // Artistes découverts (map_artists), comme la carte les charge.
-  useEffect(() => {
+  // Même source et même score que la carte : un retour sur l'onglet reflète
+  // immédiatement les artistes ajoutés ou les nouvelles vues.
+  const load = useCallback(() => {
     let cancelled = false;
-    void fetchMapArtists().then((rows) => {
-      if (!cancelled) setMapArtists(rows.map((row) => toArtist(row)));
-    });
+    setLoading(true);
+    setLoadError(false);
+    void Promise.all([fetchMapArtists(), fetchAllArtistPopularity()])
+      .then(([rows, popularity]) => {
+        if (cancelled) return;
+        setMapArtists(rows.map((row) => toArtist(row)));
+        setPopularityById(popularity);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  useFocusEffect(load);
+
   /** Catalogue éditorial + artistes découverts, comme sur la carte. */
   const allArtists = useMemo<Artist[]>(
-    () => [...catalogue, ...mapArtists],
+    () => {
+      const byId = new Map<string, Artist>();
+      for (const artist of catalogue) byId.set(artist.id, artist);
+      // La donnée publiée remplace le catalogue si les deux partagent un id.
+      for (const artist of mapArtists) byId.set(artist.id, artist);
+      return [...byId.values()];
+    },
     [mapArtists],
   );
 
@@ -100,9 +130,25 @@ export function DiscoverScreen({ navigation }: Props) {
     [allArtists, genre, city],
   );
 
-  const trending = useMemo(
-    () => allArtists.filter((a) => a.trending).slice(0, 8),
-    [allArtists],
+  const scoreFor = useCallback(
+    (artist: Artist) => (popularityById.get(artist.id) ?? 0) + parseFollowersCount(artist.followers),
+    [popularityById],
+  );
+
+  // Les tendances viennent des scores réels (vues + abonnés), avec le flag
+  // éditorial comme départage. Aucun nom d'artiste n'est injecté dans l'UI.
+  const trending = useMemo(() => {
+    return [...allArtists]
+      .sort((a, b) => {
+        const editorial = Number(Boolean(b.trending)) - Number(Boolean(a.trending));
+        return editorial || scoreFor(b) - scoreFor(a) || a.name.localeCompare(b.name, 'fr');
+      })
+      .slice(0, DISCOVER_TRENDING_LIMIT);
+  }, [allArtists, scoreFor]);
+
+  const visibleResults = useMemo(
+    () => (showAll ? pool : pool.slice(0, DISCOVER_INITIAL_RESULT_LIMIT)),
+    [pool, showAll],
   );
 
   /** Ouvre un artiste sur la carte — la carte reste la surface de lecture. */
@@ -125,7 +171,21 @@ export function DiscoverScreen({ navigation }: Props) {
       >
         <Section title={t('discover.title')} subtitle={t('discover.subtitle')} />
 
-        {allArtists.length === 0 ? (
+        {loading && (
+          <View style={styles.loadingRow} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={colors.brandPrimary} />
+            <Text style={styles.loadingText}>{t('discover.loading')}</Text>
+          </View>
+        )}
+
+        {loadError && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{t('discover.loadError')}</Text>
+            <Button variant="outline" size="sm" label={t('discover.retry')} onPress={load} />
+          </View>
+        )}
+
+        {allArtists.length === 0 && !loading ? (
           <Text style={styles.empty}>{t('discover.empty')}</Text>
         ) : (
           <>
@@ -165,6 +225,48 @@ export function DiscoverScreen({ navigation }: Props) {
                 })}
               </Text>
             </View>
+
+            <Section title={t('discover.results')} subtitle={t('discover.resultsSub')}>
+              {pool.length === 0 ? (
+                <Text style={styles.empty}>{t('discover.noResults')}</Text>
+              ) : (
+                <View style={styles.resultsList}>
+                  {visibleResults.map((artist) => (
+                    <Pressable
+                      key={artist.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('explore.seeArtist', { name: artist.name })}
+                      onPress={() => openArtist(artist)}
+                      style={({ pressed }) => [styles.resultCard, pressed && styles.pressed]}
+                    >
+                      <ArtistAvatar
+                        artist={artist}
+                        size={50}
+                        gradient={[colors.brandPrimary, colors.brandSecondary]}
+                        initialsColor={colors.black}
+                        borderless
+                      />
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.resultName} numberOfLines={1}>{artist.name}</Text>
+                        <Text style={styles.resultMeta} numberOfLines={1}>
+                          {[artist.genre, artist.city, artist.country].filter(Boolean).join(' · ') || t('discover.unknownLocation')}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+                    </Pressable>
+                  ))}
+                  {pool.length > DISCOVER_INITIAL_RESULT_LIMIT && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      label={showAll ? t('discover.showLess') : t('discover.seeAll')}
+                      onPress={() => setShowAll((value) => !value)}
+                      style={styles.resultsToggle}
+                    />
+                  )}
+                </View>
+              )}
+            </Section>
 
             {trending.length > 0 && (
               <Section title={t('discover.trending')} subtitle={t('discover.trendingSub')}>
@@ -261,6 +363,10 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     appBarWrap: { paddingHorizontal: 20, paddingBottom: spacing.md },
     content: { paddingHorizontal: 20, paddingTop: spacing.lg, gap: spacing['2xl'] },
     empty: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
+    loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    loadingText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
+    errorBox: { gap: spacing.sm, padding: spacing.lg, borderRadius: radii['2xl'], backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.line },
+    errorText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
     chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
     chip: {
       paddingHorizontal: spacing.lg,
@@ -275,6 +381,12 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     chipTextActive: { color: colors.white, fontFamily: fonts.bold },
     shuffleRow: { gap: spacing.sm },
     poolCount: { color: colors.muted, fontFamily: fonts.body, fontSize: 12, textAlign: 'center' },
+    resultsList: { gap: spacing.sm },
+    resultCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, borderRadius: radii['2xl'], backgroundColor: isDark ? colors.surfaceMuted : colors.surface, borderWidth: 1, borderColor: colors.line },
+    resultCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+    resultName: { color: colors.ink, fontFamily: fonts.bold, fontSize: 14 },
+    resultMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12 },
+    resultsToggle: { alignSelf: 'center' },
     trendingRow: { gap: spacing.lg, paddingRight: spacing.lg },
     trendingCard: {
       width: 96,

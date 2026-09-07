@@ -1,16 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppBar } from '../components/AppBar';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { artists } from '@musimaps/shared';
+import { artists as catalogue, fetchMapArtists, toArtist, type Artist } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -25,7 +26,37 @@ export function SavedScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
   const { favorites, toggleFavorite } = useApp();
-  const savedArtists = artists.filter((artist) => favorites.includes(artist.id));
+  const [mapArtists, setMapArtists] = useState<Artist[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoading(true);
+      void fetchMapArtists()
+        .then((rows) => {
+          if (!cancelled) setMapArtists(rows.map(toArtist));
+        })
+        .catch(() => {
+          // Le catalogue local reste disponible hors réseau.
+          if (!cancelled) setMapArtists([]);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const allArtists = useMemo(() => {
+    const byId = new Map<string, Artist>();
+    for (const artist of catalogue) byId.set(artist.id, artist);
+    for (const artist of mapArtists) byId.set(artist.id, artist);
+    return [...byId.values()];
+  }, [mapArtists]);
+  const savedArtists = allArtists.filter((artist) => favorites.includes(artist.id));
 
   return (
     <View style={styles.container}>
@@ -40,7 +71,11 @@ export function SavedScreen({ navigation }: Props) {
         <Text style={styles.subtitle}>{t('saved.subtitle')}</Text>
       </View>
 
-      {savedArtists.length === 0 ? (
+      {loading ? (
+        <View style={styles.empty}>
+          <ActivityIndicator size="small" color={colors.brandDeep} />
+        </View>
+      ) : savedArtists.length === 0 ? (
         <View style={styles.empty}>
           <View style={styles.emptyIcon}>
             <Ionicons name="heart-outline" size={38} color={colors.brandDeep} />
@@ -73,7 +108,10 @@ export function SavedScreen({ navigation }: Props) {
               <Pressable
                 accessibilityLabel={t('saved.removeFavorite', { name: artist.name })}
                 hitSlop={10}
-                onPress={() => toggleFavorite(artist.id)}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  toggleFavorite(artist.id);
+                }}
               >
                 <Ionicons name="heart" size={25} color={colors.danger} />
               </Pressable>

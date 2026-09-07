@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
+  artists as catalogue,
   compactCount,
   fetchArtistBooking,
   fetchArtistFollowers,
@@ -69,14 +70,23 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void fetchMapArtists().then((rows) => {
-      if (cancelled) return;
-      const mapped = rows.map(toArtist);
-      const found = mapped.find((item) => item.id === route.params.artistId) ?? null;
-      setAllArtists(mapped);
-      setArtist(found);
-      setLoading(false);
-    });
+    void fetchMapArtists()
+      .then((rows) => {
+        if (cancelled) return;
+        const byId = new Map<string, Artist>();
+        for (const item of catalogue) byId.set(item.id, item);
+        for (const item of rows.map(toArtist)) byId.set(item.id, item);
+        const merged = [...byId.values()];
+        setAllArtists(merged);
+        setArtist(merged.find((item) => item.id === route.params.artistId) ?? null);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAllArtists(catalogue);
+        setArtist(catalogue.find((item) => item.id === route.params.artistId) ?? null);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };

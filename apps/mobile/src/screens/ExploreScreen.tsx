@@ -27,6 +27,7 @@ import {
   bucketKey,
   CAMERA,
   cities,
+  artists as catalogue,
   clusterBy,
   compactCount,
   countryByName,
@@ -876,7 +877,12 @@ export function ExploreScreen({ navigation, route }: Props) {
     let base: Artist[];
     if (target.length > 0) {
       const ids = new Set(target.map((a) => a.id));
-      base = allArtists.filter((a) => ids.has(a.id));
+      // Une sélection issue de Découvrir peut venir du catalogue éditorial
+      // avant son insertion dans map_artists : conserver alors le pin choisi
+      // au lieu de laisser la carte vide.
+      const byId = new Map(allArtists.map((artist) => [artist.id, artist]));
+      for (const artist of target) byId.set(artist.id, artist);
+      base = [...byId.values()].filter((a) => ids.has(a.id));
     } else if (searchOpen && query.trim()) {
       base = [];
     } else {
@@ -1126,7 +1132,11 @@ export function ExploreScreen({ navigation, route }: Props) {
     const artistId = route.params?.artistId;
     if (handledSearchKeyRef.current === key && key !== null) return;
     if (handledArtistIdRef.current === artistId && artistId != null && key === null) return;
-    const artist = artistId ? allArtists.find((item) => item.id === artistId) : undefined;
+    // Le catalogue éditorial sert de repli lorsque l'artiste n'a pas encore
+    // été publié dans `map_artists` (cas fréquent après une découverte).
+    const artist = artistId
+      ? allArtists.find((item) => item.id === artistId) ?? catalogue.find((item) => item.id === artistId)
+      : undefined;
     if (artist) {
       handledSearchKeyRef.current = key;
       handledArtistIdRef.current = artistId ?? null;
