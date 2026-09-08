@@ -129,6 +129,8 @@ const APPBAR_HEIGHT = 56;
 const APPBAR_GAP = 12;
 /** Hauteur de la pilule « Vous êtes ici » + respiration avant la search. */
 const LOCATION_STATUS_OFFSET = 48;
+/** Le globe reste sphérique : un drag vertical ne doit pas incliner la carte. */
+const GLOBE_PITCH_ENABLED = false;
 /** Seuil de repli de la recherche en icône (comme le web : zoom ≥ 3.2). */
 /** Seuil de regroupement local : ~2,2 km (0,02°). */
 
@@ -230,10 +232,7 @@ type VisibleRegion = {
 type ExpoWebMap = {
   getZoom: () => number;
   getCenter: () => { lng: number; lat: number };
-  panBy: (
-    offset: [number, number],
-    options?: { duration?: number; easing?: (value: number) => number },
-  ) => void;
+  jumpTo: (options: { center: { lng: number; lat: number } }) => void;
   on: (event: 'zoom' | 'moveend' | 'dragstart' | 'dragend' | 'zoomstart' | 'zoomend' | 'rotatestart' | 'rotateend', listener: () => void) => void;
   off: (event: 'zoom' | 'moveend' | 'dragstart' | 'dragend' | 'zoomstart' | 'zoomend' | 'rotatestart' | 'rotateend', listener: () => void) => void;
 };
@@ -1255,30 +1254,84 @@ export function ExploreScreen({ navigation, route }: Props) {
    *  déplacement relatif de la rotation, sans basculer l'état Play/Pause. */
   const gestureActiveRef = useRef(false);
   const gestureMovedRef = useRef(false);
+  const touchActiveRef = useRef(false);
+  const gestureReleaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Intervalle conservé pour le diagnostic et nettoyé au démontage. */
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clearGestureRelease = useCallback(() => {
+    if (gestureReleaseTimerRef.current) {
+      clearTimeout(gestureReleaseTimerRef.current);
+      gestureReleaseTimerRef.current = null;
+    }
+  }, []);
+  const releaseGesture = useCallback(() => {
+    gestureReleaseTimerRef.current = null;
+    if (!touchActiveRef.current) {
+      gestureActiveRef.current = false;
+      gestureMovedRef.current = false;
+    }
+  }, []);
+  const scheduleGestureRelease = useCallback(() => {
+    clearGestureRelease();
+    gestureReleaseTimerRef.current = setTimeout(releaseGesture, GLOBE_SPIN_TICK_MS);
+  }, [clearGestureRelease, releaseGesture]);
   const markMapGesture = useCallback(() => {
     // Expo Web reçoit ses événements directement depuis Mapbox GL (voir le
     // pont web plus bas). En natif, ce garde-fou couvre le premier toucher
     // Android avant l'arrivée de `onCameraChanged`.
     if (Platform.OS !== 'web') {
+      touchActiveRef.current = true;
+      clearGestureRelease();
       gestureActiveRef.current = true;
       gestureMovedRef.current = false;
     }
-  }, []);
-  const markMapGestureMove = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      gestureMovedRef.current = true;
-      gestureActiveRef.current = true;
-    }
-  }, []);
+  }, [clearGestureRelease]);
   const finishMapGesture = useCallback(() => {
     // Un simple tap sur la carte ne déclenche pas toujours `onMapIdle`.
     // Relâcher ce cas évite de laisser Play actif mais immobile.
-    if (Platform.OS !== 'web' && !gestureMovedRef.current) gestureActiveRef.current = false;
-  }, []);
+    if (Platform.OS === 'web') return;
+    touchActiveRef.current = false;
+    if (!gestureMovedRef.current) {
+      gestureActiveRef.current = false;
+      clearGestureRelease();
+      return;
+    }
+    // Android peut ne pas émettre onMapIdle après un geste avec inertie.
+    // Cette sortie de secours empêche Play de rester bloqué indéfiniment.
+    scheduleGestureRelease();
+  }, [clearGestureRelease, scheduleGestureRelease]);
+  const cancelMapGesture = useCallback(() => {
+    if (Platform.OS === 'web') return;
+    touchActiveRef.current = false;
+    gestureActiveRef.current = false;
+    gestureMovedRef.current = false;
+    clearGestureRelease();
+  }, [clearGestureRelease]);
   useEffect(() => {
     if (!spinning) return;
+    if (Platform.OS === 'web') {
+      // L'adaptateur Expo Web est le même moteur Mapbox GL que le desktop.
+      // Utiliser son `jumpTo` à chaque frame évite les à-coups de `panBy`
+      // relancé quatre fois par seconde depuis le thread React Native.
+      let frame = 0;
+      let last = performance.now();
+      const spin = (now: number) => {
+        const elapsed = Math.min(now - last, GLOBE_SPIN_TICK_MS);
+        last = now;
+        const webMap = webMapRef.current;
+        if (webMap && !gestureActiveRef.current) {
+          const center = webMap.getCenter();
+          center.lng -= spinDeltaFor(elapsed);
+          webMap.jumpTo({ center });
+        }
+        frame = requestAnimationFrame(spin);
+      };
+      frame = requestAnimationFrame(spin);
+      return () => {
+        cancelAnimationFrame(frame);
+        clearGestureRelease();
+      };
+    }
     // Rotation en degrés par SECONDE (valeur partagée avec le web) et pas
     // par tick : le globe tourne à la même vitesse des deux côtés.
     let last = Date.now();
@@ -1297,44 +1350,21 @@ export function ExploreScreen({ navigation, route }: Props) {
       // contrairement à `setCamera` qui passe par une file de CameraStops.
       // Le déplacement est relatif à la caméra courante : aucun centre périmé
       // ne peut être réinjecté quand un événement caméra arrive en retard.
-      if (Platform.OS !== 'web') {
-        const duration = Math.max(1, Math.min(elapsed, GLOBE_SPIN_TICK_MS * 2));
-        cameraRef.current?.moveBy({
-          x: spinPixelsFor(mapZoom, duration),
-          y: 0,
-          animationMode: 'linearTo',
-          animationDuration: duration,
-        });
-        return;
-      }
-
-      // Expo Web expose le Mapbox GL JS interne, mais pas `Camera.moveBy`.
-      // `panBy` évite alors de repasser par le pont React Native et garde la
-      // même interpolation linéaire que le chemin natif.
-      const webMap = webMapRef.current;
-      if (webMap) {
-        const duration = Math.max(1, Math.min(elapsed, GLOBE_SPIN_TICK_MS * 2));
-        webMap.panBy([spinPixelsFor(mapZoom, duration), 0], {
-          duration,
-          easing: (value) => value,
-        });
-        return;
-      }
-
-      const delta = spinDeltaFor(elapsed);
-      centerRef.current = [centerRef.current[0] - delta, centerRef.current[1]];
-      cameraRef.current?.setCamera({
-        centerCoordinate: centerRef.current,
-        animationDuration: GLOBE_SPIN_TICK_MS,
+      const duration = Math.max(1, Math.min(elapsed, GLOBE_SPIN_TICK_MS * 2));
+      cameraRef.current?.moveBy({
+        x: spinPixelsFor(mapZoom, duration),
+        y: 0,
         animationMode: 'linearTo',
+        animationDuration: duration,
       });
     }, GLOBE_SPIN_TICK_MS);
     spinIntervalRef.current = interval;
     return () => {
       clearInterval(interval);
       spinIntervalRef.current = null;
+      clearGestureRelease();
     };
-  }, [spinning]);
+  }, [clearGestureRelease, spinning]);
 
   /** Suspend la rotation pendant un vol programmatique, sans basculer
    *  l'état Play/Pause. Le mode actif reprend au prochain `onMapIdle`. */
@@ -1623,20 +1653,20 @@ export function ExploreScreen({ navigation, route }: Props) {
         projection="globe"
         scrollEnabled
         rotateEnabled
-        pitchEnabled
+        pitchEnabled={GLOBE_PITCH_ENABLED}
         gestureSettings={{
           panEnabled: true,
           pinchPanEnabled: true,
           pinchZoomEnabled: true,
           rotateEnabled: true,
-          pitchEnabled: true,
+          pitchEnabled: GLOBE_PITCH_ENABLED,
         }}
         // Android peut laisser le navigateur de l'écran parent intercepter
         // le drag. Cette option donne la priorité au geste de la carte.
         requestDisallowInterceptTouchEvent
         onTouchStart={markMapGesture}
-        onTouchMove={markMapGestureMove}
         onTouchEnd={finishMapGesture}
+        onTouchCancel={cancelMapGesture}
         compassEnabled={false}
         scaleBarEnabled={false}
         logoEnabled={false}
@@ -1656,7 +1686,13 @@ export function ExploreScreen({ navigation, route }: Props) {
           setSelected(null);
         }}
         onMapIdle={(event) => {
-          gestureActiveRef.current = false;
+          // Ne pas relâcher un toucher encore en cours. Sur Android, un
+          // `onMapIdle` intermédiaire peut arriver avant la fin de l'inertie.
+          if (!touchActiveRef.current) {
+            gestureActiveRef.current = false;
+            gestureMovedRef.current = false;
+            clearGestureRelease();
+          }
           loadRegion(event);
         }}
         // Pendant un vol, le zoom évolue en continu : on met à jour le niveau
@@ -1668,8 +1704,14 @@ export function ExploreScreen({ navigation, route }: Props) {
           // Natif : pendant un drag/pinch, Mapbox est l'unique écrivain de la
           // caméra. On ne désactive pas le mode rotation : il reprend dès que
           // le geste est terminé (ou au prochain `onMapIdle`).
-          if (gestures?.isGestureActive) gestureActiveRef.current = true;
-          if (gestures?.isGestureActive) gestureMovedRef.current = true;
+          if (gestures?.isGestureActive) {
+            gestureActiveRef.current = true;
+            gestureMovedRef.current = true;
+            // Après le relâchement du doigt, l'inertie peut encore émettre
+            // des frames : repousser la sortie tant que le mouvement existe.
+            if (!touchActiveRef.current) scheduleGestureRelease();
+            else clearGestureRelease();
+          }
           // Le centre suit le geste EN CONTINU. Il n'était rafraîchi qu'à
           // `onMapIdle` : en relançant la rotation, on repartait de la position
           // d'avant le déplacement et le globe sautait en arrière — le fameux

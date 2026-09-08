@@ -66,8 +66,10 @@ test('l’interaction mobile ne désactive pas le mode rotation', () => {
   // geste. L’état Play/Pause reste inchangé et la rotation reprend ensuite.
   assert.match(source, /gestureActiveRef = useRef\(false\)/);
   assert.match(source, /if \(gestureActiveRef\.current\) return/);
-  assert.match(source, /if \(gestures\?\.isGestureActive\) gestureActiveRef\.current = true/);
-  assert.match(source, /onMapIdle=\{\(event\) => \{\s*gestureActiveRef\.current = false;/);
+  assert.match(source, /if \(gestures\?\.isGestureActive\) \{\s*gestureActiveRef\.current = true/);
+  assert.match(source, /if \(!touchActiveRef\.current\) \{\s*gestureActiveRef\.current = false;/);
+  assert.match(source, /onTouchCancel=\{cancelMapGesture\}/);
+  assert.match(source, /const GLOBE_PITCH_ENABLED = false/);
   assert.doesNotMatch(source, /gestures\?\.isGestureActive && spinRef\.current/);
   assert.doesNotMatch(source, /setSpinning\(false\)/);
 
