@@ -45,7 +45,10 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.musimaps.app"
+      "bundleIdentifier": "com.musimaps.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.musimaps.app",
