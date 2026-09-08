@@ -375,12 +375,19 @@ export default function GlobeExplore() {
     if (!q) return []
     const map = new Map<string, { city: string; country: string; flag: string; coordinates: [number, number]; count: number }>()
     for (const a of allArtists) {
-      if (!norm(`${a.city} ${a.country}`).includes(q)) continue
-      // Clé normalisée : « Paris » et « paris » sont le même lieu.
-      const key = `${norm(a.city)}·${norm(a.country)}`
+      // La ville est la source de vérité géographique : le pays déclaré peut
+      // être un pays d'origine et ne doit jamais dicter le drapeau affiché.
+      const code = geoCountryOf(a.city, a.country)
+      const info = countryByName(code)
+      const country = info?.en ?? a.country
+      const searchable = `${a.city} ${a.country} ${country} ${code}`
+      if (!norm(searchable).includes(q)) continue
+      // Clé normalisée : « Paris » et « paris » sont le même lieu. Le code
+      // géographique évite de fusionner deux pays déclarés différemment.
+      const key = `${norm(a.city)}·${code}`
       const current = map.get(key)
       if (current) current.count += 1
-      else map.set(key, { city: a.city, country: a.country, flag: a.flag, coordinates: a.coordinates, count: 1 })
+      else map.set(key, { city: a.city, country, flag: flagFor(code), coordinates: a.coordinates, count: 1 })
     }
     return rankSearchResults([...map.values()], query, (place) => place.city, (place) => place.country)
   }, [allArtists, query])
@@ -394,11 +401,14 @@ export default function GlobeExplore() {
       { code: string; name: string; flag: string; coordinates: [number, number]; count: number }
     >()
     for (const a of allArtists) {
-      const code = (a.country ?? '').toUpperCase()
+      // Résoudre le pays où l'artiste est géolocalisé avant de choisir son
+      // nom et son drapeau : `a.country` peut être un nom complet ou son pays
+      // d'origine.
+      const code = geoCountryOf(a.city, a.country)
       if (!code) continue
       const info = countryByName(code)
       const name = info ? info.en : (a.country ?? '')
-      const flag = info ? flagFor(code) : a.flag
+      const flag = flagFor(code)
       const matches =
         norm(name).includes(q) ||
         code.includes(q.toUpperCase()) ||
@@ -448,12 +458,12 @@ export default function GlobeExplore() {
     for (const a of artistResults) push(a)
     for (const p of placeResults) {
       for (const a of allArtists) {
-        if (a.city === p.city && a.country === p.country) push(a)
+        if (a.city === p.city && geoCountryOf(a.city, a.country) === geoCountryOf(p.city, p.country)) push(a)
       }
     }
     for (const c of countryResults) {
       for (const a of allArtists) {
-        if ((a.country ?? '').toUpperCase() === c.code.toUpperCase()) push(a)
+        if (geoCountryOf(a.city, a.country) === c.code.toUpperCase()) push(a)
       }
     }
     for (const g of genreResults) {
@@ -525,11 +535,11 @@ export default function GlobeExplore() {
       rememberQuery(`${c.city}, ${c.country}`)
       // Les pins de la zone : artistes du catalogue + découverts dans la ville.
       const qCity = c.city.trim().toLowerCase()
-      const qCountry = c.country.trim().toLowerCase()
+      const qCountry = geoCountryOf(c.city, c.country)
       const cityArtists = allArtists.filter(
         (a) =>
           a.city.trim().toLowerCase() === qCity &&
-          a.country.trim().toLowerCase() === qCountry,
+          geoCountryOf(a.city, a.country) === qCountry,
       )
       setSearchOpen(false)
       setQuery('')
@@ -605,7 +615,7 @@ export default function GlobeExplore() {
       rememberQuery(c.name)
       // Les pins de ce pays : tous les artistes du pays, centrés dessus.
       const countryArtists = allArtists.filter(
-        (a) => (a.country ?? '').toUpperCase() === c.code.toUpperCase(),
+        (a) => geoCountryOf(a.city, a.country) === c.code.toUpperCase(),
       )
       setSearchOpen(false)
       setQuery('')
@@ -1128,7 +1138,7 @@ export default function GlobeExplore() {
       )}
 
       {userLocation && !selected && !searchOpen && (
-        <div className="pointer-events-none absolute left-1/2 top-5 z-20 max-w-[calc(100vw-8rem)] -translate-x-1/2 truncate rounded-full border border-hairline bg-surface/90 px-4 py-2 text-xs font-semibold text-ink shadow-lg backdrop-blur-xl">
+        <div className="pointer-events-none absolute left-1/2 top-5 z-20 w-fit max-w-[calc(100vw-8rem)] -translate-x-1/2 truncate rounded-full border border-hairline bg-surface/90 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-xl">
           {t('loc.detected', { location: mapLocationLabel(userLocation) || t('loc.title') })}
         </div>
       )}

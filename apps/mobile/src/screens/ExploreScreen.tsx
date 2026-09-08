@@ -127,6 +127,8 @@ const GLOBE_ZOOM = CAMERA.globe.zoom;
 // Hauteur de l'AppBar partagée + écart avant la search (offset sous la topbar).
 const APPBAR_HEIGHT = 56;
 const APPBAR_GAP = 12;
+/** Hauteur de la pilule « Vous êtes ici » + respiration avant la search. */
+const LOCATION_STATUS_OFFSET = 48;
 /** Seuil de repli de la recherche en icône (comme le web : zoom ≥ 3.2). */
 /** Seuil de regroupement local : ~2,2 km (0,02°). */
 
@@ -516,11 +518,17 @@ export function ExploreScreen({ navigation, route }: Props) {
     if (!q) return [];
     const map = new Map<string, PlaceResult>();
     for (const a of allArtists) {
-      if (!norm(`${a.city} ${a.country}`).includes(q)) continue;
-      const key = `${norm(a.city)}·${norm(a.country)}`;
+      // La ville représente la position réelle de l'artiste. Le pays déclaré
+      // peut être son pays d'origine : ne jamais réutiliser son drapeau ici.
+      const code = geoCountryOf(a.city, a.country);
+      const info = countryByName(code);
+      const country = info?.en ?? a.country;
+      const searchable = `${a.city} ${a.country} ${country} ${code}`;
+      if (!norm(searchable).includes(q)) continue;
+      const key = `${norm(a.city)}·${code}`;
       const current = map.get(key);
       if (current) current.count += 1;
-      else map.set(key, { city: a.city, country: a.country, flag: a.flag, coordinates: a.coordinates, count: 1 });
+      else map.set(key, { city: a.city, country, flag: flagFor(code), coordinates: a.coordinates, count: 1 });
     }
     return rankSearchResults([...map.values()], query, (place) => place.city, (place) => place.country);
   }, [allArtists, query]);
@@ -530,11 +538,13 @@ export function ExploreScreen({ navigation, route }: Props) {
     if (!q) return [];
     const map = new Map<string, CountryResult>();
     for (const a of allArtists) {
-      const code = (a.country ?? '').toUpperCase();
+      // Même résolution que les pins de la carte : le pays géographique est
+      // dérivé de la ville avant de choisir le nom et le drapeau.
+      const code = geoCountryOf(a.city, a.country);
       if (!code) continue;
       const info = countryByName(code);
       const name = info ? info.en : a.country ?? '';
-      const flag = info ? flagFor(code) : a.flag;
+      const flag = flagFor(code);
       const matches =
         norm(name).includes(q) ||
         code.includes(q.toUpperCase()) ||
@@ -572,10 +582,12 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
     for (const a of artistResults) push(a);
     for (const p of placeResults) {
-      for (const a of allArtists) if (a.city === p.city && a.country === p.country) push(a);
+      for (const a of allArtists) {
+        if (a.city === p.city && geoCountryOf(a.city, a.country) === geoCountryOf(p.city, p.country)) push(a);
+      }
     }
     for (const c of countryResults) {
-      for (const a of allArtists) if ((a.country ?? '').toUpperCase() === c.code.toUpperCase()) push(a);
+      for (const a of allArtists) if (geoCountryOf(a.city, a.country) === c.code.toUpperCase()) push(a);
     }
     for (const g of genreResults) {
       for (const a of allArtists) if (a.genre === g.genre) push(a);
@@ -784,7 +796,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       rememberQuery(`${c.city}, ${c.country}`);
       const cityArtists = allArtists.filter(
         (a) => a.city.trim().toLowerCase() === c.city.trim().toLowerCase() &&
-          a.country.trim().toLowerCase() === c.country.trim().toLowerCase(),
+          geoCountryOf(a.city, a.country) === geoCountryOf(c.city, c.country),
       );
       setSearchOpen(false);
       setQuery('');
@@ -869,7 +881,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     (c: CountryResult) => {
       rememberQuery(c.name);
       const countryArtists = allArtists.filter(
-        (a) => (a.country ?? '').toUpperCase() === c.code.toUpperCase(),
+        (a) => geoCountryOf(a.city, a.country) === c.code.toUpperCase(),
       );
       setSearchOpen(false);
       setQuery('');
@@ -1955,9 +1967,9 @@ export function ExploreScreen({ navigation, route }: Props) {
 
       {showMap && userLocation && !selected && !searchOpen && (
         <View
-          style={[styles.locationStatus, {
-            top: insets.top + 10 + APPBAR_HEIGHT + APPBAR_GAP + 52,
-          }]}
+          // Le statut de localisation se lit au-dessus de la recherche et ne
+          // prend plus toute la largeur de l'écran.
+          style={[styles.locationStatus, { top: insets.top + 10 + APPBAR_HEIGHT + APPBAR_GAP }]}
           pointerEvents="none"
         >
           <Ionicons name="navigate" size={14} color={colors.brandDeep} />
@@ -1972,7 +1984,19 @@ export function ExploreScreen({ navigation, route }: Props) {
       {showMap && !searchOpen && (
         <>
           {!searchCollapsed && (
-            <View style={[styles.searchBarWrap, { top: insets.top + 10 + APPBAR_HEIGHT + APPBAR_GAP }]}>
+            <View
+              style={[
+                styles.searchBarWrap,
+                {
+                  top:
+                    insets.top +
+                    10 +
+                    APPBAR_HEIGHT +
+                    APPBAR_GAP +
+                    (userLocation ? LOCATION_STATUS_OFFSET : 0),
+                },
+              ]}
+            >
               <Pressable
                 accessibilityRole="button"
                 style={styles.searchBar}
@@ -2670,8 +2694,8 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 1500 },
     locationStatus: {
       position: 'absolute',
-      left: spacing['3xl'],
-      right: spacing['3xl'],
+      alignSelf: 'center',
+      maxWidth: '90%',
       zIndex: 1490,
       minHeight: 40,
       borderRadius: radii.full,
