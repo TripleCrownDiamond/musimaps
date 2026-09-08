@@ -232,8 +232,8 @@ type ExpoWebMap = {
     offset: [number, number],
     options?: { duration?: number; easing?: (value: number) => number },
   ) => void;
-  on: (event: 'zoom' | 'moveend', listener: () => void) => void;
-  off: (event: 'zoom' | 'moveend', listener: () => void) => void;
+  on: (event: 'zoom' | 'moveend' | 'dragstart' | 'dragend' | 'zoomstart' | 'zoomend' | 'rotatestart' | 'rotateend', listener: () => void) => void;
+  off: (event: 'zoom' | 'moveend' | 'dragstart' | 'dragend' | 'zoomstart' | 'zoomend' | 'rotatestart' | 'rotateend', listener: () => void) => void;
 };
 
 type PlaceResult = { city: string; country: string; flag: string; coordinates: [number, number]; count: number };
@@ -303,6 +303,10 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState('');
   const [spinning, setSpinning] = useState(true);
   const [mapZoom, setMapZoom] = useState(GLOBE_ZOOM);
+  // La rotation est cadencée hors rendu React. Toujours lire le zoom courant
+  // dans cette ref : l'effet d'intervalle ne doit pas conserver le zoom du
+  // premier rendu et ralentir après un zoom utilisateur.
+  const rotationZoomRef = useRef(GLOBE_ZOOM);
   const [visiblePins, setVisiblePins] = useState<Artist[]>([]);
   /**
    * Le cadrage ne devient relâchable qu'une fois la caméra arrivée au niveau
@@ -1153,7 +1157,22 @@ export function ExploreScreen({ navigation, route }: Props) {
           out.push({ key: `a-${group[0].id}`, kind: 'artist', artist: group[0], coords: group[0].coordinates, tier: tierOf(group[0], popularityById) });
           continue;
         }
-        out.push({ key: `s-${group[0].id}`, kind: 'cluster', label: group[0].name, flag: group[0].flag, count: group.length, coords: clusterAnchor(group), zoomTo: CAMERA.sub.zoom, variant: 'sub', members: group, tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier });
+        const code = geoCountryOf(group[0].city, group[0].country);
+        out.push({
+          key: `s-${group[0].id}`,
+          kind: 'cluster',
+          label: group[0].name,
+          flag: group[0].flag,
+          count: group.length,
+          coords: clusterAnchor(group),
+          zoomTo: CAMERA.sub.zoom,
+          variant: 'sub',
+          members: group,
+          tier: Math.max(0, ...group.map((a) => tierOf(a, popularityById))) as PopularityTier,
+          // Même un sous-cluster local conserve la navigation flèche-à-flèche
+          // entre ses artistes, avec la ville comme contexte du panneau.
+          place: { kind: 'city', name: group[0].city, code, flag: flagFor(code) },
+        });
       }
     } else {
       // Coordonnées stables pendant tout le zoom : recalculer la spirale avec
@@ -1195,6 +1214,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   const syncMapZoom = useCallback((zoom: number, exact = false) => {
     setMapZoom((previous) => {
       if (!Number.isFinite(zoom)) return previous;
+      rotationZoomRef.current = zoom;
       if (!exact && levelFor(previous) === levelFor(zoom)) return previous;
       return Math.abs(previous - zoom) < 0.02 ? previous : zoom;
     });
@@ -1222,17 +1242,28 @@ export function ExploreScreen({ navigation, route }: Props) {
   /** Geste utilisateur en cours : le moteur Mapbox garde la priorité sur le
    *  déplacement relatif de la rotation, sans basculer l'état Play/Pause. */
   const gestureActiveRef = useRef(false);
-  /** Intervalle de rotation stocké dans une ref pour arrêter immédiatement
-   *  un vol programmatique sans attendre un re-render. */
+  const gestureMovedRef = useRef(false);
+  /** Intervalle conservé pour le diagnostic et nettoyé au démontage. */
   const spinIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  /**
-   * Le callback caméra arrive après le premier événement tactile sur certains
-   * appareils Android. Marquer le geste dès le toucher évite qu'un tick de
-   * rotation (120 ms) ne reprenne la main pendant le drag. On ne coupe pas le
-   * mode Play/Pause : `onMapIdle` remettra simplement ce verrou à false.
-   */
   const markMapGesture = useCallback(() => {
-    gestureActiveRef.current = true;
+    // Expo Web reçoit ses événements directement depuis Mapbox GL (voir le
+    // pont web plus bas). En natif, ce garde-fou couvre le premier toucher
+    // Android avant l'arrivée de `onCameraChanged`.
+    if (Platform.OS !== 'web') {
+      gestureActiveRef.current = true;
+      gestureMovedRef.current = false;
+    }
+  }, []);
+  const markMapGestureMove = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      gestureMovedRef.current = true;
+      gestureActiveRef.current = true;
+    }
+  }, []);
+  const finishMapGesture = useCallback(() => {
+    // Un simple tap sur la carte ne déclenche pas toujours `onMapIdle`.
+    // Relâcher ce cas évite de laisser Play actif mais immobile.
+    if (Platform.OS !== 'web' && !gestureMovedRef.current) gestureActiveRef.current = false;
   }, []);
   useEffect(() => {
     if (!spinning) return;
@@ -1248,6 +1279,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       // caméra. Le mode rotation reste actif et reprend au prochain tick
       // après le signal de fin de geste.
       if (gestureActiveRef.current) return;
+      const mapZoom = rotationZoomRef.current;
 
       // `moveBy` est exécuté directement par le moteur natif (iOS/Android),
       // contrairement à `setCamera` qui passe par une file de CameraStops.
@@ -1296,10 +1328,6 @@ export function ExploreScreen({ navigation, route }: Props) {
    *  l'état Play/Pause. Le mode actif reprend au prochain `onMapIdle`. */
   const suspendSpinForCameraMove = useCallback(() => {
     gestureActiveRef.current = true;
-    if (spinIntervalRef.current) {
-      clearInterval(spinIntervalRef.current);
-      spinIntervalRef.current = null;
-    }
   }, []);
 
   // Ouverture d'un artiste passé en paramètre (recherche / sauvegardés).
@@ -1460,6 +1488,21 @@ export function ExploreScreen({ navigation, route }: Props) {
     const onZoom = () => {
       if (webMap) syncMapZoom(webMap.getZoom());
     };
+    let gestureReleaseTimer: ReturnType<typeof setTimeout> | null = null;
+    const onGestureStart = () => {
+      gestureActiveRef.current = true;
+      if (gestureReleaseTimer) {
+        clearTimeout(gestureReleaseTimer);
+        gestureReleaseTimer = null;
+      }
+    };
+    const onGestureEnd = () => {
+      if (gestureReleaseTimer) clearTimeout(gestureReleaseTimer);
+      gestureReleaseTimer = setTimeout(() => {
+        gestureActiveRef.current = false;
+        gestureReleaseTimer = null;
+      }, GLOBE_SPIN_TICK_MS);
+    };
     const onMoveEnd = () => {
       if (!webMap) return;
       const center = webMap.getCenter();
@@ -1476,6 +1519,12 @@ export function ExploreScreen({ navigation, route }: Props) {
       }
       webMap.on('zoom', onZoom);
       webMap.on('moveend', onMoveEnd);
+      webMap.on('dragstart', onGestureStart);
+      webMap.on('zoomstart', onGestureStart);
+      webMap.on('rotatestart', onGestureStart);
+      webMap.on('dragend', onGestureEnd);
+      webMap.on('zoomend', onGestureEnd);
+      webMap.on('rotateend', onGestureEnd);
       onMoveEnd();
     };
 
@@ -1483,9 +1532,17 @@ export function ExploreScreen({ navigation, route }: Props) {
     return () => {
       disposed = true;
       if (retry) clearTimeout(retry);
+      if (gestureReleaseTimer) clearTimeout(gestureReleaseTimer);
+      gestureActiveRef.current = false;
       if (webMap) {
         webMap.off('zoom', onZoom);
         webMap.off('moveend', onMoveEnd);
+        webMap.off('dragstart', onGestureStart);
+        webMap.off('zoomstart', onGestureStart);
+        webMap.off('rotatestart', onGestureStart);
+        webMap.off('dragend', onGestureEnd);
+        webMap.off('zoomend', onGestureEnd);
+        webMap.off('rotateend', onGestureEnd);
       }
       webMapRef.current = null;
     };
@@ -1566,7 +1623,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         // le drag. Cette option donne la priorité au geste de la carte.
         requestDisallowInterceptTouchEvent
         onTouchStart={markMapGesture}
-        onTouchMove={markMapGesture}
+        onTouchMove={markMapGestureMove}
+        onTouchEnd={finishMapGesture}
         compassEnabled={false}
         scaleBarEnabled={false}
         logoEnabled={false}
@@ -1599,6 +1657,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           // caméra. On ne désactive pas le mode rotation : il reprend dès que
           // le geste est terminé (ou au prochain `onMapIdle`).
           if (gestures?.isGestureActive) gestureActiveRef.current = true;
+          if (gestures?.isGestureActive) gestureMovedRef.current = true;
           // Le centre suit le geste EN CONTINU. Il n'était rafraîchi qu'à
           // `onMapIdle` : en relançant la rotation, on repartait de la position
           // d'avant le déplacement et le globe sautait en arrière — le fameux

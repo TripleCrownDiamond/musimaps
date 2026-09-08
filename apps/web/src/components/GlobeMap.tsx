@@ -34,6 +34,7 @@ import {
   tierOf,
   TIER_SIZE_FACTOR,
   pinRingWidthFor,
+  GLOBE_SPIN_TICK_MS,
   mapLocationLabel,
   normalizeArtistImageUrl,
   type ClusterLevel,
@@ -90,9 +91,9 @@ interface GlobeMapProps {
   interactive?: boolean
   /** Preview de landing : labels masqués et étincelles non interactives. */
   decorative?: boolean
-  /** Rotation automatique. Pilote par le parent, coupee des que l'utilisateur agit. */
+  /** Rotation automatique. Pilote par le parent ; un geste suspend seulement le tick. */
   autoRotate?: boolean
-  /** Notifie le parent quand l'utilisateur interrompt la rotation en manipulant le globe. */
+  /** Notifie le parent quand une action programmée désactive la rotation. */
   onAutoRotateChange?: (value: boolean) => void
   /** Notifie le parent du niveau de zoom (pour replier la recherche en icône). */
   onZoomChange?: (zoom: number) => void
@@ -215,6 +216,9 @@ export default function GlobeMap({
 
   // La rotation passe par une ref : basculer le bouton ne doit pas reconstruire la carte.
   const spinRef = useRef(autoRotate)
+  // Un geste utilisateur suspend seulement le tick courant. Le bouton Play
+  // reste actif et la rotation reprend dès que Mapbox a fini le geste.
+  const gestureActiveRef = useRef(false)
   useEffect(() => {
     spinRef.current = autoRotate
   }, [autoRotate])
@@ -311,29 +315,47 @@ export default function GlobeMap({
       const spin = (now: number) => {
         const elapsed = now - last
         last = now
-        // Ne pas appliquer la rotation pendant qu'un geste utilisateur
-        // est en cours (drag, pinch, flyTo) : évite que le jumpTo du spin
-        // combatte le geste et crée des mouvements erratiques.
-        if (spinRef.current && !map.isMoving()) {
+        // Ne pas appliquer la rotation pendant qu'un geste utilisateur est
+        // en cours : `map.isMoving()` est aussi vrai pendant notre propre
+        // jumpTo et faisait donc sauter/pauser la rotation une frame sur
+        // deux. Le verrou explicite ne bloque que drag/zoom/rotate/pitch.
+        if (spinRef.current && !gestureActiveRef.current) {
           const center = map.getCenter()
           center.lng -= spinDeltaFor(elapsed)
-          // easeTo interpolation douce au lieu de jumpTo (saut discret) :
-          // la rotation paraît continue même à 60 fps.
+          // jumpTo est volontaire : il laisse les markers visibles pendant
+          // la rotation. Le RAF fournit déjà une interpolation à 60 fps.
           map.jumpTo({ center })
         }
         frame = requestAnimationFrame(spin)
       }
       frame = requestAnimationFrame(spin)
     }
-    const stopSpin = () => {
-      if (!spinRef.current) return
-      spinRef.current = false
-      onRotateChangeRef.current?.(false)
+    let gestureReleaseTimer: ReturnType<typeof setTimeout> | null = null
+    const markGestureStart = () => {
+      gestureActiveRef.current = true
+      if (gestureReleaseTimer) {
+        clearTimeout(gestureReleaseTimer)
+        gestureReleaseTimer = null
+      }
+    }
+    const markGestureEnd = () => {
+      // Laisser le dernier mouvement tactile se terminer avant de relancer le
+      // RAF évite le petit contre-saut observé sur Android/trackpad.
+      if (gestureReleaseTimer) clearTimeout(gestureReleaseTimer)
+      gestureReleaseTimer = setTimeout(() => {
+        gestureActiveRef.current = false
+        gestureReleaseTimer = null
+      }, GLOBE_SPIN_TICK_MS)
     }
     if (interactive) {
-      map.on('mousedown', stopSpin)
-      map.on('touchstart', stopSpin)
-      map.on('wheel', stopSpin)
+      map.on('dragstart', markGestureStart)
+      map.on('zoomstart', markGestureStart)
+      map.on('rotatestart', markGestureStart)
+      map.on('pitchstart', markGestureStart)
+      map.on('dragend', markGestureEnd)
+      map.on('zoomend', markGestureEnd)
+      map.on('rotateend', markGestureEnd)
+      map.on('pitchend', markGestureEnd)
     }
 
     // Épuration au zoom : en vue globe, les pins sont minuscules et discrets ;
@@ -447,6 +469,18 @@ export default function GlobeMap({
     map.on('moveend', onLevelChange)
     return () => {
       cancelAnimationFrame(frame)
+      if (gestureReleaseTimer) clearTimeout(gestureReleaseTimer)
+      gestureActiveRef.current = false
+      if (interactive) {
+        map.off('dragstart', markGestureStart)
+        map.off('zoomstart', markGestureStart)
+        map.off('rotatestart', markGestureStart)
+        map.off('pitchstart', markGestureStart)
+        map.off('dragend', markGestureEnd)
+        map.off('zoomend', markGestureEnd)
+        map.off('rotateend', markGestureEnd)
+        map.off('pitchend', markGestureEnd)
+      }
       map.off('zoom', onZoomTick)
       map.off('moveend', onLevelChange)
       map.off('zoomend', onLevelChange)
@@ -861,6 +895,12 @@ export default function GlobeMap({
             CAMERA.sub.zoom,
             'sub',
             group,
+            {
+              kind: 'city',
+              name: group[0].city,
+              code: geoCountryOf(group[0].city, group[0].country),
+              flag: flagFor(geoCountryOf(group[0].city, group[0].country)),
+            },
           )
         }
         return
