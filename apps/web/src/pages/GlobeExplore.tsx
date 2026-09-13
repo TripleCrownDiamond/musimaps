@@ -43,6 +43,7 @@ import {
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
+  mergeRediscoveredArtist,
   rankSearchResults,
   rankArtistResults,
   normalizeArtistSearchQuery,
@@ -834,21 +835,9 @@ export default function GlobeExplore() {
           mapRef.current?.focusArtist(existing.id)
           return
         }
-        // Fusion : le neuf enrichit, l'ancien conserve modération + vides.
-        artist = {
-          ...existing,
-          ...toArtist(fresh),
-          id: existing.id,
-          verified: existing.verified,
-          claimedBy: existing.claimedBy,
-          bio: fresh.bio || existing.bio,
-          image: fresh.image || existing.image,
-          genre: fresh.genre || existing.genre,
-          city: fresh.city || existing.city,
-          country: fresh.country || existing.country,
-          platforms: { ...existing.platforms, ...fresh.platforms },
-          socials: { ...existing.socials, ...fresh.socials },
-        }
+        // Fusion : le pin existant garde identité, localisation et
+        // modération ; le neuf ne remplit que les vides (miroir du RPC).
+        artist = mergeRediscoveredArtist(existing, fresh)
         setMapArtists((prev) => prev.map((a) => (a.id === existing.id ? artist : a)))
         toast.success(t('discovery.updated'))
       } else {

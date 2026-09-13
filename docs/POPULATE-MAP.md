@@ -33,11 +33,15 @@ par ville + MBID déjà insérés).
 
 - **Tous les runs re-parcourent toutes les villes** (peuplement périodique) ;
   la dédupe par MBID évite les doublons et les artistes déjà présents sont
-  simplement **mis à jour** (bio, genre, image) sans être réajoutés.
+  seulement **enrichis** sans être réajoutés.
 - `--batch N` limite **chaque exécution** à N nouveaux ajouts (utile pour cron).
-- `--refresh-updates` re-traite aussi les MBID déjà vus (force l'upsert).
-- Le RPC préserve le **nom curé** : un nom corrigé par l'admin/l'artiste
-  n'est jamais écrasé par le cron.
+- `--refresh-updates` re-traite aussi les MBID déjà vus (enrichissement seul).
+- Le RPC préserve la **curation** (migration 00066) : sur un artiste existant,
+  nom, localisation (coordonnées, ville, quartier, pays, drapeau) et modération
+  ne sont jamais écrasés ; genre, bio, image et popularité ne sont remplis que
+  s'ils sont vides ; les liens existants priment. Une correction admin (pin
+  déplacé, ville corrigée) survit donc à tous les runs. L'écrasement exige
+  `admin_override` avec un compte admin ou la clé `service_role`.
 
 ## Cron
 

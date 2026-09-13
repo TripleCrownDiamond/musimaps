@@ -103,6 +103,7 @@ import {
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
+  mergeRediscoveredArtist,
   normalizeArtistSearchQuery,
   rankArtistResults,
   rankSearchResults,
@@ -1014,20 +1015,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           flyToArtist(existing);
           return;
         }
-        artist = {
-          ...existing,
-          ...toArtist(fresh),
-          id: existing.id,
-          verified: existing.verified,
-          claimedBy: existing.claimedBy,
-          bio: fresh.bio || existing.bio,
-          image: fresh.image || existing.image,
-          genre: fresh.genre || existing.genre,
-          city: fresh.city || existing.city,
-          country: fresh.country || existing.country,
-          platforms: { ...existing.platforms, ...fresh.platforms },
-          socials: { ...existing.socials, ...fresh.socials },
-        };
+        artist = mergeRediscoveredArtist(existing, fresh);
         setMapArtists((prev) => prev.map((a) => (a.id === existing.id ? artist : a)));
       } else {
         const result = await addOrUpdateMapArtist(fresh);

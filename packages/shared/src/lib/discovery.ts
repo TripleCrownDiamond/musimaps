@@ -1565,7 +1565,16 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   }))
 }
 
-/** Ajoute un artiste découvert à la carte (upsert). */
+/**
+ * Insère un artiste découvert sur la carte — repli quand le RPC
+ * add_or_update_map_artist est indisponible.
+ *
+ * INSERT seul (`ON CONFLICT DO NOTHING`) : un pin déjà présent n'est jamais
+ * réécrit par ce chemin. L'ancien upsert écrasait nom et localisation, et —
+ * pour un admin, seul rôle que la RLS laisse mettre à jour — remettait aussi
+ * `verified` à false et `claimed_by` à null. La modération n'est pas envoyée :
+ * une insertion prend les valeurs par défaut de la table.
+ */
 export async function addMapArtist(artist: DiscoveredArtist): Promise<{
   ok: boolean
   error?: string
@@ -1590,6 +1599,7 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
     image: artist.image ?? null,
     source: artist.source,
   }
+  const insertOnly = { onConflict: 'id', ignoreDuplicates: true }
   // Colonnes enrichies (migration 00016/00019) — avec repli si absent de la base.
   let { error } = await supabase
     .from('map_artists')
@@ -1598,13 +1608,11 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
         ...payload,
         platforms: artist.platforms ?? {},
         socials: artist.socials ?? {},
-        verified: artist.verified ?? false,
-        claimed_by: artist.claimedBy ?? null,
       },
-      { onConflict: 'id' },
+      insertOnly,
     )
-  if (error && /platforms|socials|verified|claimed_by|image/i.test(error.message)) {
-    const retry = await supabase.from('map_artists').upsert(payload, { onConflict: 'id' })
+  if (error && /platforms|socials|image/i.test(error.message)) {
+    const retry = await supabase.from('map_artists').upsert(payload, insertOnly)
     error = retry.error
   }
   return error ? { ok: false, error: error.message } : { ok: true }
@@ -1612,9 +1620,11 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
 
 /**
  * Ajoute OU met à jour un artiste sur la carte via le RPC sécurisé
- * add_or_update_map_artist (migration 00018). L'update enrichit le profil
- * existant (bio, plateformes, réseaux) sans toucher à la modération
- * (verified, claimed_by). Retourne aussi « updated » pour le feedback UI.
+ * add_or_update_map_artist (migration 00018). Sur un artiste existant, le
+ * RPC n'écrase rien (migration 00066) : nom, localisation et modération
+ * restent, le neuf ne remplit que les champs vides et ajoute des liens —
+ * voir `mergeRediscoveredArtist` pour le miroir local. `claimedBy` n'est
+ * accepté que d'un admin. Retourne aussi « updated » pour le feedback UI.
  */
 export async function addOrUpdateMapArtist(
   artist: DiscoveredArtist,
@@ -1747,6 +1757,28 @@ export function toArtist(d: DiscoveredArtist): MapArtistView {
     source: d.source,
     claimedBy: d.claimedBy ?? null,
     slug: d.slug ?? null,
+  }
+}
+
+/**
+ * Fusion locale d'un artiste redécouvert avec le pin déjà présent — miroir
+ * de ce que le RPC add_or_update_map_artist écrit en base (migration 00066).
+ *
+ * Le pin existant garde son identité, sa localisation et sa modération : ce
+ * sont des données curées (corrections admin, pin déplacé, revendication).
+ * Le candidat ne fait que remplir les vides et ajouter des liens absents.
+ * Afficher le candidat à la place déplacerait le pin à l'écran alors que la
+ * base, elle, ne l'a pas bougé.
+ */
+export function mergeRediscoveredArtist<T extends Artist>(existing: T, fresh: DiscoveredArtist): T {
+  return {
+    ...existing,
+    genre: existing.genre || cleanGenre(fresh.genre),
+    bio: existing.bio || fresh.bio,
+    image: existing.image || fresh.image,
+    followers: existing.followers || (fresh.followers ?? ''),
+    platforms: { ...fresh.platforms, ...existing.platforms },
+    socials: { ...fresh.socials, ...existing.socials },
   }
 }
 

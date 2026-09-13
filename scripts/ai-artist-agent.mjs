@@ -53,6 +53,13 @@ const headers = {
   Authorization: `Bearer ${key}`,
   'Content-Type': 'application/json',
 }
+// Corriger genre/bio d'un artiste existant, c'est écraser des champs déjà
+// remplis : le RPC ne l'accepte qu'avec `admin_override` et la clé
+// service_role (migration 00066). Sans elle, --map ne remplit que les vides.
+const serviceKey = loadEnv(path.join(root, '.env')).SUPABASE_SERVICE_ROLE_KEY || null
+const writeHeaders = serviceKey
+  ? { ...headers, apikey: serviceKey, Authorization: `Bearer ${serviceKey}` }
+  : headers
 const mistralKey = loadMistralKey(root)
 if (!mistralKey) {
   console.error('Manquant : MISTRAL_API_KEY dans le .env racine.')
@@ -134,9 +141,10 @@ async function fetchMapArtists(limit) {
 async function rpcUpsert(artist) {
   const res = await fetch(`${api}/rpc/add_or_update_map_artist`, {
     method: 'POST',
-    headers,
+    headers: writeHeaders,
     body: JSON.stringify({
       p_artist: {
+        ...(serviceKey ? { admin_override: true } : {}),
         id: artist.id,
         name: artist.name,
         genre: artist.genre ?? '',
@@ -160,6 +168,11 @@ async function rpcUpsert(artist) {
 
 async function runMapMode() {
   console.log(`\n🗺️  Audit IA de la carte${DRY_RUN ? ' (DRY RUN — aucune écriture)' : ''}\n`)
+  if (!serviceKey && !DRY_RUN) {
+    console.warn(
+      '⚠️  SUPABASE_SERVICE_ROLE_KEY absente du .env racine : les corrections ne rempliront que les genres/bios VIDES (migration 00066).\n',
+    )
+  }
   const artists = await fetchMapArtists(LIMIT)
   console.log(`Artistes chargés : ${artists.length}`)
 

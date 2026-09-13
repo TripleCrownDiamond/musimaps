@@ -9,7 +9,9 @@
  *   3. Récupère une vraie bio + photo HD via Wikipedia ;
  *   4. Géocode la ville via Mapbox ;
  *   5. Upsert chaque artiste via le RPC add_or_update_map_artist (aucune
- *      clé service requise) et déclenche notify_discovery.
+ *      clé service requise) et déclenche notify_discovery. Un artiste déjà
+ *      en base n'est qu'enrichi : nom et localisation curés ne sont jamais
+ *      écrasés (migration 00066).
  *
  * Périodicité : à lancer via cron, ex. chaque nuit :
  *   0 3 * * * cd /d/musimaps && node scripts/populate-map.mjs --batch 25

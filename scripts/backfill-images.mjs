@@ -119,14 +119,21 @@ async function main() {
   let done = 0
   let skipped = 0
   for (const artist of data) {
+    // Le RPC exige des coordonnées, et reprend celles du payload quand la
+    // ligne n'en a pas (migration 00066) : on n'en invente donc pas.
+    if (typeof artist.lat !== 'number' || typeof artist.lng !== 'number') {
+      console.log(`  ✗ ${artist.name} : pas de coordonnées, ignoré`)
+      skipped += 1
+      continue
+    }
     const image = await wikipediaImage(artist.name)
     if (!image) {
       console.log(`  ✗ ${artist.name} : pas d'image Wikipedia trouvée`)
       skipped += 1
       continue
     }
-    // On préserve TOUTES les valeurs existantes (lat/lng/city/country…) : le
-    // RPC écrase lat/lng avec le payload, on ne doit donc jamais envoyer 0.
+    // Le RPC ne remplit que les champs vides d'un artiste existant : seule
+    // l'image (absente) est réellement écrite.
     const payload = {
       id: artist.id,
       name: artist.name,
@@ -134,8 +141,8 @@ async function main() {
       city: artist.city ?? '',
       country: artist.country ?? '',
       flag: '',
-      lat: artist.lat ?? 0,
-      lng: artist.lng ?? 0,
+      lat: artist.lat,
+      lng: artist.lng,
       bio: '',
       image,
       source: 'musicbrainz',
