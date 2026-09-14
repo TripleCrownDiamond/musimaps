@@ -2,28 +2,38 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import {
+  deleteAllNotifications,
+  deleteNotification,
   fetchNotifications,
   formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
   notificationIcon,
+  radii,
+  spacing,
   type AppNotification,
 } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
-import { NotificationButton } from '../components/NotificationButton';
+import { AppBar, APP_BAR_ACTION_SIZE, APP_BAR_TOP_GAP } from '../components/AppBar';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Notifications'>;
 
 export function NotificationsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
+  const { showToast } = useApp();
   const [items, setItems] = useState<AppNotification[] | null>(null);
+  const [markingAll, setMarkingAll] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   const load = useCallback(async () => {
     const rows = await fetchNotifications();
@@ -40,9 +50,14 @@ export function NotificationsScreen({ navigation }: Props) {
   );
 
   const markAll = async () => {
-    if (!items?.some((n) => !n.read)) return;
-    await markAllNotificationsRead();
-    setItems((prev) => prev?.map((n) => ({ ...n, read: true })) ?? null);
+    if (markingAll || !items?.some((n) => !n.read)) return;
+    setMarkingAll(true);
+    try {
+      await markAllNotificationsRead();
+      setItems((prev) => prev?.map((n) => ({ ...n, read: true })) ?? null);
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
   const openOne = async (item: AppNotification) => {
@@ -57,23 +72,83 @@ export function NotificationsScreen({ navigation }: Props) {
     }
   };
 
+  // Retrait immédiat de la ligne, rétabli si la base refuse la suppression.
+  const removeOne = async (item: AppNotification) => {
+    const previous = items;
+    setItems((prev) => prev?.filter((n) => n.id !== item.id) ?? null);
+    if (!(await deleteNotification(item.id))) {
+      setItems(previous);
+      showToast(t('notif.deleteError'), 'alert-circle', 'error');
+    }
+  };
+
+  const deleteAll = async () => {
+    if (deletingAll) return;
+    setDeletingAll(true);
+    try {
+      if (await deleteAllNotifications()) setItems([]);
+      else showToast(t('notif.deleteError'), 'alert-circle', 'error');
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
+  const confirmDeleteAll = () => {
+    if (!items?.length || deletingAll) return;
+    Alert.alert(t('notif.deleteAllTitle'), t('notif.deleteAllText'), [
+      { text: t('notif.cancel'), style: 'cancel' },
+      { text: t('notif.deleteConfirm'), style: 'destructive', onPress: () => void deleteAll() },
+    ]);
+  };
+
   const unread = items?.filter((n) => !n.read).length ?? 0;
 
   return (
-    <View style={styles.root}>
-      <View style={styles.headerRow}>
-        <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={27} color={colors.ink} />
-        </Pressable>
-        <Text style={styles.headerTitle}>{t('notif.title')}</Text>
-        <View style={styles.headerActions}>
-          <NotificationButton onPress={() => navigation.navigate('Notifications')} />
-          <Pressable style={[styles.markAll, unread === 0 && styles.markAllDisabled]} onPress={() => void markAll()}>
-            <Text style={[styles.markAllText, unread === 0 && styles.markAllTextDisabled]}>
-              {t('notif.markAll')}
-            </Text>
+    <View style={[styles.root, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
+        <AppBar
+          navigation={navigation}
+          rootNavigation={navigation}
+          backOverride
+          onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Main', { screen: 'Profile' })}
+          unreadCount={unread}
+          beforeNotification={
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('notif.markAll')}
+              accessibilityState={{ disabled: unread === 0 || markingAll, busy: markingAll }}
+              disabled={unread === 0 || markingAll}
+              style={[styles.markAll, (unread === 0 || markingAll) && styles.markAllDisabled]}
+              onPress={() => void markAll()}
+            >
+              <Ionicons name="checkmark-done" size={18} color={unread === 0 ? colors.muted : colors.brandPrimary} />
+              <Text style={[styles.markAllText, unread === 0 && styles.markAllTextDisabled]}>
+                {t('notif.markAll')}
+              </Text>
+            </Pressable>
+          }
+        />
+      </View>
+      <View style={styles.titleRow}>
+        <Text accessibilityRole="header" style={styles.headerTitle}>{t('notif.title')}</Text>
+        {items && items.length > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('notif.deleteAll')}
+            accessibilityState={{ disabled: deletingAll, busy: deletingAll }}
+            disabled={deletingAll}
+            hitSlop={6}
+            style={[styles.deleteAll, deletingAll && styles.markAllDisabled]}
+            onPress={confirmDeleteAll}
+          >
+            {deletingAll ? (
+              <ActivityIndicator size="small" color={colors.danger} />
+            ) : (
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            )}
+            <Text style={styles.deleteAllText}>{t('notif.deleteAll')}</Text>
           </Pressable>
-        </View>
+        ) : null}
       </View>
 
       {items === null ? (
@@ -104,6 +179,15 @@ export function NotificationsScreen({ navigation }: Props) {
                 <Text style={styles.cardTime}>{formatNotificationTime(item.created_at, lang)}</Text>
               </View>
               {!item.read && <View style={styles.unreadDot} />}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('notif.delete')}
+                hitSlop={8}
+                style={styles.deleteOne}
+                onPress={() => void removeOne(item)}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.inkSoft} />
+              </Pressable>
             </Pressable>
           )}
         />
@@ -115,26 +199,20 @@ export function NotificationsScreen({ navigation }: Props) {
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
-    headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, gap: 12 },
-    back: {
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 22, letterSpacing: -0.7, flex: 1 },
-    headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    markAll: { borderRadius: 18, backgroundColor: colors.brandSoft, paddingHorizontal: 13, paddingVertical: 8 },
+    appBarWrap: { paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
+    titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, paddingHorizontal: spacing.xl, paddingBottom: spacing.md },
+    headerTitle: { flexShrink: 1, color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 22, letterSpacing: -0.7 },
+    markAll: { minHeight: APP_BAR_ACTION_SIZE, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, borderRadius: radii.full, backgroundColor: colors.brandSoft, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
     markAllDisabled: { opacity: 0.45 },
-    markAllText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 12 },
+    markAllText: { color: colors.brandPrimary, fontFamily: fonts.bold, fontSize: 12 },
     markAllTextDisabled: { color: colors.muted },
+    deleteAll: { minHeight: APP_BAR_ACTION_SIZE, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radii.full, paddingHorizontal: spacing.md },
+    deleteAllText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 12 },
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 34, gap: 10 },
     emptyIcon: {
       width: 72,
       height: 72,
-      borderRadius: 36,
+      borderRadius: radii.full,
       backgroundColor: colors.brandSoft,
       alignItems: 'center',
       justifyContent: 'center',
@@ -157,4 +235,5 @@ const createStyles = (colors: AppColors) =>
     cardMessage: { color: colors.ink, fontFamily: fonts.body, fontSize: 13.5, lineHeight: 19 },
     cardTime: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 11, marginTop: 3 },
     unreadDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brandDeep },
+    deleteOne: { width: 36, height: 36, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
   });

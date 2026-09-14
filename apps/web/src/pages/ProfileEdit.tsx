@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
-import { Camera, Check, Loader2, LocateFixed, Trash2 } from 'lucide-react'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Camera, Check, ImagePlus, Loader2, LocateFixed, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { uploadArtistPhoto } from '../lib/waitlist'
-import { AnimatedAvatar } from '../components/AnimatedAvatar'
-import { deleteAccount } from '@musimaps/shared'
+import { AccountAvatar, AccountCover } from '../components/AccountMedia'
+import { PROFILE_MEDIA, deleteAccount, uploadProfileImage } from '@musimaps/shared'
 import { LocationSelect, type LocationValue } from '../components/LocationSelect'
 import { SecondaryPageHeader } from '../components/SecondaryPageHeader'
 import { NeighborhoodSelect } from '../components/NeighborhoodSelect'
@@ -13,7 +12,7 @@ import { reverseGeocodeBrowser } from '../lib/geolocate'
 
 /**
  * Complétion / modification du PROFIL DE COMPTE (table profiles) :
- * nom, ville, genres favoris, avatar. C'est volontairement distinct
+ * nom, ville, genres favoris, avatar et cover. C'est volontairement distinct
  * de la page /artistes (ArtistSignup) qui, elle, sert à rejoindre la
  * liste d'attente / demander le référencement sur la carte.
  */
@@ -22,6 +21,12 @@ export default function ProfileEdit() {
   const { t, lang } = useLanguage()
   const localize = useLocalizedPath()
   const navigate = useNavigate()
+  const location = useLocation()
+  const deletionSection = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (user && location.hash === '#delete-account') deletionSection.current?.scrollIntoView({ block: 'center' })
+  }, [user, location.hash])
 
   const [displayName, setDisplayName] = useState('')
   const [city, setCity] = useState('')
@@ -29,13 +34,17 @@ export default function ProfileEdit() {
   const [district, setDistrict] = useState('')
   const [genres, setGenres] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [imgError, setImgError] = useState(false)
+  const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Affichée dans la carte photo/cover : l'erreur du formulaire vit sous les
+  // champs, hors de vue quand on vient de choisir une image.
+  const [mediaError, setMediaError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [locating, setLocating] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  const coverInput = useRef<HTMLInputElement>(null)
   // Pré-remplissage à la première arrivée du profil uniquement : un champ
   // vidé par l'utilisateur ne doit jamais être ré-rempli par un refresh.
   const hydrated = useRef(false)
@@ -49,6 +58,7 @@ export default function ProfileEdit() {
     setDistrict(user.district || '')
     setGenres((user.favoriteGenres ?? []).join(', '))
     setAvatarUrl(user.avatarUrl)
+    setCoverUrl(user.coverUrl)
   }, [user])
 
   const geolocate = async () => {
@@ -72,18 +82,49 @@ export default function ProfileEdit() {
     return Math.round((steps.filter(Boolean).length / steps.length) * 100)
   }, [displayName, city])
 
-  if (!loading && !user) return <Navigate to={localize('/login')} replace />
+  if (!loading && !user) return <Navigate to={localize('/login')} state={{ from: location.pathname + location.hash }} replace />
 
-  const pickPhoto = async (file: File | undefined) => {
+  const pickImage = async (file: File | undefined, kind: 'avatar' | 'cover') => {
     if (!file) return
     setUploading(true)
-    setError(null)
-    const result = await uploadArtistPhoto(file)
+    setMediaError(null)
+    const result = await uploadProfileImage(file, kind)
+    if (result.error) {
+      setUploading(false)
+      setMediaError(result.error)
+      return
+    }
+
+    // Persiste la photo dès l'upload : elle est immédiatement disponible sur
+    // mobile et ne dépend pas d'un clic ultérieur sur « Enregistrer ».
+    const { error: syncError } = await updateProfile(
+      kind === 'avatar' ? { avatarUrl: result.url } : { coverUrl: result.url },
+    )
     setUploading(false)
-    if (result.error) setError(result.error)
-    else {
-      setImgError(false)
+    if (syncError) {
+      setMediaError(syncError.message)
+      return
+    }
+    if (kind === 'avatar') {
       setAvatarUrl(result.url)
+    } else {
+      setCoverUrl(result.url)
+    }
+  }
+
+  const removeImage = async (kind: 'avatar' | 'cover') => {
+    setUploading(true)
+    setMediaError(null)
+    const { error: err } = await updateProfile(kind === 'avatar' ? { avatarUrl: null } : { coverUrl: null })
+    setUploading(false)
+    if (err) {
+      setMediaError(err.message)
+      return
+    }
+    if (kind === 'avatar') {
+      setAvatarUrl(null)
+    } else {
+      setCoverUrl(null)
     }
   }
 
@@ -101,6 +142,7 @@ export default function ProfileEdit() {
       district,
       favoriteGenres: genres.split(',').map((g) => g.trim()).filter(Boolean),
       avatarUrl,
+      coverUrl,
     })
     setBusy(false)
     if (err) return setError(err.message)
@@ -119,44 +161,104 @@ export default function ProfileEdit() {
           backLabel={t('common.back')}
         />
 
-        <div className="rounded-[2rem] border border-hairline bg-surface p-8 shadow-xl">
+        <div className="rounded-[2rem] border border-hairline bg-surface p-4 shadow-xl sm:p-8">
           <p className="text-xs font-bold tracking-[0.2em] text-brand-deep uppercase">{t('pedit.kicker')}</p>
           <h1 className="display-font mt-1.5 text-3xl font-bold">{t('profile.editProfile')}</h1>
           <p className="mt-1.5 mb-7 text-sm text-secondary-text">{t('pedit.subtitle')}</p>
 
-          {/* Avatar du compte */}
-          <div className="mb-7 flex items-center gap-4">
-            <div className="relative">
-              <AnimatedAvatar
-                name={displayName || 'M'}
-                image={imgError ? null : avatarUrl}
-                className="h-20 w-20 rounded-full border border-hairline-strong"
-                initialsClassName="bg-brand text-2xl font-bold text-black"
-              />
-              <button
-                type="button"
-                onClick={() => fileInput.current?.click()}
-                disabled={uploading}
-                className="absolute -right-1 -bottom-1 flex h-9 w-9 items-center justify-center rounded-full bg-brand-deep text-brand-deep-foreground shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
-                aria-label={t('profile.uploadAvatar')}
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-              </button>
-            </div>
-            <div className="text-sm text-secondary-text">
-              <p className="font-medium text-primary-text">{t('profile.avatarTitle')}</p>
-              <p>{t('profile.avatarHint')}</p>
-            </div>
+          {/* Visuels du compte : cover + avatar, partagés avec le profil mobile. */}
+          <div className="mb-7 overflow-hidden rounded-3xl border border-hairline bg-secondary-bg">
+            <input
+              ref={coverInput}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                void pickImage(e.target.files?.[0], 'cover')
+                e.target.value = ''
+              }}
+            />
             <input
               ref={fileInput}
               type="file"
               accept="image/*"
               className="hidden"
               onChange={(e) => {
-                void pickPhoto(e.target.files?.[0])
+                void pickImage(e.target.files?.[0], 'avatar')
                 e.target.value = ''
               }}
             />
+            <AccountCover image={coverUrl}>
+              <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/75 to-transparent px-4 pb-3 pt-10">
+                <div className="min-w-0 text-white">
+                  <p className="text-sm font-bold">{t('profile.coverTitle')}</p>
+                  <p className="line-clamp-2 text-xs text-white/75">{t('profile.coverHint')}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {coverUrl && (
+                    <button
+                      type="button"
+                      onClick={() => void removeImage('cover')}
+                      disabled={uploading}
+                      style={{ width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize }}
+                      className="flex items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-red-600/80 disabled:opacity-60"
+                      aria-label={t('profile.removeCover')}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => coverInput.current?.click()}
+                    disabled={uploading}
+                    style={{ minWidth: PROFILE_MEDIA.actionSize, minHeight: PROFILE_MEDIA.actionSize }}
+                    className="flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-black/80 disabled:opacity-60"
+                    aria-label={t('profile.uploadCover')}
+                  >
+                    {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{t('profile.uploadCover')}</span>
+                  </button>
+                </div>
+              </div>
+            </AccountCover>
+            <div className="flex items-center gap-4 p-4 sm:p-5">
+              <div className="relative shrink-0">
+                <AccountAvatar
+                  name={displayName || 'M'}
+                  image={avatarUrl}
+                  variant="edit"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={uploading}
+                  style={{ width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize }}
+                  className="absolute -right-1 -bottom-1 flex items-center justify-center rounded-full bg-brand-deep text-brand-deep-foreground shadow-lg transition-transform hover:scale-105 disabled:opacity-60"
+                  aria-label={t('profile.uploadAvatar')}
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="min-w-0 flex-1 text-sm text-secondary-text">
+                <p className="font-medium text-primary-text">{t('profile.avatarTitle')}</p>
+                <p className="line-clamp-2">{t('profile.avatarHint')}</p>
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void removeImage('avatar')}
+                    disabled={uploading}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-60"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {t('profile.removeAvatar')}
+                  </button>
+                )}
+              </div>
+            </div>
+            {mediaError && (
+              <p role="alert" className="px-4 pb-4 text-sm font-medium text-red-600 sm:px-5 sm:pb-5">
+                {mediaError}
+              </p>
+            )}
           </div>
 
           <form onSubmit={(e) => void submit(e)} className="grid gap-4" noValidate>
@@ -231,7 +333,7 @@ export default function ProfileEdit() {
           </form>
 
           {/* Suppression de compte */}
-          <div className="mt-8 border-t border-hairline pt-6">
+          <div id="delete-account" ref={deletionSection} className="mt-8 scroll-mt-32 border-t border-hairline pt-6">
             <h3 className="text-sm font-bold text-red-600">{t('account.deleteTitle')}</h3>
             <p className="mt-1 text-xs text-secondary-text">{t('account.deleteMessage')}</p>
             <button

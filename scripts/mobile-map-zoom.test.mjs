@@ -23,6 +23,20 @@ const authSource = readFileSync(
   'utf8',
 );
 
+test('le panneau de recherche se ferme avec une croix, sans cloche de notification', () => {
+  const nativeHeader = source.slice(source.indexOf('<View style={styles.sheetHeader}>'), source.indexOf('<View style={styles.inputWrap}>'));
+  assert.match(nativeHeader, /accessibilityLabel=\{t\('globe.closeSearch'\)\}/);
+  assert.match(nativeHeader, /onPress=\{closeSearch\}/);
+  assert.match(nativeHeader, /name="close"/);
+  assert.doesNotMatch(nativeHeader, /NotificationButton|notifications-outline/);
+  const webHeader = webExploreSource.slice(webExploreSource.indexOf('<h2 className="display-font min-w-0'), webExploreSource.indexOf('<div className="relative mb-4 border-t'));
+  assert.match(webHeader, /aria-label=\{t\('globe.closeSearch'\)\}/);
+  assert.match(webHeader, /<X /);
+  assert.doesNotMatch(webHeader, /NotificationBell/);
+  assert.match(source, /BackHandler\.addEventListener\('hardwareBackPress'/);
+  assert.match(source, /if \(searchOpen\) \{\s*closeSearch\(\);\s*return true;/);
+});
+
 test('le zoom mobile provient uniquement des événements caméra Mapbox v10', () => {
   assert.doesNotMatch(source, /flyAnimRef|mapZoomRef/);
   assert.doesNotMatch(source, /onRegionIsChanging/);
@@ -51,6 +65,9 @@ test('les petits clusters pays restent touchables sans bloquer le geste de la ca
   assert.match(source, /gestureSettings=\{\{/);
   assert.match(source, /panEnabled: true/);
   assert.match(source, /pinchPanEnabled: true/);
+  assert.match(source, /pinchZoomEnabled: true/);
+  // Activer explicitement le zoom global et le réglage fin du pincement.
+  assert.match(source, /scrollEnabled\s+zoomEnabled\s+rotateEnabled/);
   assert.match(source, /requestDisallowInterceptTouchEvent/);
   assert.match(source, /onTouchStart=\{markMapGesture\}/);
 });
@@ -61,22 +78,97 @@ test('la rotation native utilise le déplacement Mapbox direct, sans réinjecter
   assert.match(source, /Platform\.OS !== 'web'/);
 });
 
-test('l’interaction mobile ne désactive pas le mode rotation', () => {
+test('le geste mobile en vue globe ne désactive pas le mode rotation', () => {
   // Le drag/pinch doit seulement donner la priorité à Mapbox pendant le
   // geste. L’état Play/Pause reste inchangé et la rotation reprend ensuite.
   assert.match(source, /gestureActiveRef = useRef\(false\)/);
-  assert.match(source, /if \(gestureActiveRef\.current\) return/);
+  assert.match(source, /if \(!spinEnabledRef\.current \|\| gestureActiveRef\.current\) return/);
   assert.match(source, /if \(gestures\?\.isGestureActive\) \{\s*gestureActiveRef\.current = true/);
   assert.match(source, /if \(!touchActiveRef\.current\) \{\s*gestureActiveRef\.current = false;/);
   assert.match(source, /onTouchCancel=\{cancelMapGesture\}/);
   assert.match(source, /const GLOBE_PITCH_ENABLED = false/);
   assert.doesNotMatch(source, /gestures\?\.isGestureActive && spinRef\.current/);
-  assert.doesNotMatch(source, /setSpinning\(false\)/);
+  const gestureStart = source.indexOf('const markMapGesture =');
+  const gestureEnd = source.indexOf('useEffect(() => {', gestureStart);
+  assert.ok(gestureStart !== -1 && gestureEnd > gestureStart);
+  assert.doesNotMatch(source.slice(gestureStart, gestureEnd), /set(?:Spinning|Rotation)\(false\)/);
 
-  const mapPressStart = source.indexOf('onPress={() => {', source.indexOf('<Mapbox.MapView'));
-  const mapPressEnd = source.indexOf('}}', mapPressStart);
-  assert.ok(mapPressStart !== -1 && mapPressEnd !== -1, 'callback onPress de la carte introuvable');
-  assert.doesNotMatch(source.slice(mapPressStart, mapPressEnd), /setSpinning\(false\)/);
+  assert.match(source, /onPress=\{closeArtist\}/);
+  const closeStart = source.indexOf('const closeArtist =');
+  const closeEnd = source.indexOf('const resetView =', closeStart);
+  assert.doesNotMatch(source.slice(closeStart, closeEnd), /set(?:Spinning|Rotation)\(false\)|flyTo\(|authorizeLocation\(/);
+});
+
+test('le recentrage mobile arrête la rotation avant le vol, même avant le prochain rendu', () => {
+  assert.match(source, /spinEnabledRef\.current = enabled;\s*setSpinning\(enabled\)/);
+  const flyStart = source.indexOf('const flyTo =');
+  const flyEnd = source.indexOf('const flyToArtist =', flyStart);
+  const fly = source.slice(flyStart, flyEnd);
+  assert.ok(fly.indexOf('setRotation(false)') < fly.indexOf('flushPendingCamera()'));
+  assert.match(fly, /pendingCameraRef\.current =/);
+  assert.match(source, /flyTo\(pendingLoc, CAMERA\.location\.zoom, CAMERA\.location\.duration\)/);
+  assert.match(webExploreSource, /flyTo\(next\.coordinates, CAMERA\.location\.zoom, CAMERA\.location\.duration\)/);
+});
+
+test('le zoom et le bouton Play utilisent la même règle partagée sur les deux surfaces', () => {
+  assert.match(source, /isGlobeView\(mapZoom\) && <Pressable/);
+  assert.match(webExploreSource, /hasMapboxToken && isGlobeView\(mapZoom\)/);
+  assert.match(source, /isGlobeView\(mapZoom\) && <Pressable\s+accessibilityRole="button"\s+accessibilityLabel=\{userLocation \? t\('loc.recenter'\)/);
+  assert.match(webExploreSource, /isGlobeView\(mapZoom\) && <button\s+type="button"\s+onClick=\{\(\) => void requestLocation\(\)\}/);
+  assert.match(source, /if \(!isGlobeView\(zoom\) && spinEnabledRef\.current\) setRotation\(false\)/);
+  assert.match(source, /if \(!isGlobeView\(mapZoom\)\) return/);
+  assert.match(webMapSource, /spinRef\.current && isGlobeView\(map\.getZoom\(\)\)/);
+  assert.match(webMapSource, /if \(!isGlobeView\(z\) && spinRef\.current\) \{\s*spinRef\.current = false/);
+});
+
+test('la localisation reste dans l’en-tête, sans pilule ni chevauchement des actions', () => {
+  assert.match(source, /centerContent=\{showMap && locationHeading/);
+  assert.doesNotMatch(source, /LOCATION_STATUS_OFFSET/);
+  const labelStyles = source.slice(source.indexOf('    locationStatus: {'), source.indexOf('    rotateBtn: {'));
+  assert.ok(labelStyles.length > 0);
+  assert.doesNotMatch(labelStyles, /backgroundColor|borderRadius|borderWidth|\.\.\.shadow/);
+  assert.match(labelStyles, /textShadowColor: overlay\.locationTextHalo/);
+  assert.match(source, /numberOfLines=\{mapUi\.locationLabelMaxLines\}/);
+  assert.match(webExploreSource, /min-w-0 flex-1 text-center.*map-location-header/);
+  assert.match(webExploreSource, /WebkitLineClamp: mapUi\.locationLabelMaxLines/);
+  assert.match(webExploreSource, /mapOverlays\[theme\]\.locationTextHalo/);
+});
+
+test('la position personnelle garde uniquement son point, sans cartouche sur la carte', () => {
+  assert.doesNotMatch(source, /locationMarkerLabel/);
+  assert.doesNotMatch(webMapSource, /map-location-marker__label/);
+  assert.match(source, /style=\{styles\.locationMarkerDot\}/);
+  assert.match(webMapSource, /map-location-marker__dot/);
+});
+
+test('les destinations explorées et les cibles tactiles sont communes aux deux surfaces', () => {
+  for (const screen of [source, webExploreSource]) {
+    // La langue est passée des deux côtés : le pays d'un artiste (code ISO)
+    // s'affiche en toutes lettres dans la langue de l'écran.
+    assert.match(screen, /mapLocationHeading\(userLocation, explorationLocation, lang\)/);
+    assert.match(screen, /explorationAfterArtistClose\(allArtists, selected, selectedPlace\)/);
+    assert.match(screen, /onClose=\{closeArtist\}/);
+  }
+  for (const map of [source, webMapSource]) {
+    assert.match(map, /nearestMapTarget\(/);
+    assert.match(map, /clusterCameraTarget\(/);
+  }
+  assert.match(source, /minWidth: mapUi\.clusterHitSize/);
+  assert.match(source, /minHeight: mapUi\.clusterHitSize/);
+  assert.match(source, /if \(initialLocationHandledRef\.current\) return/);
+  assert.match(source, /if \(!hasNavigatedRef\.current && !route\.params\?\.artistId\) setPendingLoc/);
+});
+
+test('fermer une fiche issue de Découvrir rétablit les flèches sans déplacer la caméra', () => {
+  for (const screen of [source, webExploreSource]) {
+    const start = screen.indexOf('const closeArtist =');
+    const end = screen.indexOf('setSelected(null)', start);
+    const close = screen.slice(start, end);
+    assert.match(close, /setSelectedPlace\(navigation\.place\)/);
+    assert.match(close, /setPlaceIndex\(navigation\.index\)/);
+    assert.match(close, /setVisiblePins\(navigation\.place\.artists\)/);
+    assert.doesNotMatch(close, /flyTo\(|focusArtist\(|setPendingLoc\(|setUserLocation\(/);
+  }
 });
 
 test('l’adaptateur Expo Web ne laisse pas réapparaître le branding Mapbox', () => {
@@ -169,7 +261,7 @@ test('aucune trace de debug ne subsiste dans l’écran carte mobile', () => {
 });
 
 test('une session Supabase valide ne redevient pas anonyme si le profil arrive en retard', () => {
-  assert.match(authSource, /fetchProfile\(data\.user\.id, data\.user\.email \?\? null\) \?\? sessionShell\(data\.user\)/);
+  assert.match(authSource, /fetchProfile\(data\.user\.id, data\.user\.email \?\? null(?:, data\.user)?\) \?\? sessionShell\(data\.user\)/);
   assert.match(authSource, /resendSignUpConfirmation/);
   assert.match(authSource, /emailRedirectTo: getSignUpConfirmationUrl\(\)/);
 });

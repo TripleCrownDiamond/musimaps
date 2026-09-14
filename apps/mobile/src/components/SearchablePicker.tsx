@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -57,11 +57,21 @@ export function SearchablePicker({
   const { colors, theme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const accent = theme === 'dark' ? colors.brand : colors.brandDeep;
+  // autoFocus dans un Modal transparent qui glisse ne fixe pas l'IME sur
+  // Android : le champ semble focusé mais les frappes ne s'écrivent pas.
+  // On focus à l'ouverture (onShow) — où le clavier répond correctement.
+  const inputRef = useRef<TextInput>(null);
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="slide"
+      visible={visible}
+      onRequestClose={onClose}
+      onShow={() => setTimeout(() => inputRef.current?.focus(), 120)}
+    >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalRoot}
       >
         <Pressable style={styles.dismiss} onPress={onClose} />
@@ -89,7 +99,7 @@ export function SearchablePicker({
           >
             <Ionicons name="search-outline" size={24} color={colors.ink} />
             <TextInput
-              autoFocus
+              ref={inputRef}
               value={query}
               onChangeText={onQueryChange}
               placeholder={placeholder}

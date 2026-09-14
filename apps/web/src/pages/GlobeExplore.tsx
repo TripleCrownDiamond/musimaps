@@ -11,14 +11,20 @@ import { currentUserEmail, isAdminUser } from '../lib/admin'
 import type { Artist } from '@musimaps/shared'
 import {
   CAMERA,
+  isGlobeView,
   COUNTRIES,
   artistsNearLocation,
+  artistMapLocation,
+  explorationAfterArtistClose,
+  mapLocationHeading,
   countryByName,
   distanceKm,
   flagFor,
   geoCountryOf,
   isScopeArmed,
   mapLocationLabel,
+  mapOverlays,
+  mapUi,
   notifyNearbyLocation,
   NEIGHBORHOOD_RADIUS_DEG,
   renderedPosition,
@@ -40,6 +46,7 @@ import iconWhite from '../assets/brand/icon-white.png'
 import {
   addMapArtist,
   addOrUpdateMapArtist,
+  displayGenre,
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
@@ -84,6 +91,8 @@ export default function GlobeExplore() {
   const [selected, setSelected] = useState<Artist | null>(null)
   const [spinning, setSpinning] = useState(true)
   const [userLocation, setUserLocation] = useState<MapLocation | null>(null)
+  const [explorationLocation, setExplorationLocation] = useState<MapLocation | null>(null)
+  const locationHeading = mapLocationHeading(userLocation, explorationLocation, lang)
   const [locationBusy, setLocationBusy] = useState(false)
   const locationNoticeRef = useRef<string | null>(null)
 
@@ -287,8 +296,7 @@ export default function GlobeExplore() {
 
   const handleReady = useCallback((handle: GlobeMapHandle) => {
     mapRef.current = handle
-    if (userLocation) handle.flyTo(userLocation.coordinates, CAMERA.location.zoom, CAMERA.location.duration)
-  }, [userLocation])
+  }, [])
 
   // La recherche distingue trois types de résultats : artistes (nom seul),
   // lieux (ville/pays) et genres musicaux. Source unique : la table
@@ -319,12 +327,14 @@ export default function GlobeExplore() {
       setSelectedPlace(null)
       setPlaceIndex(0)
       setHighlightedId(null)
+      setExplorationLocation(null)
       setUserLocation(next)
+      setVisiblePins(artistsNearLocation(allArtists, next.coordinates))
       mapRef.current?.flyTo(next.coordinates, CAMERA.location.zoom, CAMERA.location.duration)
     } finally {
       setLocationBusy(false)
     }
-  }, [locationBusy, t])
+  }, [locationBusy, t, allArtists])
 
   // Une fois les artistes chargés, le cadrage de la position révèle en priorité
   // le voisinage réel. Le serveur reçoit seulement la demande de notification,
@@ -332,7 +342,6 @@ export default function GlobeExplore() {
   useEffect(() => {
     if (!userLocation || allArtists.length === 0) return
     const nearbyArtists = artistsNearLocation(allArtists, userLocation.coordinates)
-    setVisiblePins(nearbyArtists)
     const key = `${userLocation.coordinates.join(',')}|${nearbyArtists.length}`
     if (locationNoticeRef.current === key) return
     locationNoticeRef.current = key
@@ -517,6 +526,8 @@ export default function GlobeExplore() {
     (artist: Artist, rawQuery?: string) => {
       rememberQuery(rawQuery ?? query)
       setSelected(artist)
+      setExplorationLocation(artistMapLocation(artist))
+      if (!selectedPlace?.artists.some((item) => item.id === artist.id)) setSelectedPlace(null)
       setSearchOpen(false)
       setQuery('')
       setVisiblePins([artist])
@@ -528,11 +539,23 @@ export default function GlobeExplore() {
       // (clé d'appareil incluse : vues uniques par user / par appareil).
       void recordPinView(artist.id, { viewerKey: viewerKeyRef.current ?? undefined })
     },
-    [query, rememberQuery],
+    [query, rememberQuery, selectedPlace],
   )
+
+  const closeArtist = () => {
+    if (!selected) return
+    const navigation = explorationAfterArtistClose(allArtists, selected, selectedPlace)
+    setSelectedPlace(navigation.place)
+    setPlaceIndex(navigation.index)
+    setVisiblePins(navigation.place.artists)
+    setHighlightedId(selected.id)
+    // La fermeture conserve la destination et ne déclenche aucun recentrage.
+    setSelected(null)
+  }
 
   const goToCity = useCallback(
     (c: { city: string; country: string; coordinates: [number, number] }) => {
+      setExplorationLocation({ coordinates: c.coordinates, city: c.city, country: c.country })
       rememberQuery(`${c.city}, ${c.country}`)
       // Les pins de la zone : artistes du catalogue + découverts dans la ville.
       const qCity = c.city.trim().toLowerCase()
@@ -577,6 +600,7 @@ export default function GlobeExplore() {
 
   const goToNeighborhood = useCallback(
     (n: NeighborhoodSuggestion) => {
+      setExplorationLocation({ coordinates: [n.lng, n.lat], district: n.name, city: n.city, country: n.country })
       rememberQuery(n.name)
       // Quartier : les artistes « proches » (≤ ~4,5 km) de ce quartier.
       const radius = NEIGHBORHOOD_RADIUS_DEG // degrés (~4,4 km) — quartier ≠ ville
@@ -613,6 +637,7 @@ export default function GlobeExplore() {
 
   const goToCountry = useCallback(
     (c: { code: string; name: string; flag: string; coordinates: [number, number] }) => {
+      setExplorationLocation({ coordinates: c.coordinates, country: c.name })
       rememberQuery(c.name)
       // Les pins de ce pays : tous les artistes du pays, centrés dessus.
       const countryArtists = allArtists.filter(
@@ -656,6 +681,7 @@ export default function GlobeExplore() {
       setPlaceIndex(i)
       const artist = selectedPlace?.artists[i]
       if (artist) {
+        setExplorationLocation(artistMapLocation(artist))
         setSelected(null)
         setHighlightedId(artist.id)
         // Vole vers la position AFFICHÉE du pin (dés-empilement inclus) pour
@@ -677,6 +703,7 @@ export default function GlobeExplore() {
       setHighlightedId(null)
       setVisiblePins(genreArtists)
       if (genreArtists.length > 0) {
+        setExplorationLocation(artistMapLocation(genreArtists[0]))
         const rendered = renderedPosition(genreArtists, genreArtists[0].id, PIN_LAYOUT_ZOOM)
         mapRef.current?.flyTo(
           rendered ?? genreArtists[0].coordinates,
@@ -831,6 +858,7 @@ export default function GlobeExplore() {
           setSearchOpen(false)
           setQuery('')
           setSelected(existing)
+          setExplorationLocation(artistMapLocation(existing))
           setVisiblePins([existing])
           mapRef.current?.focusArtist(existing.id)
           return
@@ -862,6 +890,7 @@ export default function GlobeExplore() {
       setSearchOpen(false)
       setQuery('')
       setSelected(artist)
+      setExplorationLocation(artistMapLocation(artist))
       setVisiblePins([artist])
       mapRef.current?.focusArtist(artist.id)
     },
@@ -921,6 +950,9 @@ export default function GlobeExplore() {
           // (jamais de pins de pays voisins au bord du viewport). Si c'est un
           // cluster de LIEU (pays/ville), le panneau bas s'ouvre aussi.
           onClusterFocus={(artists, place) => {
+            if (artists[0]) {
+              setExplorationLocation(place ? { coordinates: artists[0].coordinates, label: place.name } : artistMapLocation(artists[0]))
+            }
             setVisiblePins(artists)
             setSelected(null)
             // Le premier pin du cluster est mis en évidence : le vol atterrit
@@ -939,21 +971,23 @@ export default function GlobeExplore() {
         <MapboxTokenNotice />
       )}
 
-      {/* Logo Musimaps vers l'accueil (la page globe n'a pas de navbar).
-          Thème-aware et responsive comme la navbar : logo horizontal sur
-          desktop, icône seule sur mobile (blanche en sombre / bleue en clair).
-          Masqué quand un artiste est sélectionné : le bouton « Retour » de la
-          fiche prend sa place (évite le chevauchement des deux boutons). */}
-      {!selected && (
-        <Link
+      {/* Une seule rangée réserve la place du logo, du lieu et des actions.
+          Le texte central peut se réduire sans recouvrir les contrôles. */}
+        <div className="pointer-events-none absolute inset-x-4 top-5 z-30 flex min-h-14 items-center gap-3 sm:inset-x-6">
+        {selected ? (
+          <button type="button" onClick={closeArtist} aria-label={t('globe.back')}
+            className="pointer-events-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+        ) : <Link
           to={localize('/')}
           aria-label={t('globe.backHomeAria')}
-          className="absolute left-4 top-5 z-30 block sm:left-6"
+          className="pointer-events-auto block max-w-[25%] shrink-0"
         >
           <img
             src={navbarLogo}
             alt="Musimaps"
-            className="hidden w-auto md:block"
+            className="hidden w-auto max-w-full object-contain md:block"
             style={{ height: navbarLogoHeight, maxHeight: 140 }}
           />
           <img
@@ -962,18 +996,46 @@ export default function GlobeExplore() {
             className="block w-auto md:hidden"
             style={{ height: Math.round(navbarLogoHeight * 1.05), maxHeight: 44 }}
           />
-        </Link>
-      )}
+        </Link>}
+        <div className="min-w-0 flex-1 text-center" data-testid="map-location-header">
+          {locationHeading && !searchOpen && (
+            <div
+              aria-label={t(locationHeading.descriptionKey, { location: locationHeading.label })}
+              title={locationHeading.label}
+              className="text-primary-text"
+              style={{ textShadow: `0 0 ${mapUi.locationTextHaloRadius}px ${mapOverlays[theme].locationTextHalo}` }}
+            >
+              <p
+                className="truncate font-medium uppercase"
+                style={{ fontSize: mapUi.locationCaptionSize, lineHeight: `${mapUi.locationCaptionLineHeight}px`, letterSpacing: mapUi.locationCaptionTracking }}
+              >
+                {t(locationHeading.captionKey)}
+              </p>
+              <p
+                className="overflow-hidden break-words font-bold"
+                style={{
+                  fontSize: mapUi.locationLabelSize,
+                  lineHeight: `${mapUi.locationLabelLineHeight}px`,
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: mapUi.locationLabelMaxLines,
+                }}
+              >
+                {locationHeading.label}
+              </p>
+            </div>
+          )}
+        </div>
 
       {/* Icône recherche — coin haut droit, ouvre le panneau de recherche. */}
-      {!searchOpen && !selected && (
-        <>
+      {!searchOpen && (
+        <div className="pointer-events-auto flex shrink-0 items-center gap-2 sm:gap-4">
           <button
             type="button"
             onClick={() => setGuideOpen((open) => !open)}
             aria-label={t('globe.guideOpen')}
             aria-expanded={guideOpen}
-            className="absolute right-20 top-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-surface sm:right-24"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-hairline bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition hover:-translate-y-0.5 hover:bg-surface"
           >
             <CircleHelp className="h-5 w-5" />
           </button>
@@ -985,12 +1047,13 @@ export default function GlobeExplore() {
               setSearchOpen(true)
             }}
             aria-label={t('globe.searchPlaceholder')}
-            className="absolute right-4 top-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface sm:right-6"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-surface/90 text-brand-deep shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
           >
             <Search className="h-5 w-5" />
           </button>
-        </>
+        </div>
       )}
+        </div>
 
       {guideOpen && !searchOpen && !selected && (
         <aside className="absolute right-4 top-20 z-40 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-hairline bg-surface/95 shadow-2xl backdrop-blur-2xl sm:right-6">
@@ -1076,13 +1139,14 @@ export default function GlobeExplore() {
               setPlaceIndex(0)
               setHighlightedId(null)
               setVisiblePins([])
+              setExplorationLocation(null)
               mapRef.current?.resetView()
             }}
             className="pointer-events-auto flex items-center gap-2 rounded-full bg-surface/85 px-5 py-3 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
           >
             <Globe2 className="h-4 w-4 text-brand-deep" /> {t('globe.globeView')}
           </button>
-          {hasMapboxToken && (
+          {hasMapboxToken && isGlobeView(mapZoom) && (
             <RotateToggle
               active={spinning}
               onToggle={() => setSpinning((s) => !s)}
@@ -1092,7 +1156,7 @@ export default function GlobeExplore() {
               className="pointer-events-auto"
             />
           )}
-          <button
+          {isGlobeView(mapZoom) && <button
             type="button"
             onClick={() => void requestLocation()}
             disabled={locationBusy}
@@ -1101,7 +1165,7 @@ export default function GlobeExplore() {
           >
             {locationBusy ? <Loader2 className="h-4 w-4 animate-spin text-brand-deep" /> : <MapPin className="h-4 w-4 text-brand-deep" />}
             <span className="hidden sm:inline">{userLocation ? t('loc.recenter') : t('loc.allow')}</span>
-          </button>
+          </button>}
           {isAdmin && (
             <button
               type="button"
@@ -1123,12 +1187,6 @@ export default function GlobeExplore() {
               {editMode ? t('mapAdmin.disable') : t('mapAdmin.enable')}
             </button>
           )}
-        </div>
-      )}
-
-      {userLocation && !selected && !searchOpen && (
-        <div className="pointer-events-none absolute left-1/2 top-5 z-20 w-fit max-w-[calc(100vw-8rem)] -translate-x-1/2 truncate rounded-full border border-hairline bg-surface/90 px-3 py-1.5 text-xs font-semibold text-ink shadow-lg backdrop-blur-xl">
-          {t('loc.detected', { location: mapLocationLabel(userLocation) || t('loc.title') })}
         </div>
       )}
 
@@ -1184,19 +1242,19 @@ export default function GlobeExplore() {
           <div className="sheet-in relative z-10 mx-auto h-[62vh] w-full max-w-2xl rounded-t-[2rem] bg-surface p-5 shadow-2xl sm:mb-6 sm:rounded-[1.75rem] sm:p-6">
             <div className="w-full">
               <div className="w-full">
-                <div className="relative mb-5 flex items-center justify-center">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <h2 className="display-font min-w-0 flex-1 text-lg font-bold">{t('globe.searchPlaceholder')}</h2>
                   <button
                     type="button"
                     onClick={() => {
                       setSearchOpen(false)
                       setQuery('')
                     }}
-                    aria-label={t('globe.back')}
-                    className="absolute left-0 flex h-10 w-10 items-center justify-center rounded-full bg-surface shadow-md"
+                    aria-label={t('globe.closeSearch')}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface shadow-md"
                   >
-                    <ChevronLeft className="h-5 w-5" />
+                    <X className="h-5 w-5" />
                   </button>
-                  <h2 className="display-font text-lg font-bold">{t('globe.searchPlaceholder')}</h2>
                 </div>
 
                 <div className="relative mb-4 border-t border-hairline pt-5">
@@ -1303,7 +1361,7 @@ export default function GlobeExplore() {
                             <option value="">{t('globe.discoverGenre')}</option>
                             {discoverGenres.map((genre) => (
                               <option key={genre} value={genre}>
-                                {genre}
+                                {displayGenre(genre, t('common.unknown'))}
                               </option>
                             ))}
                           </select>
@@ -1368,7 +1426,7 @@ export default function GlobeExplore() {
                             <span className="flex-1">
                               <span className="block font-medium">{a.name}</span>
                               <span className="block text-sm text-secondary-text">
-                                {a.genre} · {[a.city, a.country].filter(Boolean).join(', ') || '—'}
+                                {displayGenre(a.genre, t('common.unknown'))} · {[a.city, a.country].filter(Boolean).join(', ') || '—'}
                               </span>
                             </span>
                             <span className="flex shrink-0 flex-col items-end gap-1">
@@ -1510,7 +1568,7 @@ export default function GlobeExplore() {
                               <Music2 className="h-5 w-5" />
                             </span>
                             <span className="flex-1">
-                              <span className="block font-medium">{g.genre}</span>
+                              <span className="block font-medium">{displayGenre(g.genre, t('common.unknown'))}</span>
                               <span className="block text-sm text-secondary-text">
                                 {t('globe.genreArtists', {
                                   count: g.count,
@@ -1566,7 +1624,7 @@ export default function GlobeExplore() {
                                 )}
                               </p>
                               <p className="truncate text-sm text-secondary-text">
-                                {candidate.genre} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
+                                {displayGenre(candidate.genre, t('common.unknown'))} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
                               </p>
                             </div>
                             {/* Bouton de validation de localisation avant ajout */}
@@ -1645,7 +1703,7 @@ export default function GlobeExplore() {
               <AnimatedAvatar name={validatingCandidate.name} image={validatingCandidate.image} className="h-12 w-12 rounded-full" initialsClassName="bg-gradient-to-br from-brand-deep to-brand text-sm font-bold text-black" />
               <div>
                 <p className="font-medium">{validatingCandidate.name}</p>
-                <p className="text-xs text-secondary-text">{validatingCandidate.genre} · {validatingCandidate.country ?? '—'}</p>
+                <p className="text-xs text-secondary-text">{displayGenre(validatingCandidate.genre, t('common.unknown'))} · {validatingCandidate.country ?? '—'}</p>
               </div>
             </div>
 
@@ -1836,68 +1894,19 @@ export default function GlobeExplore() {
         </div>
       )}
 
-      {/* Bouton retour */}
-      {selected && (
-        <button
-          type="button"
-          onClick={() => {
-            if (selectedPlace) {
-              setVisiblePins(selectedPlace.artists)
-              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
-              if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
-              setHighlightedId(selected.id)
-            } else {
-              setVisiblePins([])
-              setHighlightedId(null)
-            }
-            setSelected(null)
-          }}
-          className="absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full bg-surface/85 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-xl transition-colors hover:bg-surface"
-        >
-          <ChevronLeft className="h-4 w-4" /> {t('globe.back')}
-        </button>
-      )}
-
       {/* Fiche artiste — un clic dans le vide (hors de la fiche) la ferme */}
       {selected && (
         <>
           <button
             type="button"
             aria-label={t('globe.closeSheet')}
-            onClick={() => {
-              if (selectedPlace) {
-                setVisiblePins(selectedPlace.artists)
-                const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
-                if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
-                setHighlightedId(selected.id)
-              } else {
-                setVisiblePins([])
-                setHighlightedId(null)
-              }
-              setSelected(null)
-            }}
+            onClick={closeArtist}
             className="absolute inset-0 z-20"
           />
           <ArtistSheet
             artist={selected}
             nearby={nearby}
-            onClose={() => {
-              // Retour à la zone : on redéploie les pins du lieu si un lieu
-              // est actif, sinon on vide visiblePins pour que le clustering
-              // reprenne le relais et affiche TOUS les artistes de la carte.
-              if (selectedPlace) {
-                setVisiblePins(selectedPlace.artists)
-                const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id)
-                if (restoredIndex >= 0) setPlaceIndex(restoredIndex)
-                setHighlightedId(selected.id)
-              } else {
-                // Pas de lieu contextuel : on relâche le cadrage pour que
-                // tous les pins du globe réapparaissent (clustering actif).
-                setVisiblePins([])
-                setHighlightedId(null)
-              }
-              setSelected(null)
-            }}
+            onClose={closeArtist}
             onSelectArtist={goToArtist}
           />
         </>

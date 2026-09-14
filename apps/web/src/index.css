@@ -328,20 +328,6 @@
     0 0 18px color-mix(in srgb, var(--color-brand-primary) 72%, transparent);
   animation: map-location-pulse 1.8s ease-in-out infinite;
 }
-.map-location-marker__label {
-  position: absolute;
-  bottom: calc(100% + 7px);
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  border-radius: 9999px;
-  background: var(--map-label-surface);
-  color: var(--map-pin-ink-inverse);
-  padding: 5px 9px;
-  font-size: 11px;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.26);
-}
 @keyframes map-location-pulse {
   0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-brand-primary) 24%, transparent), 0 0 18px color-mix(in srgb, var(--color-brand-primary) 72%, transparent); }
   50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-brand-primary) 10%, transparent), 0 0 26px color-mix(in srgb, var(--color-brand-primary) 88%, transparent); }
@@ -563,28 +549,12 @@
   animation: cluster-sparkle 1.8s ease-in-out infinite;
   will-change: opacity;
 }
+/* Vue globe : uniquement des étincelles, pays compris. Drapeau et code ISO
+   n'apparaissent qu'au zoom, quand le cluster redevient une pastille : au
+   dézoom maximal, des libellés accrochés à chaque point transformaient la
+   traînée lumineuse du globe en nuage d'étiquettes qui se chevauchaient. */
 .map-zoom-far .artist-pin--cluster .artist-pin__cluster-content {
   opacity: 0;
-}
-/* Les pays restent repérables dans la vue globe sans transformer les
-   étincelles en grosses bulles : le point lumineux garde sa zone tactile et
-   le libellé compact (drapeau + code ISO) déborde à côté. */
-.map-zoom-far .artist-pin--cluster.artist-pin--country .artist-pin__cluster-content {
-  position: absolute;
-  left: calc(100% + 5px);
-  top: 50%;
-  display: block;
-  opacity: 1;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: var(--map-pin-ink-inverse);
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.72);
-  white-space: nowrap;
-}
-.map-zoom-far .artist-pin--cluster.artist-pin--country .artist-pin__cluster-main {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
 }
 .map-zoom-far .artist-pin--sub {
   width: var(--map-cluster-hit-size);

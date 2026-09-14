@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Image,
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -22,6 +21,8 @@ import {
   uploadArtistImage,
   slugify,
   artistUrl,
+  PROFILE_GUTTER,
+  PROFILE_HEADER_HEIGHT,
   type ClaimedArtistProfile,
   type ArtistBooking,
   type BookingPlan,
@@ -32,9 +33,15 @@ import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 import { Button, Card, Field, Input, Section } from '../ui';
+import { APP_BAR_ACTION_SIZE } from '../components/AppBar';
+import { ProfileHeader } from '../components/ProfileHeader';
 import { NotificationButton } from '../components/NotificationButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClaimedProfile'>;
+
+/** Hauteur de la cover pleine largeur et de la rangée photo en overlay bas. */
+const COVER_HEIGHT = 200;
+const PHOTO_ROW_HEIGHT = 100;
 
 export function ClaimedProfileScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
@@ -42,6 +49,9 @@ export function ClaimedProfileScreen({ navigation }: Props) {
   const { t } = useI18n();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  // Header fixe : cover pleine largeur (200) + rangée photo en overlay bas
+  // (100), hauteur normale uniforme des profils.
+  const headerHeight = PROFILE_HEADER_HEIGHT;
 
   const [loading, setLoading] = useState(true);
   const [claimed, setClaimed] = useState<ClaimedArtistProfile | null>(null);
@@ -215,8 +225,12 @@ export function ClaimedProfileScreen({ navigation }: Props) {
     return (
       <View style={[styles.root, styles.center, { paddingTop: insets.top + 40 }]}>
         <Ionicons name="mic-outline" size={48} color={colors.muted} />
-        <Text style={[styles.emptyText, { color: colors.inkSoft, marginTop: 12 }]}>
-          {t('dash.claimedProfile')} — {t('sheet.noTracks')}
+        {/* Aucun profil carte rattaché au compte : ce n'est pas « aucun titre ». */}
+        <Text style={[styles.emptyText, { color: colors.ink, marginTop: 12 }]}>
+          {t('dash.claimedEmptyTitle')}
+        </Text>
+        <Text style={[styles.emptyText, { color: colors.inkSoft, marginTop: 6 }]}>
+          {t('dash.claimedEmptyText')}
         </Text>
         <Button variant="ghost" label={t('common.back')} onPress={() => navigation.goBack()} style={{ marginTop: 16 }} />
       </View>
@@ -224,71 +238,74 @@ export function ClaimedProfileScreen({ navigation }: Props) {
   }
 
   return (
-    <ScrollView
-      style={[styles.root, { paddingTop: insets.top }]}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="chevron-back" size={27} color={colors.ink} />
-        </Pressable>
-        <Text style={[styles.title, { color: colors.ink }]}>{t('dash.claimedProfile')}</Text>
-        <NotificationButton onPress={() => navigation.navigate('Notifications')} />
-      </View>
-
-      {/* ── Cover ── */}
-      <View style={styles.coverWrap}>
-        {claimed.cover ? (
-          <Image source={{ uri: claimed.cover }} style={styles.coverImg} resizeMode="cover" />
-        ) : (
-          <View style={[styles.coverImg, { backgroundColor: colors.surfaceMuted }]} />
-        )}
-        <View style={styles.coverActions}>
-          <Pressable
-            style={styles.coverBtn}
-            disabled={savingProfile}
-            onPress={() => void handleImage('cover')}
-          >
-            <Ionicons name="image-outline" size={16} color={colors.white} />
-            <Text style={styles.coverBtnText}>{t('dash.changeCover')}</Text>
+    <ProfileHeader
+      headerHeight={headerHeight}
+      background={colors.background}
+      contentStyle={styles.content}
+      topBar={
+        <View style={styles.header}>
+          <Pressable accessibilityLabel={t('common.back')} style={styles.back} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={27} color={colors.ink} />
           </Pressable>
-          {claimed.cover && (
-            <Pressable
-              style={styles.coverBtn}
-              disabled={savingProfile}
-              onPress={() => void clearImage('cover')}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.white} />
-              <Text style={styles.coverBtnText}>{t('dash.removeCover')}</Text>
-            </Pressable>
-          )}
+          <Text style={[styles.title, { color: colors.ink }]}>{t('dash.claimedProfile')}</Text>
+          <NotificationButton onPress={() => navigation.navigate('Notifications')} />
         </View>
-      </View>
-
-      {/* ── Photo + info ── */}
-      <View style={styles.photoRow}>
-        <View style={styles.photoWrap}>
-          {claimed.image ? (
-            <Image source={{ uri: claimed.image }} style={styles.photo} />
-          ) : (
-            <View style={[styles.photo, { backgroundColor: colors.brand }]}>
-              <Text style={styles.photoInitial}>{claimed.name[0]}</Text>
+      }
+      cover={
+        <View style={styles.stickyCover}>
+          {/* ── Cover full-bleed ── */}
+          <View style={styles.coverWrap}>
+            {claimed.cover ? (
+              <Image source={{ uri: claimed.cover }} style={styles.coverImg} resizeMode="cover" />
+            ) : (
+              <View style={[styles.coverImg, { backgroundColor: colors.surfaceMuted }]} />
+            )}
+            <View style={styles.coverActions}>
+              <Pressable
+                style={styles.coverBtn}
+                disabled={savingProfile}
+                onPress={() => void handleImage('cover')}
+              >
+                <Ionicons name="image-outline" size={16} color={colors.white} />
+                <Text style={styles.coverBtnText}>{t('dash.changeCover')}</Text>
+              </Pressable>
+              {claimed.cover && (
+                <Pressable
+                  style={styles.coverBtn}
+                  disabled={savingProfile}
+                  onPress={() => void clearImage('cover')}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colors.white} />
+                  <Text style={styles.coverBtnText}>{t('dash.removeCover')}</Text>
+                </Pressable>
+              )}
             </View>
-          )}
-          <Pressable style={styles.photoEdit} disabled={savingProfile} onPress={() => void handleImage('photo')}>
-            <Ionicons name="camera" size={16} color={colors.white} />
-          </Pressable>
-        </View>
-        <View style={styles.photoInfo}>
-          <Text style={[styles.artistName, { color: colors.ink }]} numberOfLines={1}>{claimed.name}</Text>
-          <Text style={[styles.artistMeta, { color: colors.inkSoft }]}>
-            {claimed.flag} {claimed.city}, {claimed.country} · {claimed.genre}
-          </Text>
-        </View>
-      </View>
+          </View>
 
+          {/* ── Photo + infos, ancrés en bas (remontent au repli) ── */}
+          <View style={styles.photoRow}>
+            <View style={styles.photoWrap}>
+              {claimed.image ? (
+                <Image source={{ uri: claimed.image }} style={styles.photo} />
+              ) : (
+                <View style={[styles.photo, { backgroundColor: colors.brand }]}>
+                  <Text style={styles.photoInitial}>{claimed.name[0]}</Text>
+                </View>
+              )}
+              <Pressable style={styles.photoEdit} disabled={savingProfile} onPress={() => void handleImage('photo')}>
+                <Ionicons name="camera" size={16} color={colors.white} />
+              </Pressable>
+            </View>
+            <View style={styles.photoInfo}>
+              <Text style={[styles.artistName, { color: colors.white }]} numberOfLines={1}>{claimed.name}</Text>
+              <Text style={[styles.artistMeta, { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
+                {claimed.flag} {claimed.city}, {claimed.country} · {claimed.genre}
+              </Text>
+            </View>
+          </View>
+        </View>
+      }
+    >
       {claimed.image && (
         <Pressable style={styles.removePhoto} disabled={savingProfile} onPress={() => void clearImage('photo')}>
           <Ionicons name="trash-outline" size={15} color={colors.danger} />
@@ -481,7 +498,7 @@ export function ClaimedProfileScreen({ navigation }: Props) {
       )}
 
       <View style={{ height: 48 }} />
-    </ScrollView>
+    </ProfileHeader>
   );
 }
 
@@ -490,17 +507,23 @@ const createStyles = (colors: AppColors) =>
     root: { flex: 1, backgroundColor: colors.background },
     center: { alignItems: 'center', justifyContent: 'center' },
     content: { paddingBottom: 48 },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-    back: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    back: { width: APP_BAR_ACTION_SIZE, height: APP_BAR_ACTION_SIZE, borderRadius: APP_BAR_ACTION_SIZE / 2, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     title: { fontFamily: fonts.displayBlack, fontSize: 20, letterSpacing: -0.5 },
-    // Cover
-    coverWrap: { height: 160, marginHorizontal: 16, borderRadius: 24, overflow: 'hidden', marginBottom: 16 },
-    coverImg: { width: '100%', height: '100%' },
-    coverActions: { position: 'absolute', bottom: 10, right: 10, flexDirection: 'row', gap: 8 },
+    // Cover ancrée : remplit le header épinglé, recadrée par overflow.
+    stickyCover: { flex: 1 },
+    coverWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
+    coverImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    coverActions: { position: 'absolute', bottom: PHOTO_ROW_HEIGHT + 10, right: 10, flexDirection: 'row', gap: 8 },
     coverBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6 },
     coverBtnText: { color: colors.white, fontFamily: fonts.bold, fontSize: 11 },
-    // Photo
-    photoRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, marginBottom: 8 },
+    // Photo ancrée en bas : remonte avec le bord inférieur du header.
+    photoRow: {
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingHorizontal: 20, paddingVertical: 10,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    },
     photoWrap: { position: 'relative' },
     photo: { width: 80, height: 80, borderRadius: 40 },
     photoInitial: { fontFamily: fonts.displayBlack, fontSize: 32, color: colors.black, alignSelf: 'center', lineHeight: 80 },

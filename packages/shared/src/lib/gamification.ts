@@ -248,11 +248,11 @@ export interface LevelInfo {
  */
 const LEVELS: Array<{ level: number; min: number; title: string }> = [
   { level: 1, min: 0, title: 'Explorateur' },
-  { level: 2, min: 50, title: 'Voyageur' },
-  { level: 3, min: 120, title: 'Globe-trotter' },
-  { level: 4, min: 250, title: 'Navigateur' },
-  { level: 5, min: 450, title: 'Connaisseur' },
-  { level: 6, min: 700, title: 'Légende' },
+  { level: 2, min: 150, title: 'Voyageur' },
+  { level: 3, min: 350, title: 'Globe-trotter' },
+  { level: 4, min: 700, title: 'Navigateur' },
+  { level: 5, min: 1200, title: 'Connaisseur' },
+  { level: 6, min: 2000, title: 'Légende' },
 ];
 
 export function getLevelInfo(points: number): LevelInfo {
@@ -281,28 +281,28 @@ export function getLevelInfo(points: number): LevelInfo {
  */
 export const DEFAULT_BADGES: BadgeDef[] = [
   // --- Exploration (tout le monde) ---
-  { id: 'first-city', icon: 'navigate', label: 'Premier pas', description: 'Visiter sa première ville', points: 10, role: 'all', condition: { metric: 'cities', min: 1 } },
-  { id: 'cities-3', icon: 'compass', label: 'Curieux', description: 'Visiter 3 villes', points: 25, role: 'all', condition: { metric: 'cities', min: 3 } },
-  { id: 'cities-8', icon: 'earth', label: 'Globe-trotter', description: 'Visiter 8 villes', points: 60, role: 'all', condition: { metric: 'cities', min: 8 } },
-  { id: 'cities-15', icon: 'planet', label: 'Explorateur', description: 'Visiter 15 villes', points: 120, role: 'all', condition: { metric: 'cities', min: 15 } },
-  { id: 'first-save', icon: 'heart', label: 'Coup de cœur', description: 'Sauvegarder un artiste', points: 10, role: 'all', condition: { metric: 'favorites', min: 1 } },
-  { id: 'saves-5', icon: 'music', label: 'Mélomane', description: 'Sauvegarder 5 artistes', points: 30, role: 'all', condition: { metric: 'favorites', min: 5 } },
-  { id: 'saves-12', icon: 'sparkles', label: 'Collectionneur', description: 'Sauvegarder 12 artistes', points: 80, role: 'all', condition: { metric: 'favorites', min: 12 } },
-  { id: 'profile', icon: 'person', label: 'Ambassadeur', description: 'Créer son profil', points: 20, role: 'all', condition: { metric: 'profile', min: 1 } },
+  { id: 'first-city', icon: 'navigate', label: 'Premier pas', description: 'Visiter sa première ville', points: 15, role: 'all', condition: { metric: 'cities', min: 1 } },
+  { id: 'cities-3', icon: 'compass', label: 'Curieux', description: 'Visiter 5 villes', points: 40, role: 'all', condition: { metric: 'cities', min: 5 } },
+  { id: 'cities-8', icon: 'earth', label: 'Globe-trotter', description: 'Visiter 12 villes', points: 90, role: 'all', condition: { metric: 'cities', min: 12 } },
+  { id: 'cities-15', icon: 'planet', label: 'Explorateur', description: 'Visiter 20 villes', points: 150, role: 'all', condition: { metric: 'cities', min: 20 } },
+  { id: 'first-save', icon: 'heart', label: 'Coup de cœur', description: 'Sauvegarder un artiste', points: 15, role: 'all', condition: { metric: 'favorites', min: 1 } },
+  { id: 'saves-5', icon: 'music', label: 'Mélomane', description: 'Sauvegarder 8 artistes', points: 50, role: 'all', condition: { metric: 'favorites', min: 8 } },
+  { id: 'saves-12', icon: 'sparkles', label: 'Collectionneur', description: 'Sauvegarder 15 artistes', points: 100, role: 'all', condition: { metric: 'favorites', min: 15 } },
+  { id: 'profile', icon: 'person', label: 'Ambassadeur', description: 'Créer son profil', points: 30, role: 'all', condition: { metric: 'profile', min: 1 } },
   // --- Mélomane ---
-  { id: 'explorer', icon: 'compass', label: 'Découvreur', description: 'Suivre 3 artistes', points: 20, role: 'audience', condition: { metric: 'following', min: 3 } },
-  { id: 'superfan', icon: 'star', label: 'Superfan', description: 'Suivre 10 artistes', points: 50, role: 'audience', condition: { metric: 'following', min: 10 } },
-  { id: 'streak_3', icon: 'flame', label: 'Régulier', description: '3 jours d’affilée', points: 20, role: 'audience', condition: { metric: 'streak', min: 3 } },
-  { id: 'streak_7', icon: 'target', label: 'Assidu', description: '7 jours d’affilée', points: 50, role: 'audience', condition: { metric: 'streak', min: 7 } },
-  { id: 'streak_30', icon: 'crown', label: 'Inarrêtable', description: '30 jours d’affilée', points: 120, role: 'audience', condition: { metric: 'streak', min: 30 } },
-  { id: 'first_booking', icon: 'mic', label: 'Organisateur', description: 'Envoyer une demande de réservation', points: 40, role: 'audience', condition: { metric: 'bookingsSent', min: 1 } },
+  { id: 'explorer', icon: 'compass', label: 'Découvreur', description: 'Suivre 5 artistes', points: 30, role: 'audience', condition: { metric: 'following', min: 5 } },
+  { id: 'superfan', icon: 'star', label: 'Superfan', description: 'Suivre 15 artistes', points: 80, role: 'audience', condition: { metric: 'following', min: 15 } },
+  { id: 'streak_3', icon: 'flame', label: 'Régulier', description: '5 jours d’affilée', points: 30, role: 'audience', condition: { metric: 'streak', min: 5 } },
+  { id: 'streak_7', icon: 'target', label: 'Assidu', description: '10 jours d’affilée', points: 70, role: 'audience', condition: { metric: 'streak', min: 10 } },
+  { id: 'streak_30', icon: 'crown', label: 'Inarrêtable', description: '30 jours d’affilée', points: 150, role: 'audience', condition: { metric: 'streak', min: 30 } },
+  { id: 'first_booking', icon: 'mic', label: 'Organisateur', description: 'Envoyer une demande de réservation', points: 60, role: 'audience', condition: { metric: 'bookingsSent', min: 1 } },
   // --- Artiste ---
-  { id: 'claimed', icon: 'badge-check', label: 'Profil revendiqué', description: 'Revendiquer son profil sur la carte', points: 25, role: 'artist', condition: { metric: 'claimed', min: 1 } },
-  { id: 'views_100', icon: 'eye', label: 'Repéré', description: '100 vues de profil', points: 30, role: 'artist', condition: { metric: 'profileViews', min: 100 } },
-  { id: 'views_500', icon: 'trending-up', label: 'En vue', description: '500 vues de profil', points: 60, role: 'artist', condition: { metric: 'profileViews', min: 500 } },
-  { id: 'first_booking_received', icon: 'inbox', label: 'Première demande', description: 'Recevoir une demande de réservation', points: 40, role: 'artist', condition: { metric: 'bookingsReceived', min: 1 } },
-  { id: 'booked_3', icon: 'calendar-check', label: 'Demandé', description: 'Recevoir 3 demandes de réservation', points: 80, role: 'artist', condition: { metric: 'bookingsReceived', min: 3 } },
-  { id: 'on_tour', icon: 'guitar', label: 'En tournée', description: 'Annoncer une date de concert', points: 60, role: 'artist', condition: { metric: 'events', min: 1 } },
+  { id: 'claimed', icon: 'badge-check', label: 'Profil revendiqué', description: 'Revendiquer son profil sur la carte', points: 40, role: 'artist', condition: { metric: 'claimed', min: 1 } },
+  { id: 'views_100', icon: 'eye', label: 'Repéré', description: '250 vues de profil', points: 50, role: 'artist', condition: { metric: 'profileViews', min: 250 } },
+  { id: 'views_500', icon: 'trending-up', label: 'En vue', description: '1 000 vues de profil', points: 110, role: 'artist', condition: { metric: 'profileViews', min: 1000 } },
+  { id: 'first_booking_received', icon: 'inbox', label: 'Première demande', description: 'Recevoir une demande de réservation', points: 60, role: 'artist', condition: { metric: 'bookingsReceived', min: 1 } },
+  { id: 'booked_3', icon: 'calendar-check', label: 'Demandé', description: 'Recevoir 5 demandes de réservation', points: 120, role: 'artist', condition: { metric: 'bookingsReceived', min: 5 } },
+  { id: 'on_tour', icon: 'guitar', label: 'En tournée', description: 'Annoncer une date de concert', points: 80, role: 'artist', condition: { metric: 'events', min: 1 } },
 ];
 
 /**

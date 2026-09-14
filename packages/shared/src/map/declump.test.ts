@@ -15,12 +15,15 @@
 import { describe, expect, it } from 'vitest';
 import type { Artist } from '../index';
 import {
+  CAMERA,
   PIN_LAYOUT_ZOOM,
   TIER_RING_WIDTH,
+  isGlobeView,
   declump,
   firstRenderedPosition,
   pinRingWidthFor,
   renderedPosition,
+  levelFor,
   spinPixelsFor,
 } from './index';
 
@@ -67,6 +70,25 @@ describe('rotation native', () => {
   it('convertit une durée de rotation en déplacement pixel positif', () => {
     expect(spinPixelsFor(0.75, 250)).toBeGreaterThan(0);
     expect(spinPixelsFor(6, 250)).toBeGreaterThan(spinPixelsFor(0.75, 250));
+  });
+});
+
+describe('rotation réservée à la vue globe', () => {
+  it('autorise Play uniquement avant le détail pays', () => {
+    expect(isGlobeView(CAMERA.globe.zoom)).toBe(true);
+    expect(isGlobeView(3.19)).toBe(true);
+    for (const zoom of [3.2, CAMERA.country.zoom, CAMERA.city.zoom, CAMERA.artist.zoom]) {
+      expect(isGlobeView(zoom)).toBe(false);
+    }
+  });
+
+  it('le recentrage révèle les pins de quartier et interdit la rotation', () => {
+    expect(levelFor(CAMERA.location.zoom)).toBe('spread');
+    expect(isGlobeView(CAMERA.location.zoom)).toBe(false);
+  });
+
+  it('n’autorise pas la rotation à partir d’un zoom invalide', () => {
+    for (const zoom of [NaN, Infinity, -Infinity]) expect(isGlobeView(zoom)).toBe(false);
   });
 });
 

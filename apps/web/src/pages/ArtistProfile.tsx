@@ -16,7 +16,7 @@ import {
   Users,
 } from 'lucide-react'
 import Footer from '../components/Footer'
-import { artists, compactCount, findArtist, type Artist } from '@musimaps/shared'
+import { artists, compactCount, displayGenre, findArtist, type Artist } from '@musimaps/shared'
 import { fetchMapArtists, toArtist } from '@musimaps/shared'
 import { appleMusicSearchUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import {
@@ -284,7 +284,7 @@ export default function ArtistProfile() {
             <div className="space-y-4 rounded-3xl border border-hairline bg-surface p-6">
               <div className="flex items-center gap-3">
                 <Music className="h-5 w-5 text-brand-deep" />
-                <span className="text-sm">{artist.genre}</span>
+                <span className="text-sm">{displayGenre(artist.genre, t('common.unknown'))}</span>
               </div>
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-brand-deep" />

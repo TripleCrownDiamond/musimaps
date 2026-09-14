@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bell, Loader2, Music2 } from 'lucide-react'
+import { Bell, Loader2, Music2, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import {
+  deleteNotification,
   fetchNotifications,
   fetchUnreadCount,
   markAllNotificationsRead,
@@ -13,12 +15,13 @@ import {
 } from '@musimaps/shared'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './ui/dropdown-menu'
 
-export default function NotificationBell({ showWhenLoggedOut = false }: { showWhenLoggedOut?: boolean } = {}) {
+export default function NotificationBell({ showWhenLoggedOut = false, unreadCount }: { showWhenLoggedOut?: boolean; unreadCount?: number } = {}) {
   const { user } = useAuth()
   const { t } = useLanguage()
   const localize = useLocalizedPath()
   const [items, setItems] = useState<AppNotification[]>([])
   const [unread, setUnread] = useState(0)
+  const displayedUnread = unreadCount ?? unread
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const loadedRef = useRef(false)
@@ -53,6 +56,19 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
     }
   }
 
+  // Retrait immédiat, rétabli (liste et compteur) si la base refuse.
+  const removeItem = async (item: AppNotification) => {
+    const previousItems = items
+    const previousUnread = unread
+    setItems((current) => current.filter((row) => row.id !== item.id))
+    if (!item.read) setUnread((count) => Math.max(0, count - 1))
+    if (!(await deleteNotification(item.id))) {
+      setItems(previousItems)
+      setUnread(previousUnread)
+      toast.error(t('notif.deleteError'))
+    }
+  }
+
   if (!user) {
     return showWhenLoggedOut ? (
       <Link
@@ -76,9 +92,9 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
           className="relative flex h-10 w-10 items-center justify-center rounded-full border border-hairline-strong text-secondary-text transition-colors hover:bg-secondary-bg"
         >
           <Bell className="h-5 w-5" />
-          {unread > 0 && (
+          {displayedUnread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-deep px-1 text-[10px] font-bold text-brand-deep-foreground">
-              {unread > 9 ? '9+' : unread}
+              {displayedUnread > 9 ? '9+' : displayedUnread}
             </span>
           )}
         </button>
@@ -103,13 +119,11 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
             </p>
           ) : (
             items.map((item) => (
+              <div key={item.id} className={`flex items-start border-b border-hairline ${item.read ? 'opacity-60' : ''}`}>
               <Link
-                key={item.id}
                 to={item.artist_id ? localize(`/artist/${item.artist_id}`) : localize('/globe')}
                 onClick={() => void markNotificationRead(item.id)}
-                className={`flex items-start gap-3 border-b border-hairline px-4 py-3 transition-colors hover:bg-secondary-bg ${
-                  item.read ? 'opacity-60' : ''
-                }`}
+                className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 transition-colors hover:bg-secondary-bg"
               >
                 <span className="mt-0.5 text-lg" aria-hidden="true">
                   {notificationIcon(item.type)}
@@ -127,6 +141,15 @@ export default function NotificationBell({ showWhenLoggedOut = false }: { showWh
                 </span>
                 {!item.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand-deep" />}
               </Link>
+              <button
+                type="button"
+                aria-label={t('notif.delete')}
+                onClick={() => void removeItem(item)}
+                className="mr-2 mt-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-secondary-text transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+              </div>
             ))
           )}
         </div>

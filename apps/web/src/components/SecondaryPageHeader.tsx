@@ -1,13 +1,18 @@
 import { ArrowLeft } from 'lucide-react'
+import type { ReactNode } from 'react'
 import NotificationBell from './NotificationBell'
 
 /** En-tête des pages secondaires : retour à gauche, notifications à droite. */
 export function SecondaryPageHeader({
   onBack,
   backLabel,
+  beforeNotification,
+  unreadCount,
 }: {
   onBack: () => void
   backLabel: string
+  beforeNotification?: ReactNode
+  unreadCount?: number
 }) {
   return (
     <div className="mb-8 flex w-full items-center justify-between">
@@ -18,7 +23,10 @@ export function SecondaryPageHeader({
       >
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </button>
-      <NotificationBell showWhenLoggedOut />
+      <div className="flex items-center gap-2">
+        {beforeNotification}
+        <NotificationBell showWhenLoggedOut unreadCount={unreadCount} />
+      </div>
     </div>
   )
 }

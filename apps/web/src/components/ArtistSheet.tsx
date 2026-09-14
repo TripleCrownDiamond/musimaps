@@ -17,7 +17,7 @@ import {
   UserRoundPlus,
   X,
 } from 'lucide-react'
-import { compactCount, slugify, type Artist } from '@musimaps/shared'
+import { compactCount, displayGenre, slugify, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { requestClaim } from '@musimaps/shared'
@@ -241,7 +241,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
                 </p>
                 <p className="text-sm text-secondary-text">
-                  {artist.genre} · {t('sheet.followers', { count: compactCount(followers) })} ·{' '}
+                  {displayGenre(artist.genre, t('common.unknown'))} · {t('sheet.followers', { count: compactCount(followers) })} ·{' '}
                   {t('sheet.likes', { count: likes })}
                 </p>
 
@@ -411,7 +411,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                     <span className="flex-1">
                       <span className="block font-medium">{other.name}</span>
                       <span className="block text-sm text-secondary-text">
-                        {other.genre} · {other.city}
+                        {displayGenre(other.genre, t('common.unknown'))} · {other.city}
                       </span>
                     </span>
                   </button>

@@ -345,6 +345,16 @@ const GENRE_RULES: Array<{ re: RegExp; genre: string }> = [
 const NATIONALITY_RE =
   /^(american|british|english|french|german|italian|spanish|portuguese|brazilian|jamaican|japanese|korean|chinese|indian|nigerian|senegalese|ivoirien|belgian|swiss|dutch|canadian|mexican|argentine|colombian|cuban|maroccan|algerian|tunisian|congolese|latvian|estonian|lithuanian|polish|russian|ukrainian|turkish|swedish|norwegian|danish|finnish|australian|new zealander|south african|ghanian|kenyan|ethiopian|egyptian|lebanese|israeli|iranian|pakistani|indonesian|filipino|thai|vietnamese|uk)$/i
 
+/**
+ * Libellé affichable d'un genre. `cleanGenre` range tout genre absent sous
+ * « Unknown » : c'est une valeur technique, pas un texte d'interface. Chaque
+ * écran passe sa traduction de `common.unknown`.
+ */
+export function displayGenre(genre: string | null | undefined, unknownLabel: string): string {
+  const value = (genre ?? '').trim()
+  return !value || /^unknown$/i.test(value) ? unknownLabel : value
+}
+
 /** Convertit un genre brut (phrase, description, tag) en genre propre. */
 function cleanGenre(raw: string | null | undefined): string {
   const value = (raw ?? '').trim()
@@ -1512,6 +1522,12 @@ export async function searchNeighborhoods(
   }
 }
 
+/**
+ * Plafond de lecture de `map_artists`. Une liste qui l'atteint est peut-être
+ * tronquée : aucun écran ne doit en déduire qu'un artiste absent n'existe plus.
+ */
+export const MAP_ARTISTS_FETCH_LIMIT = 500
+
 /** Artistes déjà ajoutés à la carte (table map_artists). */
 export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   const supabase = getSupabase()
@@ -1526,14 +1542,14 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     .from('map_artists')
     .select(RICH_SELECT)
     .order('created_at', { ascending: false })
-    .limit(500)
+    .limit(MAP_ARTISTS_FETCH_LIMIT)
   if (error || !data) {
     // Repli : colonnes sans la migration 00016.
     const fallback = await supabase
       .from('map_artists')
       .select(BASE_SELECT)
       .order('created_at', { ascending: false })
-      .limit(500)
+      .limit(MAP_ARTISTS_FETCH_LIMIT)
     data = (fallback.data ?? null) as unknown as typeof data
   }
   if (!data) return []

@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./assets/*": "./assets/*"
   },
   "types": "./src/index.ts",
   "dependencies": {

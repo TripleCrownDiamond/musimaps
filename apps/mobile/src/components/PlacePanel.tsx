@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { mapOverlays, mapUi, nextIndexWithinPlace, type Artist } from '@musimaps/shared';
+import { mapOverlays, mapUi, nextIndexWithinPlace, type Artist, type MapPlace } from '@musimaps/shared';
 import { useI18n } from '../i18n';
 import { fonts, shadow } from '../theme';
 
@@ -13,13 +13,7 @@ import { fonts, shadow } from '../theme';
  */
 const glass = mapOverlays.light;
 
-export interface PlacePanelData {
-  kind: 'country' | 'city';
-  name: string;
-  code: string;
-  flag: string;
-  artists: Artist[];
-}
+export type PlacePanelData = MapPlace;
 
 interface PlacePanelProps {
   place: PlacePanelData;

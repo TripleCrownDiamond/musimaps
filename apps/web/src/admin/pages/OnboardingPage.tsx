@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { OnboardingContent } from '@/lib/cms'
 import { useSection } from '../useSection'
+import { useLanguage } from '@/i18n/LanguageContext'
 import { LangSwitch } from '../components/LangSwitch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -9,15 +10,16 @@ import {
   TextAreaInput,
   ArrayEditor,
   IconSelect,
+  ImageField,
 } from '../components/fields'
 import { PublishBar } from '../components/PublishBar'
 
 /**
- * Onboarding de l'application mobile : les slides (icône lucide + chip +
- * titre + description) sont éditables ici, en FR et en EN. Le mobile lit la
+ * Onboarding mobile : illustration + textes natifs éditables en FR/EN. Le mobile lit la
  * version publiée de la clé 'onboarding' via site_content_public.
  */
 export default function OnboardingPage() {
+  const { t } = useLanguage()
   const [lang, setLang] = useState<'fr' | 'en'>('fr')
   const section = useSection('onboarding', lang)
   const [draft, setDraft] = useState<OnboardingContent | null>(null)
@@ -54,8 +56,7 @@ export default function OnboardingPage() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Onboarding de l’application</h1>
           <p className="text-muted-foreground text-sm">
-            Slides affichées au premier lancement de l’app mobile (et de la preview web). Modifiez
-            l’icône, l’étiquette, le titre et la description de chaque écran, puis publiez.
+            {t('onb.adminIntro')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -111,8 +112,7 @@ export default function OnboardingPage() {
         <CardHeader>
           <CardTitle>Slides</CardTitle>
           <CardDescription>
-            Les icônes utilisent la bibliothèque Lucide — les mêmes noms fonctionnent sur le web et
-            sur mobile.
+            {t('onb.adminArtworkHint')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -128,7 +128,10 @@ export default function OnboardingPage() {
             })}
             renderItem={(item, update) => (
               <div className="grid grid-cols-1 gap-3">
-                <Field label="Icône">
+                <Field label={t('onb.adminImage')} hint={t('onb.adminImageHint')}>
+                  <ImageField value={item.image ?? ''} onChange={(image) => update({ image })} objectFit="contain" />
+                </Field>
+                <Field label={t('onb.adminFallback')}>
                   <IconSelect value={item.icon} onChange={(v) => update({ icon: v })} />
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

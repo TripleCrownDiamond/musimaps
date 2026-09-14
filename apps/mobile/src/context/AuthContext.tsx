@@ -33,6 +33,8 @@ interface AuthContextValue {
   }) => Promise<{ error: AuthError | null; needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<AuthError | null>;
   signOut: () => Promise<void>;
+  /** Recharge le profil de compte après une modification de média ou de compte. */
+  refresh: () => Promise<void>;
   /** Envoie l'email de réinitialisation de mot de passe. */
   resetPasswordForEmail: (email: string) => Promise<AuthError | null>;
   resendSignUpConfirmation: (email: string) => Promise<AuthError | null>;
@@ -44,6 +46,7 @@ const AuthContext = createContext<AuthContextValue>({
   signUp: async () => ({ error: null, needsConfirmation: false }),
   signIn: async () => null,
   signOut: async () => {},
+  refresh: async () => {},
   resetPasswordForEmail: async () => null,
   resendSignUpConfirmation: async () => null,
 });
@@ -100,6 +103,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setUser(null);
   }, []);
 
+  const refresh = useCallback(async () => {
+    const profile = await getSessionProfile();
+    if (profile) setUser(profile);
+  }, []);
+
   const resetPasswordForEmail = useCallback<AuthContextValue['resetPasswordForEmail']>(
     async (email) => (await apiResetPasswordForEmail(email)).error,
     [],
@@ -110,8 +118,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo(
-    () => ({ user, loading, signUp, signIn, signOut, resetPasswordForEmail, resendSignUpConfirmation }),
-    [user, loading, signUp, signIn, signOut, resetPasswordForEmail, resendSignUpConfirmation],
+    () => ({ user, loading, signUp, signIn, signOut, refresh, resetPasswordForEmail, resendSignUpConfirmation }),
+    [user, loading, signUp, signIn, signOut, refresh, resetPasswordForEmail, resendSignUpConfirmation],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

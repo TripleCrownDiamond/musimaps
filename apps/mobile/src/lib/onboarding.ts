@@ -1,31 +1,12 @@
 import { supabase } from './supabase';
+import { parseOnboardingSlides, type OnboardingSlide } from '@musimaps/shared';
 
 /**
  * Contenu d'une slide d'onboarding piloté par le CMS web (table site_content,
- * clé 'onboarding'). Les icônes sont des noms lucide (ex : 'Globe') valables
- * dans lucide-react-native.
+ * clé 'onboarding'). Les anciens noms d'icônes sélectionnent désormais les
+ * illustrations embarquées ; les textes restent éditables et traduits.
  */
-export interface CmsOnboardingSlide {
-  icon: string;
-  chip: string;
-  title: string;
-  text: string;
-}
-
-/** Extraits valides d'une slide CMS (tolérant aux champs manquants). */
-function parseSlide(raw: unknown): CmsOnboardingSlide | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const record = raw as Record<string, unknown>;
-  const asString = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
-  const slide: CmsOnboardingSlide = {
-    icon: asString(record.icon),
-    chip: asString(record.chip),
-    title: asString(record.title),
-    text: asString(record.text),
-  };
-  // Une slide sans titre ni texte n'est pas exploitable.
-  return slide.title || slide.text ? slide : null;
-}
+export type CmsOnboardingSlide = OnboardingSlide;
 
 /** Textes de l'écran d'entrée, publiés dans la même section que les slides. */
 export interface CmsStartScreen {
@@ -85,9 +66,7 @@ export async function fetchCmsOnboarding(
     const published = lang === 'en' ? data?.content_en : data?.content;
     if (!published || typeof published !== 'object') return null;
     const rawSlides = (published as Record<string, unknown>).slides;
-    if (!Array.isArray(rawSlides)) return null;
-    const slides = rawSlides.map(parseSlide).filter((s): s is CmsOnboardingSlide => s !== null);
-    return slides.length > 0 ? slides : null;
+    return parseOnboardingSlides(rawSlides);
   } catch {
     return null;
   }

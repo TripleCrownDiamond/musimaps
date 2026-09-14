@@ -3,16 +3,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { getLevelInfo, radii, spacing } from '@musimaps/shared';
+import { getLevelInfo, radii, spacing, SITE_URL } from '@musimaps/shared';
 import { useI18n, type MessageKey } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { Button, Card, ScreenHeader, Section } from '../ui';
 import { NotificationButton } from '../components/NotificationButton';
 import { fonts, type AppColors } from '../theme';
+import { badgeText, levelTitle } from '../lib/gamificationText';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Badges'>;
 
@@ -44,8 +46,22 @@ export function BadgesScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang } = useI18n();
   const { badges, earnedBadges, points } = useApp();
+  const { user } = useAuth();
   const level = getLevelInfo(points);
   const earnedCount = badges.filter((badge) => badge.earned).length;
+
+  const shareProgress = () => {
+    const name = user?.displayName || t('profile.defaultName');
+    const message = `${t('badges.shareMessage', {
+      name,
+      level: level.level,
+      levelTitle: levelTitle(t, level),
+      points,
+      earned: earnedCount,
+      total: badges.length,
+    })} ${SITE_URL}`;
+    void Share.share({ message });
+  };
 
   // Historique du plus récent au plus ancien.
   const history = useMemo(
@@ -86,11 +102,22 @@ export function BadgesScreen({ navigation }: Props) {
           <View style={styles.heroTop}>
             <View style={styles.heroIdentity}>
               <Text style={styles.heroEyebrow}>{t('badges.level', { level: level.level })}</Text>
-              <Text style={styles.heroTitle}>{level.title}</Text>
+              <Text style={styles.heroTitle}>{levelTitle(t, level)}</Text>
             </View>
-            <View style={styles.heroPoints}>
-              <Text style={styles.heroPointsValue}>{points}</Text>
-              <Text style={styles.heroPointsLabel}>{t('common.pts')}</Text>
+            <View style={styles.heroActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('badges.shareAria')}
+                hitSlop={8}
+                style={styles.shareBtn}
+                onPress={() => shareProgress()}
+              >
+                <Ionicons name="share-social-outline" size={20} color={colors.brandPrimary} />
+              </Pressable>
+              <View style={styles.heroPoints}>
+                <Text style={styles.heroPointsValue}>{points}</Text>
+                <Text style={styles.heroPointsLabel}>{t('common.pts')}</Text>
+              </View>
             </View>
           </View>
           <View style={styles.heroTrack}>
@@ -140,7 +167,7 @@ export function BadgesScreen({ navigation }: Props) {
                   <Ionicons name={badgeIcon(entry.def!.icon)} size={22} color={colors.black} />
                 </View>
                 <View style={styles.rowCopy}>
-                  <Text style={styles.rowLabel}>{entry.def!.label}</Text>
+                  <Text style={styles.rowLabel}>{badgeText(t, entry.id, 'title', entry.def!.label)}</Text>
                   <Text style={styles.rowMeta}>
                     {t('badges.earnedDate', { date: formatDate(entry.earnedAt, lang, t) })}
                   </Text>
@@ -167,8 +194,8 @@ export function BadgesScreen({ navigation }: Props) {
                   <Ionicons name="lock-closed" size={16} color={colors.muted} />
                 </View>
                 <View style={styles.rowCopy}>
-                  <Text style={[styles.rowLabel, styles.lockedLabel]}>{badge.label}</Text>
-                  <Text style={styles.lockedDesc}>{badge.description}</Text>
+                  <Text style={[styles.rowLabel, styles.lockedLabel]}>{badgeText(t, badge.id, 'title', badge.label)}</Text>
+                  <Text style={styles.lockedDesc}>{badgeText(t, badge.id, 'desc', badge.description)}</Text>
                 </View>
                 <View style={styles.lockedPoints}>
                   <Ionicons name="sparkles-outline" size={13} color={colors.muted} />
@@ -214,6 +241,17 @@ const createStyles = (colors: AppColors) =>
       textTransform: 'uppercase',
     },
     heroTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 28, letterSpacing: -1, marginTop: 2 },
+    heroActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    shareBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: radii.full,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.line,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     heroPoints: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs },
     heroPointsValue: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 30, letterSpacing: -1 },
     heroPointsLabel: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 13 },

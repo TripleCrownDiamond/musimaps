@@ -6,19 +6,20 @@ import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
+import { ProfileHeader } from '../components/ProfileHeader';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { SITE_URL, getLevelInfo, radii, spacing } from '@musimaps/shared';
+import { PROFILE_GUTTER, PROFILE_MEDIA, PROFILE_HEADER_HEIGHT, LEGAL_LINKS, SITE_URL, getLevelInfo, radii, siteUrl, spacing } from '@musimaps/shared';
+import { AccountAvatar, AccountCover } from '../components/AccountMedia';
 import { useI18n } from '../i18n';
-import { fetchUnreadCount } from '@musimaps/shared';
 import { checkin, type StreakInfo } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { Card } from '../ui';
 import { fonts, type AppColors } from '../theme';
+import { levelTitle } from '../lib/gamificationText';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Profile'>,
@@ -28,14 +29,12 @@ type Props = CompositeScreenProps<
 export function ProfileScreen({ navigation }: Props) {
   const { colors, theme, toggleTheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const insets = useSafeAreaInsets();
-  const { t, langPref, setLangPref } = useI18n();
+  const { t, lang, langPref, setLangPref } = useI18n();
   const { profile, favorites, visitedCities, badges, points } = useApp();
-  const { user } = useAuth();
-  const [unread, setUnread] = useState(0);
+  const { user, signOut, refresh: refreshUser } = useAuth();
   const [streak, setStreak] = useState<StreakInfo | null>(null);
-  const name = profile?.displayName ?? t('profile.defaultName');
-  const city = profile?.city ?? t('profile.defaultCity');
+  const name = user?.displayName || profile?.displayName || t('profile.defaultName');
+  const city = user?.city || profile?.city || t('profile.defaultCity');
   const isArtist = user?.role === 'artist';
   const isBusiness = user?.accountType === 'business';
   const openAccountAction = () => {
@@ -50,9 +49,6 @@ export function ProfileScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      void fetchUnreadCount().then((n) => {
-        if (active) setUnread(n);
-      });
       if (user) {
         void checkin().then((s) => {
           if (active && s) setStreak(s);
@@ -74,34 +70,35 @@ export function ProfileScreen({ navigation }: Props) {
     }).catch(() => {});
   };
 
+  // Le profil peut être modifié depuis le web (ou un autre appareil) pendant
+  // que l'app mobile reste ouverte. Recharge les médias au retour sur l'onglet
+  // pour ne pas rester bloqué sur les initiales mises en cache.
+  useFocusEffect(
+    useCallback(() => {
+      void refreshUser();
+    }, [refreshUser]),
+  );
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
-        <AppBar navigation={navigation} />
-      </View>
-      {/*
-        Même couverture que le dashboard web : bleu de marque fondu au noir.
-        Elle était pâle et figée (vert et bleu clairs codés en dur), donc
-        illisible en thème sombre — le fond restait clair sous une interface
-        sombre. Le noir des tokens est sombre dans les deux thèmes.
-      */}
-      <LinearGradient colors={[colors.brandPrimary, colors.black, colors.black]} style={styles.cover}>
-        <View style={styles.coverOrbOne} />
-        <View style={styles.coverOrbTwo} />
-      </LinearGradient>
-
-      {/* Avatar : bleu → lime, initiales sombres — `from-brand-deep to-brand text-black` du web. */}
-      <LinearGradient colors={[colors.brandPrimary, colors.brandSecondary]} style={styles.avatar}>
-        <Text style={styles.initials}>
-          {name
-            .split(' ')
-            .map((part) => part[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase()}
-        </Text>
-      </LinearGradient>
-
+    <View style={styles.container}>
+      <ProfileHeader
+        headerHeight={PROFILE_HEADER_HEIGHT}
+        background={colors.background}
+        topBarBackground="transparent"
+        stickyTopBarColor={colors.brandPrimary}
+        contentStyle={styles.content}
+        topBar={<AppBar navigation={navigation} brandTone="light" />}
+        cover={
+          <View style={styles.accountMedia}>
+            <AccountCover image={user?.coverUrl} height={PROFILE_HEADER_HEIGHT} />
+            <Pressable accessibilityRole="button" accessibilityLabel={user ? t('profile.editProfile') : t('profile.createProfile')}
+              onPress={openAccountAction}
+              style={[styles.profileAvatar, { position: 'absolute', left: PROFILE_GUTTER, bottom: -PROFILE_MEDIA.profileOverlap }]}>
+              <AccountAvatar name={name} image={user?.avatarUrl} />
+            </Pressable>
+          </View>
+        }
+      >
       <View style={styles.identity}>
         <View style={styles.identityTitle}>
           <Text style={styles.name}>{name}</Text>
@@ -185,7 +182,7 @@ export function ProfileScreen({ navigation }: Props) {
           <View style={styles.progressHeader}>
             <View style={styles.levelBadge}>
               <Ionicons name="trophy" size={20} color={colors.black} />
-              <Text style={styles.levelTitle}>{t('profile.level', { level: level.level, title: level.title })}</Text>
+              <Text style={styles.levelTitle}>{t('profile.level', { level: level.level, title: levelTitle(t, level) })}</Text>
             </View>
             <View style={styles.pointsChip}>
               <Text style={styles.pointsValue}>{points}</Text>
@@ -305,23 +302,6 @@ export function ProfileScreen({ navigation }: Props) {
           <Ionicons name="chevron-forward" size={20} color={colors.muted} />
         </Card>
 
-        <Card style={styles.menuItem} onPress={() => navigation.navigate('Notifications')}>
-          <View style={styles.menuIcon}>
-            <Ionicons name="notifications-outline" size={22} color={colors.brandPrimary} />
-          </View>
-          <View style={styles.menuCopy}>
-            <Text style={styles.menuTitle}>{t('notif.title')}</Text>
-            <Text style={styles.menuText}>{t('notif.hint')}</Text>
-          </View>
-          {unread > 0 ? (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>{unread > 99 ? '99+' : unread}</Text>
-            </View>
-          ) : (
-            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-          )}
-        </Card>
-
         <Card style={styles.menuItem} onPress={toggleTheme}>
           <View style={styles.menuIcon}>
             <Ionicons name={theme === 'dark' ? 'sunny-outline' : 'moon-outline'} size={22} color={colors.brandPrimary} />
@@ -376,20 +356,46 @@ export function ProfileScreen({ navigation }: Props) {
           <Ionicons name="share-outline" size={20} color={colors.muted} />
         </Card>
 
+        {user && (
+          <Card style={styles.menuItem} onPress={() => {
+            void signOut().then(() => navigation.replace('Start'));
+          }}>
+            <View style={styles.menuIcon}>
+              <Ionicons name="log-out-outline" size={22} color={colors.danger} />
+            </View>
+            <View style={styles.menuCopy}>
+              <Text style={[styles.menuTitle, { color: colors.danger }]}>{t('auth.logout')}</Text>
+              <Text style={styles.menuText}>{t('profile.logoutHint')}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </Card>
+        )}
+
+        <View style={{ gap: spacing.md, paddingVertical: spacing.lg }}>
+          {LEGAL_LINKS.map((link) => (
+            <Pressable key={link.document} accessibilityRole="link"
+              onPress={() => void Linking.openURL(siteUrl(link.path, lang)).catch(() => Alert.alert(t('legal.title'), t('legal.openFailed')))}
+              style={{ paddingVertical: spacing.sm }}>
+              <Text style={[styles.menuText, { textAlign: 'center', textDecorationLine: 'underline' }]}>{t(link.label)}</Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
-    </ScrollView>
+      </ProfileHeader>
+    </View>
   );
 }
-
-/** Marge latérale de l'écran — la couverture, les cartes et le menu s'alignent dessus. */
-const GUTTER = spacing.xl;
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   /** Dégagement pour le dock flottant. */
   content: { paddingBottom: 120 },
-  appBarWrap: { paddingHorizontal: GUTTER, paddingBottom: spacing.md },
-  cover: { height: 205, margin: GUTTER, marginTop: spacing.xs, borderRadius: radii['3xl'], overflow: 'hidden' },
+  /** Cover pleine largeur sous la barre du haut — le contenant suit la
+      hauteur repliable du header ; l'image est recadrée par overflow. */
+  accountMedia: { flex: 1, backgroundColor: colors.surface },
+  // Photo : ancrée au bas du header (bottom: 0), elle suit le bord inférieur
+  // du header pendant le repli (position absolute posée en ligne au-dessus).
+  profileAvatar: {},
   langRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   langChip: {
     borderRadius: radii.full,
@@ -400,44 +406,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   langChipActive: { backgroundColor: colors.brandPrimary },
   langChipText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 12 },
   langChipTextActive: { color: colors.white, fontFamily: fonts.bold, fontSize: 12 },
-  /**
-   * Halos décoratifs de la couverture. L'opacité est portée par la vue et non
-   * cuite dans un `rgba` : la teinte reste celle des tokens, donc elle suit le
-   * thème et une éventuelle évolution de la palette.
-   */
-  coverOrbOne: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: radii.full,
-    backgroundColor: colors.brandSecondary,
-    opacity: 0.35,
-    right: -20,
-    top: -25,
-  },
-  coverOrbTwo: {
-    position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: radii.full,
-    backgroundColor: colors.brandPrimary,
-    opacity: 0.45,
-    left: 35,
-    bottom: -45,
-  },
-  avatar: {
-    width: 124,
-    height: 124,
-    borderRadius: radii.full,
-    borderWidth: 6,
-    borderColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -93,
-    marginLeft: spacing['3xl'],
-  },
-  initials: { color: colors.black, fontFamily: fonts.displayBlack, fontSize: 36 },
-  identity: { paddingHorizontal: spacing['2xl'], marginTop: spacing.lg },
+  identity: { paddingHorizontal: PROFILE_GUTTER, marginTop: spacing.lg + PROFILE_MEDIA.profileOverlap },
   identityTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   name: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 29, letterSpacing: -1.1 },
   editMini: {
@@ -455,16 +424,16 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   businessChip: { borderRadius: radii.full, backgroundColor: colors.black, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   businessChipText: { color: colors.brandSecondary, fontFamily: fonts.bold, fontSize: 10 },
   bio: { color: colors.inkSoft, fontFamily: fonts.body, lineHeight: 20, marginTop: spacing.md },
-  actionRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: GUTTER, marginTop: spacing.lg },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: PROFILE_GUTTER, marginTop: spacing.lg },
   actionPrimary: { flex: 1, borderRadius: radii.full, backgroundColor: colors.brandPrimary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.md },
   actionPrimaryText: { color: colors.white, fontFamily: fonts.bold, fontSize: 13 },
-  stats: { flexDirection: 'row', alignItems: 'center', margin: GUTTER, paddingVertical: spacing.lg },
+  stats: { flexDirection: 'row', alignItems: 'center', margin: PROFILE_GUTTER, paddingVertical: spacing.lg },
   stat: { flex: 1, alignItems: 'center' },
   statValue: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 20 },
   statLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 2 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: colors.line },
-  progressCard: { margin: GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.md },
-  accountInfoCard: { marginHorizontal: GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.sm },
+  progressCard: { margin: PROFILE_GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.md },
+  accountInfoCard: { marginHorizontal: PROFILE_GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.sm },
   accountInfoTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15, marginBottom: spacing.xs },
   accountInfoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   accountInfoText: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12 },
@@ -509,7 +478,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   },
   badgeMoreText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 12 },
   badgesLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  menu: { paddingHorizontal: GUTTER, gap: spacing.md },
+  menu: { paddingHorizontal: PROFILE_GUTTER, gap: spacing.md },
   primaryCard: {
     minHeight: 88,
     backgroundColor: colors.brandPrimary,
@@ -549,7 +518,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   primaryTitle: { color: colors.white },
   primaryText: { color: colors.white, opacity: 0.8 },
   streakCard: {
-    marginHorizontal: GUTTER,
+    marginHorizontal: PROFILE_GUTTER,
     marginTop: 0,
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,14 +543,4 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   streakDoneText: { color: colors.brandPrimary, fontFamily: fonts.bold, fontSize: 11 },
-  unreadBadge: {
-    minWidth: 26,
-    height: 26,
-    borderRadius: radii.full,
-    backgroundColor: colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
-  },
-  unreadBadgeText: { color: colors.white, fontFamily: fonts.bold, fontSize: 12 },
-});
+  });

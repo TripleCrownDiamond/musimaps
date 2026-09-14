@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { Artist } from '@musimaps/shared'
 import {
   bucketKey,
   CAMERA,
+  clusterCameraTarget,
+  nearestMapTarget,
+  isGlobeView,
   clusterBy,
   clusterAnchor,
-  countryByCode,
+  countryName,
   declump,
   PIN_LAYOUT_ZOOM,
   firstRenderedPosition,
@@ -187,6 +191,7 @@ export default function GlobeMap({
   onMoveArtist,
   className = '',
 }: GlobeMapProps) {
+  const { lang, t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])    // Les callbacks passent par des refs : la carte n'est construite qu'une fois.
@@ -319,7 +324,7 @@ export default function GlobeMap({
         // en cours : `map.isMoving()` est aussi vrai pendant notre propre
         // jumpTo et faisait donc sauter/pauser la rotation une frame sur
         // deux. Le verrou explicite ne bloque que drag/zoom/rotate/pitch.
-        if (spinRef.current && !gestureActiveRef.current) {
+        if (spinRef.current && isGlobeView(map.getZoom()) && !gestureActiveRef.current) {
           const center = map.getCenter()
           center.lng -= spinDeltaFor(elapsed)
           // jumpTo est volontaire : il laisse les markers visibles pendant
@@ -348,6 +353,11 @@ export default function GlobeMap({
       }, GLOBE_SPIN_TICK_MS)
     }
     if (interactive) {
+      // Le globe s'immobilise dès le contact, avant que Mapbox ne classe
+      // le geste : un petit pin ne doit pas glisser sous le doigt avant click.
+      map.getCanvasContainer().addEventListener('pointerdown', markGestureStart)
+      map.getCanvasContainer().addEventListener('pointerup', markGestureEnd)
+      map.getCanvasContainer().addEventListener('pointercancel', markGestureEnd)
       map.on('dragstart', markGestureStart)
       map.on('zoomstart', markGestureStart)
       map.on('rotatestart', markGestureStart)
@@ -441,8 +451,9 @@ export default function GlobeMap({
       setClusterLevel(level)
       onZoomChangeRef.current?.(map.getZoom())
       onReadyRef.current?.(handle)
-      // La carte est stable : on peut enfin faire tourner le globe.
-      if (spinRef.current) startSpin()
+      // La boucle doit exister même si le recentrage a déjà arrêté la
+      // rotation : le bouton Play pourra la relancer au retour vue globe.
+      startSpin()
     })
     // On ne rebondit que sur les CHANGEMENTS de niveau (pas chaque frame).
     const onLevelChange = () => {
@@ -459,8 +470,13 @@ export default function GlobeMap({
     // → pins — avec l'animation de la caméra. Un seul clic suffit.
     const onZoomTick = () => {
       const z = map.getZoom()
+      if (!isGlobeView(z) && spinRef.current) {
+        spinRef.current = false
+        onRotateChangeRef.current?.(false)
+      }
       const next = levelFor(z)
       if (next === clusterLevelRef.current) return
+      onZoomChangeRef.current?.(z)
       clusterLevelRef.current = next
       setClusterLevel(next)
     }
@@ -482,6 +498,9 @@ export default function GlobeMap({
         map.off('pitchend', markGestureEnd)
       }
       map.off('zoom', onZoomTick)
+      map.getCanvasContainer().removeEventListener('pointerdown', markGestureStart)
+      map.getCanvasContainer().removeEventListener('pointerup', markGestureEnd)
+      map.getCanvasContainer().removeEventListener('pointercancel', markGestureEnd)
       map.off('moveend', onLevelChange)
       map.off('zoomend', onLevelChange)
       markersRef.current.forEach((m) => m.remove())
@@ -511,10 +530,6 @@ export default function GlobeMap({
     const label = mapLocationLabel(userLocation)
     if (label) {
       wrapper.setAttribute('aria-label', label)
-      const text = document.createElement('span')
-      text.className = 'map-location-marker__label'
-      text.textContent = label
-      wrapper.appendChild(text)
     }
     wrapper.appendChild(dot)
     userMarkerRef.current = new mapboxgl.Marker({ element: wrapper, anchor: 'center' })
@@ -569,6 +584,7 @@ export default function GlobeMap({
       return
     }
 
+    const clusterTargets: Array<{ coordinates: [number, number]; activate: () => void }> = []
     // Un « pin » de cluster (pays, ville ou sous-groupe) : drapeau + compteur.
     const addClusterPin = (
       label: string,
@@ -588,7 +604,8 @@ export default function GlobeMap({
         'artist-pin artist-pin--cluster' +
         (variant === 'sub' ? ' artist-pin--sub' : '') +
         (place?.kind === 'country' ? ' artist-pin--country' : '')
-      el.setAttribute('aria-label', `${label} — ${count} artistes`)
+      // Même clé que le mobile : l'intitulé était en français en dur sur /en.
+      el.setAttribute('aria-label', t('globe.clusterAria', { place: label, count }))
       // Le pin de cluster ne porte que le lieu et le NOMBRE D'ARTISTES. Il
       // affichait aussi un total d'abonnés agrégé (« 12 K fans ») : une
       // seconde ligne qui alourdissait la pastille et mélangeait deux
@@ -597,9 +614,9 @@ export default function GlobeMap({
       content.className = 'artist-pin__cluster-content'
       const main = document.createElement('span')
       main.className = 'artist-pin__cluster-main'
-      // Même au zoom globe, le pays reste identifiable : une étincelle garde
-      // son drapeau et son code ISO court. Le compteur n'apparaît qu'en vue
-      // rapprochée pour préserver la légèreté de la vue monde.
+      // Au zoom globe, le CSS (`.map-zoom-far`) ne montre que l'étincelle :
+      // drapeau et code pays n'apparaissent qu'en zoomant, avec le compteur
+      // des villes et sous-groupes.
       main.textContent = variant === 'sub'
         ? `${count}`
         : place?.kind === 'country'
@@ -637,35 +654,20 @@ export default function GlobeMap({
         if (members && members.length > 0) {
           onClusterFocusRef.current?.(members, place)
         }
-        // Vole vers le PREMIER artiste du cluster (position dés-empilée) :
-        // au lieu du barycentre (souvent dans le vide), on atterrit toujours
-        // sur un pin visible, mis en évidence (highlightedId dans le parent).
-        let targetCoords = coordinates
-        let targetZoom = zoomTo
-        const targetDuration = place?.kind === 'country'
-          ? CAMERA.country.duration
-          : place?.kind === 'city'
-            ? CAMERA.city.duration
-            : variant === 'sub'
-              ? CAMERA.sub.duration
-              : CAMERA.artist.duration
-        if (members && members.length > 0) {
-          const firstMember = members[0]
-          if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-            const spread = declump(members, PIN_LAYOUT_ZOOM)
-            const rendered = spread.get(firstMember.id)
-            if (rendered) {
-              targetCoords = rendered
-              targetZoom = CAMERA.artist.zoom
-            }
-          }
-        }
-        map.flyTo({ center: targetCoords, zoom: targetZoom, duration: targetDuration, essential: true })
+        const target = clusterCameraTarget(members ?? [], coordinates, zoomTo, place?.kind ?? variant)
+        map.flyTo({ center: target.coordinates, zoom: target.zoom, duration: target.duration, essential: true })
       }
+      clusterTargets.push({ coordinates, activate: onClick })
       if (interactive) {
         el.addEventListener('click', (e) => {
           e.stopPropagation()
-          onClick()
+          // Activation clavier : garder le bouton ciblé. Au pointeur, les
+          // hitboxes se recouvrent parfois ; choisir l'étincelle la plus proche.
+          if (e.detail === 0) { onClick(); return }
+          const bounds = map.getContainer().getBoundingClientRect()
+          const coordinate = map.unproject([e.clientX - bounds.left, e.clientY - bounds.top])
+          const nearest = nearestMapTarget(clusterTargets, [coordinate.lng, coordinate.lat], (item) => item.coordinates)
+          ;(nearest?.activate ?? onClick)()
         })
       } else {
         el.style.pointerEvents = 'none'
@@ -805,8 +807,9 @@ export default function GlobeMap({
           // dans le vide (et faire commencer le vol loin de tout artiste).
           if (members.length === 0) continue
           const anchor = clusterAnchor(members)
-          const countryName =
-            countryByCode(geo.code)?.fr ?? countryByCode(geo.code)?.en ?? geo.code
+          // Nom du pays dans la langue de la page : il était toujours lu en
+          // français, y compris sur /en.
+          const placeName = countryName(geo.code, lang)
           addClusterPin(
             geo.code,
             geo.flag,
@@ -818,7 +821,7 @@ export default function GlobeMap({
             {
               kind: 'country',
               code: geo.code,
-              name: countryName,
+              name: placeName,
               flag: geo.flag,
             },
           )
@@ -925,7 +928,7 @@ export default function GlobeMap({
     // `editable` est dans les dépendances : basculer le mode admin doit
     // redessiner les markers pour qu'ils deviennent (ou cessent d'être)
     // déplaçables — `draggable` se fixe à la construction du marker.
-  }, [decorative, styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, highlightedArtistId, editable])
+  }, [decorative, styleReady, mapLoaded, interactive, showPins, visibleArtists, extraArtists, cluster, clusterLevel, popularityById, highlightedArtistId, editable, lang])
 
   // Le conteneur Mapbox est un div interne : mapbox-gl.css force `position: relative`
   // sur .mapboxgl-map et ecraserait un `absolute inset-0` passe via className.

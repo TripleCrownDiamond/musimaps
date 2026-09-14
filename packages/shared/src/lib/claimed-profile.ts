@@ -73,20 +73,44 @@ export async function uploadArtistImage(
   file: File | { uri: string; name: string; type: string },
   folder: 'artists' | 'covers',
 ): Promise<{ url: string; error?: string }> {
+  return uploadImageToBucket(file, folder);
+}
+
+/** Upload d'un visuel du profil de compte (avatar ou couverture). */
+export async function uploadProfileImage(
+  file: File | { uri: string; name: string; type: string },
+  kind: 'avatar' | 'cover',
+): Promise<{ url: string; error?: string }> {
+  return uploadImageToBucket(file, kind === 'cover' ? 'profile-covers' : 'profiles');
+}
+
+type UploadImageFile = File | { uri: string; name: string; type: string };
+
+function isWebUploadFile(file: UploadImageFile): file is File {
+  return typeof File !== 'undefined' && file instanceof File;
+}
+
+async function uploadImageToBucket(
+  file: UploadImageFile,
+  folder: 'artists' | 'covers' | 'profiles' | 'profile-covers',
+): Promise<{ url: string; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) return { url: '', error: 'Supabase non configuré' };
 
-  const ext = (file instanceof File ? file.name : file.name).split('.').pop() ?? 'jpg';
+  const ext = file.name.split('.').pop() ?? 'jpg';
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const contentType = file instanceof File ? file.type : file.type;
+  const contentType = file.type || 'image/jpeg';
 
   let uploadData: Blob | ArrayBuffer;
-  if (file instanceof File) {
+  if (isWebUploadFile(file)) {
     uploadData = file;
   } else {
-    // React Native : fetch the local URI to get a Blob.
+    // React Native : surtout pas de Blob. storage-js emballe un Blob dans un
+    // FormData, que React Native ne sait pas sérialiser : la partie part en
+    // `text/plain` et le bucket la refuse (« mime type text/plain is not
+    // supported »). Un ArrayBuffer est envoyé brut avec son content-type.
     const response = await fetch(file.uri);
-    uploadData = await response.blob();
+    uploadData = await response.arrayBuffer();
   }
 
   const { error } = await supabase.storage

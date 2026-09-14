@@ -358,6 +358,18 @@ export async function fetchArtistsByIds(ids: string[]): Promise<ArtistSummary[]>
   }))
 }
 
+/**
+ * Retire un favori sans bascule. `toggleFavorite` réinsère l'artiste s'il
+ * n'est plus en base : inutilisable pour nettoyer un favori orphelin.
+ */
+export async function removeFavorite(artistId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabase()
+
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { error } = await supabase.from('favorites').delete().eq('artist_id', artistId)
+  return error ? { ok: false, error: error.message } : { ok: true }
+}
+
 /** Bascule un artiste en favori (like). Retourne true si maintenant en favori. */
 export async function toggleFavorite(artistId: string): Promise<{ ok: boolean; liked: boolean; error?: string }> {
   const supabase = getSupabase()

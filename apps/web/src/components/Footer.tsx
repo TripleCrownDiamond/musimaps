@@ -3,7 +3,7 @@ import { useCms } from '../context/CmsContext'
 import { useAuth } from '../context/AuthContext'
 import { useThemeValue } from '../lib/theme'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { resolveBrandLogo } from '@musimaps/shared'
+import { LEGAL_LINKS, resolveBrandLogo } from '@musimaps/shared'
 import logoBlack from '../assets/brand/logo-black.png'
 import logoWhite from '../assets/brand/logo-white.png'
 import iconBlue from '../assets/brand/icon.png'
@@ -93,7 +93,7 @@ export default function Footer() {
             aria-label={t('footer.linksAria')}
             className="flex flex-wrap justify-center gap-8 text-sm text-secondary-text"
           >
-            {visibleLinks.map((link) =>
+            {visibleLinks.filter((link) => !LEGAL_LINKS.some((legal) => legal.path === link.to.replace(/^\/en(?=\/)/, ''))).map((link) =>
               link.external ? (
                 <a
                   key={link.label}
@@ -151,6 +151,10 @@ export default function Footer() {
             </div>
           )}
         </div>
+
+        <nav aria-label={t('legal.title')} className="flex flex-wrap justify-center gap-4 text-center text-xs text-secondary-text">
+          {LEGAL_LINKS.map((link) => <Link key={link.document} to={localize(link.path)} className="underline underline-offset-4 hover:text-primary-text">{t(link.label)}</Link>)}
+        </nav>
 
         {/* Langue + thème : en bas de page sur desktop (mobile : menu navbar) */}
         <div className="hidden items-center gap-3 md:flex">

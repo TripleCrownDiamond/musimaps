@@ -15,7 +15,7 @@ import {
   type ArtistStatsDetail,
 } from '@musimaps/shared';
 import { BarChart, ChartCard, HBarList, SegmentedBar } from '../components/Charts';
-import { AppBar } from '../components/AppBar';
+import { AppBar, APP_BAR_BOTTOM_GAP, APP_BAR_TOP_GAP } from '../components/AppBar';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -78,7 +78,7 @@ export function DashboardScreen({ navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.root}>
-        <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+        <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
           <AppBar navigation={navigation} rootNavigation={navigation} />
         </View>
         <View style={[styles.center, styles.guestBody]}>
@@ -91,7 +91,7 @@ export function DashboardScreen({ navigation }: Props) {
   if (!user) {
     return (
       <View style={styles.root}>
-        <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+        <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
           <AppBar navigation={navigation} rootNavigation={navigation} />
         </View>
         <View style={[styles.center, styles.gap, styles.guestBody]}>
@@ -118,7 +118,7 @@ export function DashboardScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
         <AppBar navigation={navigation} rootNavigation={navigation} />
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -177,7 +177,28 @@ export function DashboardScreen({ navigation }: Props) {
           </View>
           {myReferral.city && <Text style={[styles.referralMeta, { color: colors.inkSoft }]}>{t('dash.referralCity')} {myReferral.city}</Text>}
           {myReferral.genre && <Text style={[styles.referralMeta, { color: colors.inkSoft }]}>{t('dash.referralGenre')} {myReferral.genre}</Text>}
-          <Text style={[styles.referralHint, { color: colors.muted }]}>{t('dash.referralHint')}</Text>
+          {/* Comme le web : le message d'attente n'a de sens qu'avant la validation. */}
+          {myReferral.convertedAt ? (
+            <>
+              <Text style={[styles.referralHint, { color: colors.muted }]}>{t('dash.referralApprovedHint')}</Text>
+              {myReferral.mapArtistId && (
+                <Pressable
+                  style={styles.referralLink}
+                  onPress={() =>
+                    navigation.navigate('Main', {
+                      screen: 'Explore',
+                      params: { artistId: myReferral.mapArtistId!, searchKey: Date.now() },
+                    })
+                  }
+                >
+                  <Ionicons name="globe-outline" size={16} color={colors.brandDeep} />
+                  <Text style={[styles.referralLinkText, { color: colors.brandDeep }]}>{t('dash.referralViewMap')}</Text>
+                </Pressable>
+              )}
+            </>
+          ) : (
+            <Text style={[styles.referralHint, { color: colors.muted }]}>{t('dash.referralHint')}</Text>
+          )}
         </View>
       )}
 
@@ -412,7 +433,7 @@ const createStyles = (colors: AppColors) =>
     center: { alignItems: 'center', justifyContent: 'center' },
     gap: { gap: 14 },
     guestBody: { flex: 1, paddingHorizontal: 20 },
-    appBarWrap: { paddingHorizontal: 20, paddingBottom: 12 },
+    appBarWrap: { paddingHorizontal: 20, paddingBottom: APP_BAR_BOTTOM_GAP },
     content: { paddingHorizontal: 20, paddingBottom: 128 },
     hero: { alignItems: 'center', marginTop: 18, marginBottom: 18 },
     heroIcon: {
@@ -434,9 +455,12 @@ const createStyles = (colors: AppColors) =>
     roleChip: { backgroundColor: colors.brandSoft, borderRadius: 16, paddingHorizontal: 13, paddingVertical: 6, marginTop: 10 },
     roleChipText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 12 },
     heroMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, marginTop: 8 },
-    actions: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+    // Trois actions ne tiennent pas sur une ligne de téléphone : elles passent
+    // à la ligne au lieu de tronquer « Explore the map » en « Explore the ma ».
+    actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
     actionPrimary: {
-      flex: 1,
+      flexGrow: 1,
+      paddingHorizontal: 18,
       minHeight: 54,
       borderRadius: 27,
       backgroundColor: colors.brandDeep,
@@ -447,7 +471,8 @@ const createStyles = (colors: AppColors) =>
     },
     actionPrimaryText: { color: colors.white, fontFamily: fonts.bold, fontSize: 15 },
     actionGhost: {
-      flex: 1,
+      flexGrow: 1,
+      paddingHorizontal: 18,
       minHeight: 54,
       borderRadius: 27,
       borderWidth: 1.5,
@@ -518,6 +543,8 @@ const createStyles = (colors: AppColors) =>
     referralName: { fontFamily: fonts.bold, fontSize: 15 },
     referralStatus: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, marginTop: 4 },
     referralStatusText: { fontFamily: fonts.bold, fontSize: 11 },
+    referralLink: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, marginTop: 10 },
+    referralLinkText: { fontFamily: fonts.bold, fontSize: 14 },
     referralMeta: { fontFamily: fonts.body, fontSize: 13 },
     referralHint: { fontFamily: fonts.body, fontSize: 12, marginTop: 4 },
     // Guide card

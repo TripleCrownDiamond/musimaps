@@ -3,9 +3,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { notifyAchievement } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
+import { useI18n } from '../i18n';
 import { fonts, shadow, type AppColors } from '../theme';
+import { badgeText } from '../lib/gamificationText';
 
 /**
  * Toast de récompense : apparaît en haut de l'écran quand un badge
@@ -15,6 +18,7 @@ export function AchievementToast() {
   const { colors } = useAppTheme();
   const insets = useSafeAreaInsets();
   const { lastEarnedBadge, clearLastEarnedBadge } = useApp();
+  const { t } = useI18n();
   const progress = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const styles = createStyles(colors);
@@ -30,6 +34,19 @@ export function AchievementToast() {
     }, 3000);
     return () => clearTimeout(timer);
   }, [lastEarnedBadge, clearLastEarnedBadge, opacity, progress]);
+
+  // Le toast disparaît après 3 s : le badge rejoint aussi l'historique des
+  // notifications (dédoublonné en base, un badge n'y figure qu'une fois).
+  useEffect(() => {
+    if (!lastEarnedBadge) return;
+    void notifyAchievement(
+      lastEarnedBadge.id,
+      t('notif.badgeUnlocked', {
+        label: badgeText(t, lastEarnedBadge.id, 'title', lastEarnedBadge.label),
+        n: lastEarnedBadge.points,
+      }),
+    );
+  }, [lastEarnedBadge, t]);
 
   if (!lastEarnedBadge) return null;
 
@@ -54,9 +71,11 @@ export function AchievementToast() {
           <Ionicons name={badgeIcon(lastEarnedBadge.icon)} size={22} color={colors.black} />
         </View>
         <View style={styles.copy}>
-          <Text style={styles.eyebrow}>Badge débloqué · +{lastEarnedBadge.points} pts</Text>
-          <Text style={styles.label}>{lastEarnedBadge.label}</Text>
-          <Text style={styles.desc} numberOfLines={1}>{lastEarnedBadge.description}</Text>
+          <Text style={styles.eyebrow}>{t('toast.badge', { n: lastEarnedBadge.points })}</Text>
+          <Text style={styles.label}>{badgeText(t, lastEarnedBadge.id, 'title', lastEarnedBadge.label)}</Text>
+          <Text style={styles.desc} numberOfLines={1}>
+            {badgeText(t, lastEarnedBadge.id, 'desc', lastEarnedBadge.description)}
+          </Text>
         </View>
         <Ionicons name="trophy" size={24} color={colors.brandDeep} />
       </Animated.View>

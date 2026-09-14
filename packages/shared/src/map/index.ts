@@ -57,6 +57,71 @@ export function levelFor(zoom: number): ClusterLevel {
   return 'spread';
 }
 
+/** Vue globale : rotation et recentrage disponibles avant le détail pays. */
+export function isGlobeView(zoom: number): boolean {
+  return Number.isFinite(zoom) && levelFor(zoom) === 'country';
+}
+
+/** Tolérance pour confirmer qu'un vol natif a atteint son zoom de destination. */
+export const CAMERA_SETTLE_ZOOM_TOLERANCE = 0.05;
+
+/**
+ * Tolérance (degrés) pour confirmer qu'un vol natif a atteint son centre.
+ *
+ * Au niveau globe, Mapbox natif bloque la latitude à 0 (et le zoom vers
+ * 0,96). Un vol parti de là pouvait arriver au bon zoom… sur l'équateur :
+ * aplat d'océan dans le golfe de Guinée pour Cotonou, forêt du Congo pour
+ * Stockholm. Vérifier le zoom seul laissait croire que la caméra était arrivée.
+ */
+export const CAMERA_SETTLE_CENTER_TOLERANCE_DEG = 0.01;
+
+/** Arrivée d'une caméra à sa destination, zoom et centre évalués séparément. */
+export function cameraArrival(
+  current: { center: readonly number[]; zoom: number },
+  target: { center?: readonly number[] | null; zoom?: number | null },
+): { zoomReached: boolean; centerReached: boolean } {
+  const zoomReached =
+    target.zoom == null || Math.abs(current.zoom - target.zoom) < CAMERA_SETTLE_ZOOM_TOLERANCE;
+  const wanted = target.center;
+  if (!wanted || !isValidCoordinate(wanted) || !isValidCoordinate(current.center)) {
+    return { zoomReached, centerReached: true };
+  }
+  // Longitude comparée modulo 360 : -179,99° et 180° désignent le même méridien.
+  const dLng = Math.abs(((current.center[0] - wanted[0] + 540) % 360) - 180);
+  const dLat = Math.abs(current.center[1] - wanted[1]);
+  return {
+    zoomReached,
+    centerReached: dLng < CAMERA_SETTLE_CENTER_TOLERANCE_DEG && dLat < CAMERA_SETTLE_CENTER_TOLERANCE_DEG,
+  };
+}
+
+/** Les zones tactiles peuvent se recouvrir : le point le plus proche du
+ * contact gagne, pas le dernier marker dessiné dans la liste. */
+export function nearestMapTarget<T>(
+  targets: readonly T[], coordinates: [number, number], locate: (target: T) => [number, number],
+): T | undefined {
+  if (!isValidCoordinate(coordinates)) return undefined;
+  let nearest: T | undefined;
+  let nearestDistance = Infinity;
+  for (const target of targets) {
+    const point = locate(target);
+    if (!isValidCoordinate(point)) continue;
+    const distance = distanceKm(coordinates, point);
+    if (distance < nearestDistance) { nearestDistance = distance; nearest = target; }
+  }
+  return nearest;
+}
+
+/** Un seul calcul de destination pour le clic pays/ville/groupe. */
+export function clusterCameraTarget(
+  members: Artist[], coordinates: [number, number], zoom: number,
+  kind: 'country' | 'city' | 'sub' | undefined,
+) {
+  const camera = kind ? CAMERA[kind] : CAMERA.artist;
+  const rendered = firstRenderedPosition(members, PIN_LAYOUT_ZOOM);
+  return { coordinates: rendered?.coordinates ?? coordinates, zoom: rendered ? CAMERA.artist.zoom : zoom, duration: camera.duration };
+}
+
 /* ------------------------------------------------------------------ */
 /* Dés-empilement en spirale                                          */
 /* ------------------------------------------------------------------ */
@@ -442,7 +507,7 @@ export const CAMERA: Record<
   genre: { zoom: 11, duration: 2200 },
   sub: { zoom: 13.5, duration: 1800 },
   globe: { zoom: 0.75, duration: 2000 },
-  location: { zoom: 10, duration: 2200 },
+  location: { zoom: 13, duration: 2200 },
 };
 
 /**

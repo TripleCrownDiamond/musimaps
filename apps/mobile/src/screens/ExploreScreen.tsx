@@ -11,8 +11,10 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Easing,
   Image,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -21,20 +23,29 @@ import {
   Text,
   TextInput,
   View,
+  type GestureResponderEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GuestExperienceNudge } from '../components/GuestExperienceNudge';
 import {
   bucketKey,
   CAMERA,
+  cameraArrival,
+  clusterCameraTarget,
+  nearestMapTarget,
+  isGlobeView,
   GUEST_NUDGE_DURATION_MS,
   artistsNearLocation,
+  artistMapLocation,
+  explorationAfterArtistClose,
+  mapLocationHeading,
   cities,
   artists as catalogue,
   clusterBy,
   clusterAnchor,
   compactCount,
   countryByName,
+  countryName,
   distanceKm,
   PIN_LAYOUT_ZOOM,
   declump,
@@ -90,7 +101,6 @@ import {
 } from '@musimaps/shared';
 import { Pause, Play } from 'lucide-react-native';
 import { AppBar } from '../components/AppBar';
-import { NotificationButton } from '../components/NotificationButton';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { ArtistSheet } from '../components/ArtistSheet';
 import { PlacePanel, type PlacePanelData } from '../components/PlacePanel';
@@ -100,6 +110,7 @@ import { useI18n } from '../i18n';
 import {
   addMapArtist,
   addOrUpdateMapArtist,
+  displayGenre,
   fetchMapArtists,
   hasCrossSourceEvidence,
   locateArtist,
@@ -117,7 +128,7 @@ import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimap
 import { fetchAllArtistPopularity, recordPinView } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { HAS_MAPBOX, MAPBOX_TOKEN } from '../lib/mapbox';
-import { dockStyle, fonts, shadow, type AppColors } from '../theme';
+import { fonts, shadow, type AppColors } from '../theme';
 
 type Props = CompositeScreenProps<
   BottomTabScreenProps<MainTabParamList, 'Explore'>,
@@ -128,8 +139,6 @@ const GLOBE_ZOOM = CAMERA.globe.zoom;
 // Hauteur de l'AppBar partagée + écart avant la search (offset sous la topbar).
 const APPBAR_HEIGHT = 56;
 const APPBAR_GAP = 12;
-/** Hauteur de la pilule « Vous êtes ici » + respiration avant la search. */
-const LOCATION_STATUS_OFFSET = 48;
 /** Le globe reste sphérique : un drag vertical ne doit pas incliner la carte. */
 const GLOBE_PITCH_ENABLED = false;
 /** Seuil de repli de la recherche en icône (comme le web : zoom ≥ 3.2). */
@@ -224,6 +233,7 @@ type Pin =
 
 type VisibleRegion = {
   properties: {
+    center: number[];
     bounds: { ne: number[]; sw: number[] };
     zoom: number;
   };
@@ -246,8 +256,8 @@ if (HAS_MAPBOX) Mapbox.setAccessToken(MAPBOX_TOKEN!);
 
 export function ExploreScreen({ navigation, route }: Props) {
   const { colors, theme } = useAppTheme();
-  const { deviceId, recordCityVisit, showToast } = useApp();
-  const { t } = useI18n();
+  const { deviceId, recordCityVisit, showToast, setDockHidden } = useApp();
+  const { t, lang } = useI18n();
   const insets = useSafeAreaInsets();
   /** Voile des surfaces posées sur la carte — même jeu que le web. */
   const overlay = mapOverlays[theme];
@@ -294,6 +304,27 @@ export function ExploreScreen({ navigation, route }: Props) {
   const mapViewRef = useRef<Mapbox.MapView>(null);
   const webMapRef = useRef<ExpoWebMap | null>(null);
   const centerRef = useRef<[number, number]>(GLOBE_CENTER);
+  const mapReadyRef = useRef(false);
+  const pendingCameraRef = useRef<Parameters<Mapbox.Camera['setCamera']>[0] | null>(null);
+  const cameraCommandIssuedRef = useRef(false);
+  /** Recentrage déjà tenté pour la destination en cours (au plus un par vol). */
+  const cameraCorrectedRef = useRef(false);
+  const mapSurfaceRef = useRef<View>(null);
+  const mapOriginRef = useRef({ x: 0, y: 0 });
+  const bindMapView = useCallback((map: Mapbox.MapView | null) => {
+    mapViewRef.current = map;
+    if (!map) {
+      mapReadyRef.current = false;
+      cameraCommandIssuedRef.current = false;
+    }
+  }, []);
+  const flushPendingCamera = useCallback(() => {
+    mapReadyRef.current = true;
+    if (pendingCameraRef.current && cameraRef.current && !cameraCommandIssuedRef.current) {
+      cameraRef.current.setCamera(pendingCameraRef.current);
+      cameraCommandIssuedRef.current = true;
+    }
+  }, []);
 
   // --- État (miroir de la page globe web) ---
   const [selected, setSelected] = useState<Artist | null>(null);
@@ -303,7 +334,17 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // Hauteur du clavier : sous Android edge-to-edge, `adjustResize` ne réduit
+  // plus la fenêtre, le clavier recouvre la sheet → on la soulève d'autant.
+  const [kbInset, setKbInset] = useState(0);
   const [spinning, setSpinning] = useState(true);
+  // L'arrêt précède le prochain rendu React : un onMapIdle tardif ne doit
+  // jamais laisser passer un dernier ordre de rotation après le recentrage.
+  const spinEnabledRef = useRef(true);
+  const setRotation = useCallback((enabled: boolean) => {
+    spinEnabledRef.current = enabled;
+    setSpinning(enabled);
+  }, []);
   const [mapZoom, setMapZoom] = useState(GLOBE_ZOOM);
   // La rotation est cadencée hors rendu React. Toujours lire le zoom courant
   // dans cette ref : l'effet d'intervalle ne doit pas conserver le zoom du
@@ -351,6 +392,12 @@ export function ExploreScreen({ navigation, route }: Props) {
   /** Position à centrer une fois le globe monté (après autorisation). */
   const [pendingLoc, setPendingLoc] = useState<[number, number] | null>(null);
   const [userLocation, setUserLocation] = useState<MapLocation | null>(null);
+  const [explorationLocation, setExplorationLocation] = useState<MapLocation | null>(null);
+  const locationHeading = mapLocationHeading(userLocation, explorationLocation, lang);
+  // Une réponse GPS tardive ou un retour d'onglet ne doit pas remplacer
+  // la destination choisie dans Découvrir, la recherche ou les pins.
+  const hasNavigatedRef = useRef(false);
+  const initialLocationHandledRef = useRef(false);
   const locationNoticeRef = useRef<string | null>(null);
 
   const searchCollapsed = selected !== null || mapZoom >= SEARCH_COLLAPSE_ZOOM;
@@ -368,10 +415,8 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // Masque le dock pendant la fiche ou la recherche (le panneau occupe le bas).
   useEffect(() => {
-    navigation.setOptions({
-      tabBarStyle: selected || searchOpen ? { display: 'none' } : dockStyle(colors, insets.bottom + 22),
-    });
-  }, [selected, searchOpen, navigation, colors, insets.bottom]);
+    setDockHidden(selected !== null || searchOpen);
+  }, [selected, searchOpen, setDockHidden]);
 
   // Charge les artistes de la carte (table partagée web + mobile) à chaque focus.
   useFocusEffect(
@@ -400,7 +445,10 @@ export function ExploreScreen({ navigation, route }: Props) {
   // reste ignoré pour la session en cours.
   useFocusEffect(
     useCallback(() => {
+      const hasDestination = Boolean(route.params?.artistId || (route.params?.city && !route.params?.skipLocation));
+      if (hasDestination) setLocState('skipped');
       if (locSkippedRef.current) return;
+      if (initialLocationHandledRef.current) return;
       // Venu de l'écran Welcome (localisation déjà tranchée) : on saute la
       // demande d'autorisation — la carte s'affiche directement (et se centre
       // sur les coordonnées passées, si présentes).
@@ -417,7 +465,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           };
           next.label = mapLocationLabel(next);
           setUserLocation(next);
-          setPendingLoc(next.coordinates);
+          if (!hasNavigatedRef.current && !route.params?.artistId) setPendingLoc(next.coordinates);
           setLocState('granted');
         } else {
           // Permission already tranchée mais aucune coordonnée transmise
@@ -427,7 +475,7 @@ export function ExploreScreen({ navigation, route }: Props) {
           void readExpoMapLocation().then((location) => {
             if (!location) return;
             setUserLocation(location);
-            setPendingLoc(location.coordinates);
+            if (!hasNavigatedRef.current && !route.params?.artistId) setPendingLoc(location.coordinates);
           });
         }
         return;
@@ -436,7 +484,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       // wrapper expo-location (qui peut rester bloqué). Le bouton Autoriser
       // déclenchera navigator.geolocation au prochain clic.
       if (Platform.OS === 'web') {
-        setLocState('denied');
+        setLocState(hasDestination ? 'skipped' : 'denied');
         return () => {};
       }
       let cancelled = false;
@@ -446,19 +494,20 @@ export function ExploreScreen({ navigation, route }: Props) {
       ).then(async (permission) => {
         if (cancelled) return;
         if (!permission || permission.status !== 'granted') {
-          setLocState('denied');
+          setLocState(hasDestination ? 'skipped' : 'denied');
           return;
         }
         setLocState('granted');
         const location = await readExpoMapLocation();
         if (cancelled || !location) return;
+        initialLocationHandledRef.current = true;
         setUserLocation(location);
-        setPendingLoc(location.coordinates);
+        if (!hasNavigatedRef.current && !route.params?.artistId) setPendingLoc(location.coordinates);
       });
       return () => {
         cancelled = true;
       };
-    }, [route.params?.skipLocation, route.params?.coordinates]),
+    }, [route.params?.skipLocation, route.params?.coordinates, route.params?.artistId, route.params?.city]),
   );
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
@@ -471,7 +520,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!userLocation || allArtists.length === 0) return;
     const nearbyArtists = artistsNearLocation(allArtists, userLocation.coordinates);
-    setVisiblePins(nearbyArtists);
+    if (!hasNavigatedRef.current) setVisiblePins(nearbyArtists);
     const key = `${userLocation.coordinates.join(',')}|${nearbyArtists.length}`;
     if (locationNoticeRef.current === key) return;
     locationNoticeRef.current = key;
@@ -680,15 +729,23 @@ export function ExploreScreen({ navigation, route }: Props) {
     zoomLevel: number,
     duration = CAMERA.artist.duration,
   ) => {
-    // Suspend le tick pendant le vol (clear synchrone de l'intervalle), sans
-    // désactiver le mode Play/Pause. Le tick reprendra à `onMapIdle`.
+    // Comme sur le web, une destination explicite arrête la rotation. Seul
+    // Play peut la relancer, une fois revenu en vue globe.
+    setRotation(false);
+    hasNavigatedRef.current = true;
+    setPendingLoc(null);
     suspendSpinForCameraMove();
-    cameraRef.current?.setCamera({
+    centerRef.current = coordinates;
+    rotationZoomRef.current = zoomLevel;
+    pendingCameraRef.current = {
       centerCoordinate: coordinates,
       zoomLevel,
       animationDuration: duration,
       animationMode: 'flyTo',
-    });
+    };
+    cameraCommandIssuedRef.current = false;
+    cameraCorrectedRef.current = false;
+    if (mapReadyRef.current) flushPendingCamera();
   };
 
   /**
@@ -702,12 +759,42 @@ export function ExploreScreen({ navigation, route }: Props) {
    *    l'artiste cherché finissait en périphérie de l'écran.
    */
   const flyToArtist = (artist: Artist) => {
+    setExplorationLocation(artistMapLocation(artist));
     const rendered =
       renderedPosition(allArtists, artist.id, PIN_LAYOUT_ZOOM) ?? artist.coordinates;
     flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
   };
 
+  const closeArtist = () => {
+    if (!selected) return;
+    const navigation = explorationAfterArtistClose(allArtists, selected, selectedPlace);
+    setSelectedPlace(navigation.place);
+    setPlaceIndex(navigation.index);
+    setVisiblePins(navigation.place.artists);
+    setHighlightedId(selected.id);
+    // Ni vol, ni GPS : fermer la fiche laisse la caméra et sa zone en place.
+    setSelected(null);
+  };
+
+  // Le retour système ferme d'abord le panneau, sans quitter la carte ni
+  // perdre la destination choisie dans Découvrir.
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (searchOpen) {
+        closeSearch();
+        return true;
+      }
+      if (selected) {
+        closeArtist();
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [searchOpen, selected, selectedPlace, allArtists]));
+
   const resetView = () => {
+    setExplorationLocation(null);
     setSelected(null);
     setSelectedPlace(null);
     setPlaceIndex(0);
@@ -772,6 +859,12 @@ export function ExploreScreen({ navigation, route }: Props) {
   // (pendingLoc n'est posé que quand locState devient 'granted').
   useEffect(() => {
     if (!pendingLoc) return;
+    setExplorationLocation(null);
+    setSelected(null);
+    setSelectedPlace(null);
+    setPlaceIndex(0);
+    setHighlightedId(null);
+    setVisiblePins(artistsNearLocation(allArtists, pendingLoc));
     flyTo(pendingLoc, CAMERA.location.zoom, CAMERA.location.duration);
     setPendingLoc(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -781,6 +874,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     (artist: Artist, rawQuery?: string) => {
       rememberQuery(rawQuery ?? query);
       setSelected(artist);
+      if (!selectedPlace?.artists.some((item) => item.id === artist.id)) setSelectedPlace(null);
       setSearchOpen(false);
       setQuery('');
       setVisiblePins([artist]);
@@ -788,11 +882,12 @@ export function ExploreScreen({ navigation, route }: Props) {
       void recordPinView(artist.id, { viewerKey: deviceId ?? undefined });
       flyToArtist(artist);
     },
-    [query, rememberQuery, deviceId, recordCityVisit],
+    [query, rememberQuery, deviceId, recordCityVisit, selectedPlace],
   );
 
   const goToCity = useCallback(
     (c: PlaceResult) => {
+      setExplorationLocation({ coordinates: c.coordinates, city: c.city, country: c.country });
       rememberQuery(`${c.city}, ${c.country}`);
       const cityArtists = allArtists.filter(
         (a) => a.city.trim().toLowerCase() === c.city.trim().toLowerCase() &&
@@ -835,6 +930,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   const goToNeighborhood = useCallback(
     (n: NeighborhoodSuggestion) => {
+      setExplorationLocation({ coordinates: [n.lng, n.lat], district: n.name, city: n.city, country: n.country });
       rememberQuery(n.name);
       // Quartier : artistes « proches » (≤ ~4,4 km) de ce quartier.
       const radius = NEIGHBORHOOD_RADIUS_DEG;
@@ -879,6 +975,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   const goToCountry = useCallback(
     (c: CountryResult) => {
+      setExplorationLocation({ coordinates: c.coordinates, country: c.name });
       rememberQuery(c.name);
       const countryArtists = allArtists.filter(
         (a) => geoCountryOf(a.city, a.country) === c.code.toUpperCase(),
@@ -923,6 +1020,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setPlaceIndex(i);
       const artist = selectedPlace?.artists[i];
       if (artist && isValidCoordinate(artist.coordinates)) {
+        setExplorationLocation(artistMapLocation(artist));
         setSelected(null);
         setHighlightedId(artist.id);
         // Vole vers la position AFFICHÉE du pin (dés-empilement inclus) pour
@@ -945,6 +1043,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       setHighlightedId(null);
       setVisiblePins(genreArtists);
       if (genreArtists.length > 0) {
+        setExplorationLocation(artistMapLocation(genreArtists[0]));
         const rendered = renderedPosition(genreArtists, genreArtists[0].id, PIN_LAYOUT_ZOOM);
         flyTo(rendered ?? genreArtists[0].coordinates, CAMERA.genre.zoom, CAMERA.genre.duration);
       }
@@ -1106,7 +1205,10 @@ export function ExploreScreen({ navigation, route }: Props) {
           tier: Math.max(0, ...members.map((a) => tierOf(a, popularityById))) as PopularityTier,
           place: {
             kind: 'country',
-            name: geo.code,
+            // Nom du pays dans la langue de l'écran : la barre de lieu et
+            // l'en-tête affichaient le code ISO (« GH ») là où le web
+            // affichait le pays.
+            name: countryName(geo.code, lang),
             code: geo.code,
             flag: geo.flag,
           },
@@ -1182,7 +1284,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       }
     }
     return out;
-  }, [visiblePins, searchOpen, query, allArtists, mapZoom, popularityById, scopeReleased]);
+  }, [visiblePins, searchOpen, query, allArtists, mapZoom, popularityById, scopeReleased, lang]);
 
   /**
    * Taille d'un pin : zoom ET notoriété — même formule que le web.
@@ -1211,30 +1313,28 @@ export function ExploreScreen({ navigation, route }: Props) {
   // mouvement, un rendu n'est déclenché qu'au changement de niveau de cluster ;
   // au repos, on conserve la valeur exacte pour la taille/opacité des pins.
   const syncMapZoom = useCallback((zoom: number, exact = false) => {
+    if (!Number.isFinite(zoom)) return;
+    rotationZoomRef.current = zoom;
+    if (!isGlobeView(zoom) && spinEnabledRef.current) setRotation(false);
     setMapZoom((previous) => {
-      if (!Number.isFinite(zoom)) return previous;
-      rotationZoomRef.current = zoom;
       if (!exact && levelFor(previous) === levelFor(zoom)) return previous;
       return Math.abs(previous - zoom) < 0.02 ? previous : zoom;
     });
-  }, []);
+  }, [setRotation]);
 
   const loadRegion = ({ properties }: VisibleRegion) => {
-    const [east, north] = properties.bounds.ne;
-    const [west, south] = properties.bounds.sw;
     const z = properties.zoom;
-    centerRef.current = [(west + east) / 2, (south + north) / 2];
+    if (isValidCoordinate(properties.center)) centerRef.current = [properties.center[0], properties.center[1]];
     syncMapZoom(z, true);
   };
 
   // Rotation automatique. Sur iOS/Android, `moveBy` confie l'interpolation
   // directement au moteur Mapbox : le thread JS n'envoie plus de nouvelle
   // coordonnée à chaque tick et ne peut donc plus provoquer de blocage visible.
-  // Sur Expo Web, l'adaptateur n'expose pas `moveBy` : on garde le chemin
-  // `setCamera` de compatibilité, tandis que le natif utilise le chemin direct.
-  // Suspend le tick pendant un vol programmatique. Un geste utilisateur ne
-  // désactive pas le mode rotation : il suspend seulement le tick pendant
-  // l'interaction et la rotation reprend dès que Mapbox revient au repos.
+  // Sur Expo Web, la boucle utilise directement `jumpTo` de Mapbox GL.
+  // Un déplacement manuel suspend le tick pendant le geste. La rotation
+  // reprend au repos uniquement si l'on est resté en vue globe ; un zoom
+  // local ou un vol programmatique l'arrête jusqu'au prochain Play.
   //
   // Les gestes remontent par `onCameraChanged` (API Mapbox v10) ; aucun ancien
   // événement de région ni capture tactile du parent n'est nécessaire.
@@ -1268,6 +1368,8 @@ export function ExploreScreen({ navigation, route }: Props) {
     // pont web plus bas). En natif, ce garde-fou couvre le premier toucher
     // Android avant l'arrivée de `onCameraChanged`.
     if (Platform.OS !== 'web') {
+      hasNavigatedRef.current = true;
+      pendingCameraRef.current = null;
       touchActiveRef.current = true;
       clearGestureRelease();
       gestureActiveRef.current = true;
@@ -1307,7 +1409,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         const elapsed = Math.min(now - last, GLOBE_SPIN_TICK_MS);
         last = now;
         const webMap = webMapRef.current;
-        if (webMap && !gestureActiveRef.current) {
+        if (webMap && spinEnabledRef.current && isGlobeView(webMap.getZoom()) && !gestureActiveRef.current) {
           const center = webMap.getCenter();
           center.lng -= spinDeltaFor(elapsed);
           webMap.jumpTo({ center });
@@ -1329,10 +1431,11 @@ export function ExploreScreen({ navigation, route }: Props) {
       last = now;
 
       // Pendant un drag/pinch, Mapbox doit être l'unique écrivain de la
-      // caméra. Le mode rotation reste actif et reprend au prochain tick
-      // après le signal de fin de geste.
-      if (gestureActiveRef.current) return;
+      // caméra. Le mode rotation reprend après le geste seulement si l'on
+      // est resté en vue globe et que Play est toujours actif.
+      if (!spinEnabledRef.current || gestureActiveRef.current) return;
       const mapZoom = rotationZoomRef.current;
+      if (!isGlobeView(mapZoom)) return;
 
       // `moveBy` est exécuté directement par le moteur natif (iOS/Android),
       // contrairement à `setCamera` qui passe par une file de CameraStops.
@@ -1354,8 +1457,8 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, [clearGestureRelease, spinning]);
 
-  /** Suspend la rotation pendant un vol programmatique, sans basculer
-   *  l'état Play/Pause. Le mode actif reprend au prochain `onMapIdle`. */
+  /** Donne la priorité au vol programmatique jusqu'au prochain `onMapIdle`.
+   *  Ce verrou ne réactive jamais la rotation arrêtée par `flyTo`. */
   const suspendSpinForCameraMove = useCallback(() => {
     gestureActiveRef.current = true;
   }, []);
@@ -1365,6 +1468,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   // la navigation vient de la liste des sauvegardés (sans searchKey).
   const handledSearchKeyRef = useRef<number | null>(null);
   const handledArtistIdRef = useRef<string | null>(null);
+  const handledPlaceKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const key = route.params?.searchKey ?? null;
     const artistId = route.params?.artistId;
@@ -1379,6 +1483,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       handledSearchKeyRef.current = key;
       handledArtistIdRef.current = artistId ?? null;
       setSelected(artist);
+      setSelectedPlace(null);
       setVisiblePins([artist]);
       recordCityVisit(`${artist.city}, ${artist.country}`).catch(() => {});
       flyToArtist(artist);
@@ -1388,7 +1493,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   // Ville passée en paramètre (recherche de lieu).
   useEffect(() => {
     const requestedPlace = route.params?.city;
-    if (!requestedPlace) return;
+    if (!requestedPlace || route.params?.artistId || (route.params?.skipLocation && !route.params?.searchKey)) return;
     const searchedCoordinates = route.params?.coordinates;
     const normalizedRequest = norm(requestedPlace);
     const requestedCity = norm(requestedPlace.split(',')[0] ?? requestedPlace);
@@ -1404,6 +1509,10 @@ export function ExploreScreen({ navigation, route }: Props) {
     });
     const target = searchedCoordinates ?? city?.coordinates ?? catalogCity?.coordinates;
     if (!target) return;
+    const placeKey = `${requestedPlace}|${route.params?.searchKey ?? ''}|${target.join(',')}`;
+    if (handledPlaceKeyRef.current === placeKey) return;
+    handledPlaceKeyRef.current = placeKey;
+    setExplorationLocation({ coordinates: target, label: requestedPlace });
     setSelected(null);
     const artistsInPlace = allArtists
       .filter((artist) => {
@@ -1441,6 +1550,20 @@ export function ExploreScreen({ navigation, route }: Props) {
       }).start();
     }
   }, [searchOpen, sheetAnim]);
+
+  // Soulève la sheet si le clavier la recouvre, et la replace lorsqu'il se ferme.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (e) =>
+      setKbInset(e.endCoordinates?.height ?? 0),
+    );
+    const onHide = Keyboard.addListener(hideEvent, () => setKbInset(0));
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, []);
 
   if (!HAS_MAPBOX) {
     return (
@@ -1520,6 +1643,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
     let gestureReleaseTimer: ReturnType<typeof setTimeout> | null = null;
     const onGestureStart = () => {
+      hasNavigatedRef.current = true;
       gestureActiveRef.current = true;
       if (gestureReleaseTimer) {
         clearTimeout(gestureReleaseTimer);
@@ -1543,7 +1667,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       if (disposed) return;
       webMap = (mapViewRef.current as unknown as { map?: ExpoWebMap } | null)?.map ?? null;
       webMapRef.current = webMap;
-      if (!webMap) {
+      if (!webMap || !cameraRef.current) {
         retry = setTimeout(attach, 50);
         return;
       }
@@ -1555,6 +1679,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       webMap.on('dragend', onGestureEnd);
       webMap.on('zoomend', onGestureEnd);
       webMap.on('rotateend', onGestureEnd);
+      flushPendingCamera();
       onMoveEnd();
     };
 
@@ -1576,7 +1701,33 @@ export function ExploreScreen({ navigation, route }: Props) {
       }
       webMapRef.current = null;
     };
-  }, [locState, mapTheme, tintedStyle, syncMapZoom]);
+  }, [locState, mapTheme, tintedStyle, syncMapZoom, flushPendingCamera]);
+
+  const pressCluster = async (pressedPin: Extract<Pin, { kind: 'cluster' }>, event: GestureResponderEvent) => {
+    setRotation(false);
+    let pin = pressedPin;
+    if (Platform.OS !== 'web') {
+      const { pageX, pageY } = event.nativeEvent;
+      try {
+        const coordinate = await mapViewRef.current?.getCoordinateFromView([
+          pageX - mapOriginRef.current.x, pageY - mapOriginRef.current.y,
+        ]);
+        if (coordinate && isValidCoordinate(coordinate)) {
+          const clusters = pins.filter((item): item is Extract<Pin, { kind: 'cluster' }> => item.kind === 'cluster');
+          pin = nearestMapTarget(clusters, [coordinate[0], coordinate[1]], (item) => item.coords) ?? pressedPin;
+        }
+      } catch { /* Si le pont natif n'est plus disponible, garder le pin touché. */ }
+    }
+    setSelected(null);
+    if (pin.place) setExplorationLocation({ coordinates: pin.coords, label: pin.place.name });
+    else if (pin.members[0]) setExplorationLocation(artistMapLocation(pin.members[0]));
+    setVisiblePins(pin.members);
+    setHighlightedId(pin.members[0]?.id ?? null);
+    setSelectedPlace(pin.place ? { ...pin.place, artists: pin.members } : null);
+    setPlaceIndex(0);
+    const target = clusterCameraTarget(pin.members, pin.coords, pin.zoomTo, pin.place?.kind ?? pin.variant);
+    flyTo(target.coordinates, target.zoom, target.duration);
+  };
 
   return (
     <View style={styles.container}>
@@ -1623,9 +1774,10 @@ export function ExploreScreen({ navigation, route }: Props) {
         </View>
       ) : (
         // Le geste tactile reste entièrement pris en charge par Mapbox. Il
-        // suspend seulement le tick de rotation via `gestures.isGestureActive`
-        // ; seul le bouton Play/Pause modifie l'état de rotation.
-        <View style={StyleSheet.absoluteFill}>
+        // suspend le tick via `gestures.isGestureActive`. Le passage en vue
+        // locale arrête la rotation ; seul Play peut ensuite la relancer.
+        <View ref={mapSurfaceRef} style={StyleSheet.absoluteFill}
+          onLayout={() => mapSurfaceRef.current?.measureInWindow((x, y) => { mapOriginRef.current = { x, y }; })}>
         <Mapbox.MapView
         // La clé change dès que le style de marque est prêt — sur natif AUSSI.
         // Elle valait 'native-map' en dur : la MapView recevait `styleURL`
@@ -1635,11 +1787,14 @@ export function ExploreScreen({ navigation, route }: Props) {
         // la raison pour laquelle le mobile n'avait pas la bonne charte.
         key={`${mapTheme}-${tintedStyle ? 'brand' : 'base'}`}
         style={StyleSheet.absoluteFill}
-        ref={mapViewRef}
+        ref={bindMapView}
+        onDidFinishLoadingStyle={flushPendingCamera}
+        onDidFinishLoadingMap={flushPendingCamera}
         styleURL={renderedStyleURL}
         styleJSON={renderedStyleJSON}
         projection="globe"
         scrollEnabled
+        zoomEnabled
         rotateEnabled
         pitchEnabled={GLOBE_PITCH_ENABLED}
         gestureSettings={{
@@ -1659,21 +1814,30 @@ export function ExploreScreen({ navigation, route }: Props) {
         scaleBarEnabled={false}
         logoEnabled={false}
         attributionEnabled={false}
-        onPress={() => {
-          if (selected) {
-            if (selectedPlace) {
-              setVisiblePins(selectedPlace.artists);
-              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id);
-              if (restoredIndex >= 0) setPlaceIndex(restoredIndex);
-              setHighlightedId(selected.id);
-            } else {
-              setVisiblePins([]);
-              setHighlightedId(null);
+        onPress={closeArtist}
+        onMapIdle={(event) => {
+          const target = pendingCameraRef.current;
+          if (target && 'zoomLevel' in target && target.zoomLevel != null) {
+            const arrival = cameraArrival(
+              { center: event.properties.center, zoom: event.properties.zoom },
+              { center: target.centerCoordinate ?? null, zoom: target.zoomLevel },
+            );
+            if (arrival.zoomReached && arrival.centerReached) {
+              pendingCameraRef.current = null;
+            } else if (arrival.zoomReached && !cameraCorrectedRef.current && cameraRef.current) {
+              // Vol parti du globe : Mapbox y bloque la latitude à 0, et la
+              // caméra arrivait au bon zoom sur l'équateur (aplat d'océan ou
+              // de forêt). Au zoom de destination la latitude est libre : on
+              // repose le centre une seule fois, sans animation.
+              cameraCorrectedRef.current = true;
+              cameraRef.current.setCamera({
+                centerCoordinate: target.centerCoordinate,
+                zoomLevel: target.zoomLevel,
+                animationDuration: 0,
+                animationMode: 'moveTo',
+              });
             }
           }
-          setSelected(null);
-        }}
-        onMapIdle={(event) => {
           // Ne pas relâcher un toucher encore en cours. Sur Android, un
           // `onMapIdle` intermédiaire peut arriver avant la fin de l'inertie.
           if (!touchActiveRef.current) {
@@ -1690,8 +1854,8 @@ export function ExploreScreen({ navigation, route }: Props) {
         // niveau discret pour éviter un re-render par frame.
         onCameraChanged={({ properties, gestures }) => {
           // Natif : pendant un drag/pinch, Mapbox est l'unique écrivain de la
-          // caméra. On ne désactive pas le mode rotation : il reprend dès que
-          // le geste est terminé (ou au prochain `onMapIdle`).
+          // caméra. Un geste resté en vue globe peut reprendre la rotation ;
+          // `syncMapZoom` l'arrête si l'on zoome vers une zone locale.
           if (gestures?.isGestureActive) {
             gestureActiveRef.current = true;
             gestureMovedRef.current = true;
@@ -1713,7 +1877,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       >
         <Mapbox.Camera
           ref={cameraRef}
-          defaultSettings={{ centerCoordinate: GLOBE_CENTER, zoomLevel: GLOBE_ZOOM, pitch: 0, heading: 0 }}
+          defaultSettings={{ centerCoordinate: centerRef.current, zoomLevel: rotationZoomRef.current, pitch: 0, heading: 0 }}
           centerCoordinate={Platform.OS === 'web' ? GLOBE_CENTER : undefined}
           zoomLevel={Platform.OS === 'web' ? GLOBE_ZOOM : undefined}
           minZoomLevel={0.45}
@@ -1739,11 +1903,6 @@ export function ExploreScreen({ navigation, route }: Props) {
             allowOverlap
           >
             <View pointerEvents="none" style={styles.locationMarker}>
-              {!!mapLocationLabel(userLocation) && (
-                <Text style={styles.locationMarkerLabel} numberOfLines={1}>
-                  {mapLocationLabel(userLocation)}
-                </Text>
-              )}
               <View style={styles.locationMarkerDot} />
             </View>
           </Mapbox.MarkerView>
@@ -1751,73 +1910,29 @@ export function ExploreScreen({ navigation, route }: Props) {
         {orderedPins.map((pin) =>
           pin.kind === 'cluster' ? (
             <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
-              <Animated.View
-                pointerEvents="box-none"
-                style={globeView ? {
-                  opacity: clusterPulse.interpolate({ inputRange: [0, 1], outputRange: [0.38, 1] }),
-                } : undefined}
-              >
+              <View pointerEvents="box-none" style={styles.clusterTouchTarget}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${pin.label} — ${pin.count} artistes`}
+                accessibilityLabel={t('globe.clusterAria', { place: pin.label, count: pin.count })}
                 hitSlop={mapUi.clusterHitSlop}
-                style={[
+                style={styles.clusterTouchTarget}
+                onPressIn={markMapGesture}
+                onPressOut={finishMapGesture}
+                onPress={(event) => void pressCluster(pin, event)}
+              >
+                {/* La cible tactile ne change jamais de taille. Seuls le
+                    point et son halo pulsent : le doigt ne poursuit plus
+                    une cible de quelques pixels pendant la rotation. */}
+                <Animated.View pointerEvents="none" style={[
                   styles.clusterPin,
                   pin.variant === 'sub' && styles.clusterPinSub,
                   globeView && styles.clusterPinDot,
-                  // Fond + bordure colorés par DENSITÉ (tier max du groupe),
-                  // comme sur le web — le halo lumineux suit la couleur.
                   !globeView && pin.variant !== 'sub'
-                    ? {
-                        backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier],
-                        borderColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier],
-                      }
-                    : globeView
-                      ? { backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier] }
-                      : null,
-                  { transform: [{ scale: clusterScale }] },
-                ]}
-                onPress={() => {
-                  // Scope les pins aux artistes du cluster (comme le web) :
-                  // au zoom cible, seuls ses pins s'affichent, pas les
-                  // pays/villes voisins au bord du viewport.
-                  if (pin.members.length > 0) setVisiblePins(pin.members);
-                  // Cluster de LIEU (pays/ville) : ouvre le panneau bas
-                  // avec les stats + nav artiste-à-artiste (comme le web).
-                  // Le PREMIER pin du cluster est mis en évidence — on
-                  // atterrit dessus (position dés-empilée), pas dans le vide.
-                  if (pin.members.length > 0) {
-                    setHighlightedId(pin.members[0]?.id ?? null);
-                  }
-                  if (pin.place) {
-                    setSelectedPlace({ ...pin.place, artists: pin.members });
-                    setPlaceIndex(0);
-                  }
-                  // Vole vers le PREMIER artiste du cluster (position
-                  // dés-empilée) au lieu du barycentre : on atterrit toujours
-                  // sur un pin visible et mis en évidence.
-                  let targetCoords = pin.coords;
-                  let targetZoom = pin.zoomTo;
-                  const targetDuration = pin.place?.kind === 'country'
-                    ? CAMERA.country.duration
-                    : pin.place?.kind === 'city'
-                      ? CAMERA.city.duration
-                      : pin.variant === 'sub'
-                        ? CAMERA.sub.duration
-                        : CAMERA.artist.duration;
-                  if (pin.members.length > 0) {
-                    const firstMember = pin.members[0];
-                    if (firstMember && isValidCoordinate(firstMember.coordinates)) {
-                      const rendered = renderedPosition(pin.members, firstMember.id, PIN_LAYOUT_ZOOM);
-                      if (rendered) {
-                        targetCoords = rendered;
-                        targetZoom = CAMERA.artist.zoom;
-                      }
-                    }
-                  }
-                  flyTo(targetCoords, targetZoom, targetDuration);
-                }}
-              >
+                    ? { backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier], borderColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier] }
+                    : globeView ? { backgroundColor: pin.place ? colors.brandPrimary : POPULARITY_RING_COLORS[pin.tier] } : null,
+                  { transform: [{ scale: globeView ? 1 : clusterScale }] },
+                  globeView && { opacity: clusterPulse.interpolate({ inputRange: [0, 1], outputRange: [0.38, 1] }) },
+                ]}>
                 <View
                   pointerEvents="none"
                   style={[
@@ -1827,11 +1942,10 @@ export function ExploreScreen({ navigation, route }: Props) {
                     },
                   ]}
                 />
-                {globeView && pin.place?.kind === 'country' && (
-                  <Text pointerEvents="none" numberOfLines={1} style={styles.clusterCountryLabel}>
-                    {pin.flag} {pin.label}
-                  </Text>
-                )}
+                {/* Vue globe : l'étincelle seule, pays compris (comme le
+                    web). Drapeau et code n'apparaissent qu'au zoom : des
+                    libellés sur chaque point transformaient la traînée
+                    lumineuse en nuage d'étiquettes qui se chevauchaient. */}
                 {!globeView && (
                   <>
                     {/* Encre contrastée : blanche sur fonds sombres, sombre sur
@@ -1858,8 +1972,9 @@ export function ExploreScreen({ navigation, route }: Props) {
                         plateformes. */}
                   </>
                 )}
+                </Animated.View>
               </Pressable>
-              </Animated.View>
+              </View>
             </Mapbox.MarkerView>
           ) : (() => {
             const selectedPin = pin.artist.id === highlightedId;
@@ -1976,6 +2091,20 @@ export function ExploreScreen({ navigation, route }: Props) {
       <View style={[styles.appBarWrap, { top: insets.top + 10 }]}>
         <AppBar
           navigation={navigation}
+          centerContent={showMap && locationHeading && !searchOpen ? (
+            <View
+              style={styles.locationStatus}
+              accessible
+              accessibilityLabel={t(locationHeading.descriptionKey, { location: locationHeading.label })}
+            >
+              <Text style={styles.locationStatusCaption} numberOfLines={1}>
+                {t(locationHeading.captionKey)}
+              </Text>
+              <Text style={styles.locationStatusText} numberOfLines={mapUi.locationLabelMaxLines} ellipsizeMode="tail">
+                {locationHeading.label}
+              </Text>
+            </View>
+          ) : undefined}
           // Repliée seulement hors panneau : une fois la recherche ouverte,
           // la cloche revient (la search n'est plus « repliée »).
           searchCollapsed={searchCollapsed && !searchOpen}
@@ -1984,30 +2113,12 @@ export function ExploreScreen({ navigation, route }: Props) {
           // web) — ferme la fiche et revient au header normal logo + cloche.
           backOverride={selected !== null}
           onBack={() => {
-            setHighlightedId(null);
-            setSelectedPlace(null);
-            setPlaceIndex(0);
-            setVisiblePins([]);
-            setSelected(null);
+            closeArtist();
             setSearchOpen(false);
             setQuery('');
           }}
         />
       </View>
-
-      {showMap && userLocation && !selected && !searchOpen && (
-        <View
-          // Le statut de localisation se lit au-dessus de la recherche et ne
-          // prend plus toute la largeur de l'écran.
-          style={[styles.locationStatus, { top: insets.top + 10 + APPBAR_HEIGHT + APPBAR_GAP }]}
-          pointerEvents="none"
-        >
-          <Ionicons name="navigate" size={14} color={colors.brandDeep} />
-          <Text style={styles.locationStatusText} numberOfLines={1}>
-            {t('loc.detected', { location: mapLocationLabel(userLocation) || t('loc.title') })}
-          </Text>
-        </View>
-      )}
 
       {/* Barre de recherche sous la topbar — se replie en icône dès qu'on
           zoome ou qu'une fiche s'ouvre, comme sur le web. */}
@@ -2022,8 +2133,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                     insets.top +
                     10 +
                     APPBAR_HEIGHT +
-                    APPBAR_GAP +
-                    (userLocation ? LOCATION_STATUS_OFFSET : 0),
+                    APPBAR_GAP,
                 },
               ]}
             >
@@ -2050,11 +2160,13 @@ export function ExploreScreen({ navigation, route }: Props) {
             <Ionicons name="globe-outline" size={17} color={colors.brandDeep} />
             <Text style={styles.controlBtnText}>{t('globe.globeView')}</Text>
           </Pressable>
-          <Pressable
+          {isGlobeView(mapZoom) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('globe.rotateAria')}
             style={styles.rotateBtn}
-            onPress={() => setSpinning((s) => !s)}
+            onPress={() => {
+              if (isGlobeView(rotationZoomRef.current)) setRotation(!spinEnabledRef.current);
+            }}
           >
             {spinning ? (
               // Icône PLEINE bleu foncé, comme le bouton web (fill-current) :
@@ -2064,8 +2176,8 @@ export function ExploreScreen({ navigation, route }: Props) {
             ) : (
               <Play size={20} color={colors.brandDeep} fill={colors.brandDeep} strokeWidth={2.2} />
             )}
-          </Pressable>
-          <Pressable
+          </Pressable>}
+          {isGlobeView(mapZoom) && <Pressable
             accessibilityRole="button"
             accessibilityLabel={userLocation ? t('loc.recenter') : t('loc.allow')}
             style={[styles.controlBtn, requesting && styles.controlBtnBusy]}
@@ -2078,7 +2190,7 @@ export function ExploreScreen({ navigation, route }: Props) {
               <Ionicons name="navigate" size={17} color={colors.brandDeep} />
             )}
             <Text style={styles.controlBtnText}>{userLocation ? t('loc.recenter') : t('loc.allow')}</Text>
-          </Pressable>
+          </Pressable>}
         </View>
       )}
 
@@ -2106,22 +2218,22 @@ export function ExploreScreen({ navigation, route }: Props) {
                       outputRange: [28, 0],
                     }),
                   },
+                  { translateY: -kbInset },
                 ],
               },
             ]}
           >
             <View style={styles.searchControls}>
               <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>{t('globe.searchPlaceholder')}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={t('globe.back')}
+                  accessibilityLabel={t('globe.closeSearch')}
                   style={styles.sheetBack}
                   onPress={closeSearch}
                 >
-                  <Ionicons name="chevron-back" size={22} color={colors.ink} />
+                  <Ionicons name="close" size={22} color={colors.ink} />
                 </Pressable>
-                <Text style={styles.sheetTitle}>{t('globe.searchPlaceholder')}</Text>
-                <NotificationButton onPress={() => navigation.navigate('Notifications')} />
               </View>
 
               <View style={styles.inputWrap}>
@@ -2153,7 +2265,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
             <ScrollView
               style={styles.resultsScroll}
-              contentContainerStyle={styles.resultsContent}
+              contentContainerStyle={[styles.resultsContent, { paddingBottom: 20 + kbInset }]}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -2247,7 +2359,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       <View style={styles.resultCopy}>
                         <Text style={styles.resultTitle} numberOfLines={1}>{a.name}</Text>
                         <Text style={styles.resultMeta}>
-                          {a.genre} · {[a.city, a.country].filter(Boolean).join(', ') || '—'}
+                          {displayGenre(a.genre, t('common.unknown'))} · {[a.city, a.country].filter(Boolean).join(', ') || '—'}
                         </Text>
                       </View>
                       {/* Badge vérifié lime ✓ au-dessus du badge type (comme le web). */}
@@ -2358,7 +2470,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                         <Ionicons name="musical-note" size={20} color={colors.brandDeep} />
                       </View>
                       <View style={styles.resultCopy}>
-                        <Text style={styles.resultTitle} numberOfLines={1}>{g.genre}</Text>
+                        <Text style={styles.resultTitle} numberOfLines={1}>{displayGenre(g.genre, t('common.unknown'))}</Text>
                         <Text style={styles.resultMeta}>
                           {t('globe.genreArtistsShort', { count: g.count, s: g.count > 1 ? 's' : '' })}
                         </Text>
@@ -2419,7 +2531,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                               )}
                             </View>
                             <Text style={styles.resultMeta} numberOfLines={1}>
-                              {candidate.genre} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
+                              {displayGenre(candidate.genre, t('common.unknown'))} · {[candidate.city, candidate.country].filter(Boolean).join(', ') || '—'}
                             </Text>
                           </View>
                         </View>
@@ -2471,18 +2583,7 @@ export function ExploreScreen({ navigation, route }: Props) {
         <ArtistSheet
           artist={selected}
           nearby={nearby}
-          onClose={() => {
-            if (selectedPlace) {
-              setVisiblePins(selectedPlace.artists);
-              const restoredIndex = selectedPlace.artists.findIndex((artist) => artist.id === selected.id);
-              if (restoredIndex >= 0) setPlaceIndex(restoredIndex);
-              setHighlightedId(selected.id);
-            } else {
-              setVisiblePins([]);
-              setHighlightedId(null);
-            }
-            setSelected(null);
-          }}
+          onClose={closeArtist}
           onSelectArtist={goToArtist}
           onOpenProfile={() => {
             const artistId = selected.id;
@@ -2577,6 +2678,12 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       justifyContent: 'center',
     },
     markerWrapSelected: { zIndex: 1200 },
+    clusterTouchTarget: {
+      minWidth: mapUi.clusterHitSize,
+      minHeight: mapUi.clusterHitSize,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     halo: { position: 'absolute', backgroundColor: overlay.pinHalo },
     haloTrending: { backgroundColor: overlay.pinHaloTrending },
     haloSelected: { backgroundColor: overlay.pinHaloSelected },
@@ -2607,6 +2714,13 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       // rien sur fond clair.
       borderColor: overlay.pinCasing,
       backgroundColor: colors.brandPrimary,
+      // Halo de l'étincelle, comme le box-shadow du point web : sans lui, le
+      // globe mobile montrait des points plats au lieu d'une traînée lumineuse.
+      shadowColor: colors.brandPrimary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: mapUi.clusterDotGlowOpacity,
+      shadowRadius: mapUi.clusterDotGlowRadius,
+      elevation: mapUi.clusterDotElevation,
     },
     // Sous-cluster : un DISQUE, pas une pilule. Il faisait 44 × 26 pour un
     // seul nombre, et le rayon hérité (17) étant plafonné à la moitié de la
@@ -2633,19 +2747,6 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       elevation: mapUi.clusterDotElevation,
     },
     clusterPinMain: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, lineHeight: 15 },
-    clusterCountryLabel: {
-      position: 'absolute',
-      left: 8,
-      top: -5,
-      color: overlay.pinInkInverse,
-      fontFamily: fonts.bold,
-      fontSize: 9,
-      lineHeight: 11,
-      letterSpacing: 0.4,
-      textShadowColor: 'rgba(0, 0, 0, 0.72)',
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 4,
-    },
     clusterPinStats: {
       color: colors.muted,
       fontFamily: fonts.bold,
@@ -2706,40 +2807,36 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       shadowRadius: 9,
       elevation: 4,
     },
-    locationMarkerLabel: {
-      position: 'absolute',
-      bottom: mapUi.locationMarkerHitSize - 2,
-      maxWidth: 180,
-      borderRadius: 999,
-      backgroundColor: overlay.labelSurface,
-      color: overlay.pinInkInverse,
-      fontFamily: fonts.bold,
-      fontSize: 11,
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-      overflow: 'hidden',
-      textAlign: 'center',
-      zIndex: 1300,
-    },
     appBarWrap: { position: 'absolute', left: 20, right: 20, zIndex: 1500 },
     locationStatus: {
-      position: 'absolute',
-      alignSelf: 'center',
-      maxWidth: '90%',
-      zIndex: 1490,
-      minHeight: 40,
-      borderRadius: radii.full,
-      backgroundColor: overlay.panelSurface,
-      borderWidth: 1,
-      borderColor: colors.line,
-      flexDirection: 'row',
+      width: '100%',
+      minWidth: 0,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.md,
-      ...shadow,
     },
-    locationStatusText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 12, flexShrink: 1, textAlign: 'center' },
+    locationStatusCaption: {
+      color: colors.ink,
+      fontFamily: fonts.medium,
+      fontSize: mapUi.locationCaptionSize,
+      lineHeight: mapUi.locationCaptionLineHeight,
+      letterSpacing: mapUi.locationCaptionTracking,
+      textTransform: 'uppercase',
+      textAlign: 'center',
+      textShadowColor: overlay.locationTextHalo,
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: mapUi.locationTextHaloRadius,
+    },
+    locationStatusText: {
+      color: colors.ink,
+      fontFamily: fonts.bold,
+      fontSize: mapUi.locationLabelSize,
+      lineHeight: mapUi.locationLabelLineHeight,
+      flexShrink: 1,
+      textAlign: 'center',
+      textShadowColor: overlay.locationTextHalo,
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: mapUi.locationTextHaloRadius,
+    },
     rotateBtn: {
       width: 48,
       height: 48,
@@ -2808,7 +2905,7 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
     sheetBack: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     sheetBackSpacer: { width: 44 },
-    sheetTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 17, letterSpacing: -0.4 },
+    sheetTitle: { flex: 1, color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 17, letterSpacing: -0.4 },
     inputWrap: {
       minHeight: 52,
       borderRadius: 26,

@@ -6,12 +6,20 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppBar } from '../components/AppBar';
+import { AppBar, APP_BAR_BOTTOM_GAP, APP_BAR_TOP_GAP } from '../components/AppBar';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { artists as catalogue, fetchMapArtists, toArtist, type Artist } from '@musimaps/shared';
+import {
+  artists as catalogue,
+  displayGenre,
+  fetchMapArtists,
+  MAP_ARTISTS_FETCH_LIMIT,
+  radii,
+  toArtist,
+  type Artist,
+} from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -25,7 +33,7 @@ export function SavedScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { t } = useI18n();
-  const { favorites, toggleFavorite } = useApp();
+  const { favorites, toggleFavorite, pruneFavorites } = useApp();
   const [mapArtists, setMapArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,7 +43,15 @@ export function SavedScreen({ navigation }: Props) {
       setLoading(true);
       void fetchMapArtists()
         .then((rows) => {
-          if (!cancelled) setMapArtists(rows.map(toArtist));
+          if (cancelled) return;
+          setMapArtists(rows.map(toArtist));
+          // Un favori pointant vers un artiste retiré de la carte gonflait le
+          // compteur du profil (2 sauvegardés, 1 affiché). Nettoyage seulement
+          // sur une liste complète : un réseau en panne ou une liste tronquée
+          // ne suppriment rien.
+          if (rows.length > 0 && rows.length < MAP_ARTISTS_FETCH_LIMIT) {
+            void pruneFavorites(new Set([...catalogue.map((artist) => artist.id), ...rows.map((row) => row.id)]));
+          }
         })
         .catch(() => {
           // Le catalogue local reste disponible hors réseau.
@@ -47,7 +63,7 @@ export function SavedScreen({ navigation }: Props) {
       return () => {
         cancelled = true;
       };
-    }, []),
+    }, [pruneFavorites]),
   );
 
   const allArtists = useMemo(() => {
@@ -61,7 +77,7 @@ export function SavedScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       {/* App bar : logo + notifications + thème, comme la navbar web */}
-      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
         <AppBar navigation={navigation} />
       </View>
 
@@ -93,13 +109,15 @@ export function SavedScreen({ navigation }: Props) {
             <Pressable
               key={artist.id}
               style={styles.card}
-              onPress={() => navigation.navigate('Explore', { artistId: artist.id })}
+              // `searchKey` : sans lui, la carte ignore un artiste déjà ouvert
+              // et rouvrir le même favori ne faisait plus rien.
+              onPress={() => navigation.navigate('Explore', { artistId: artist.id, searchKey: Date.now() })}
             >
               <ArtistAvatar artist={artist} size={72} />
               <View style={styles.copy}>
                 <Text style={styles.artistName}>{artist.name}</Text>
                 <Text style={styles.meta}>
-                  {artist.genre} · {artist.city}
+                  {displayGenre(artist.genre, t('common.unknown'))} · {artist.city}
                 </Text>
                 <Text style={styles.location}>
                   {artist.flag} {artist.country}
@@ -125,13 +143,13 @@ export function SavedScreen({ navigation }: Props) {
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  appBarWrap: { paddingHorizontal: 20, paddingBottom: 12 },
+  appBarWrap: { paddingHorizontal: 20, paddingBottom: APP_BAR_BOTTOM_GAP },
   header: { paddingHorizontal: 21, paddingTop: 10 },
   kicker: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.6 },
   title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 34, letterSpacing: -1.5, marginTop: 7 },
   subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15, marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 38, paddingBottom: 70 },
-  emptyIcon: { width: 82, height: 82, borderRadius: 41, backgroundColor: colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { width: 82, height: 82, borderRadius: radii.full, backgroundColor: colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 24, letterSpacing: -0.8, marginTop: 20 },
   emptyText: { color: colors.inkSoft, fontFamily: fonts.body, lineHeight: 22, textAlign: 'center', marginTop: 8 },
   exploreButton: { minHeight: 55, borderRadius: 28, backgroundColor: colors.brandDeep, flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 22, marginTop: 24 },

@@ -1,7 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -14,12 +17,26 @@ import {
 } from 'react-native';
 import { LocationFields } from '../components/LocationFields';
 import { NotificationButton } from '../components/NotificationButton';
+import { AccountAvatar, AccountCover } from '../components/AccountMedia';
 import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { deleteAccount, setAccountType, updateEmail, updatePassword } from '@musimaps/shared';
+import {
+  deleteAccount,
+  setAccountType,
+  updateEmail,
+  updatePassword,
+  verifyCurrentPassword,
+  updateProfile as updateAccountProfile,
+  uploadProfileImage,
+  radii,
+  PROFILE_MEDIA,
+  spacing,
+  hexToRgba,
+  geoCountryOf,
+} from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
 
@@ -30,16 +47,23 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { profile, saveProfile, deleteProfile } = useApp();
-  const { user, signOut } = useAuth();
+  const { user, signOut, refresh: refreshUser } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
   const [city, setCity] = useState(profile?.city ?? '');
   const [country, setCountry] = useState(profile?.country ?? user?.country ?? '');
   const [district, setDistrict] = useState(profile?.district ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [genres, setGenres] = useState(profile?.favoriteGenres.join(', ') ?? '');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(user?.coverUrl ?? null);
+  const [mediaBusy, setMediaBusy] = useState<'avatar' | 'cover' | null>(null);
+  // Affichée dans la carte photo/cover : l'erreur du formulaire vit tout en
+  // bas de l'écran, hors de vue quand on vient de toucher la cover.
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showPass, setShowPass] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [newEmail, setNewEmail] = useState(user?.email ?? '');
   const [accountBusy, setAccountBusy] = useState<string | null>(null);
   const [accountMsg, setAccountMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -68,6 +92,21 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     if (user?.country) setCountry((current) => current || user.country || '');
   }, [user?.country]);
 
+  // Compte sans pays enregistré mais avec une ville connue (« Cotonou ») : le
+  // sélecteur restait vide au-dessus de la ville. On déduit le pays sans
+  // jamais écraser un choix.
+  useEffect(() => {
+    if (country || !city) return;
+    const code = geoCountryOf(city, '');
+    if (code) setCountry(code);
+  }, [city, country]);
+
+  useEffect(() => {
+    if (!user) return;
+    setAvatarUrl(user.avatarUrl);
+    setCoverUrl(user.coverUrl);
+  }, [user?.avatarUrl, user?.coverUrl]);
+
   const finish = () => {
     if (route.params?.fromStart) navigation.replace('Main', { screen: 'Profile' });
     else navigation.goBack();
@@ -88,20 +127,103 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     finish();
   };
 
+  const handleImage = async (kind: 'avatar' | 'cover') => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setMediaError(t('profile.mediaPermission'));
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: kind === 'cover' ? [...PROFILE_MEDIA.coverAspect] : [1, 1],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    setMediaBusy(kind);
+    setMediaError(null);
+    const upload = await uploadProfileImage(
+      { uri: asset.uri, name: asset.fileName ?? `${kind}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
+      kind,
+    );
+    if (upload.error) {
+      setMediaBusy(null);
+      setMediaError(upload.error);
+      return;
+    }
+    const { error: updateError } = await updateAccountProfile(
+      kind === 'avatar' ? { avatarUrl: upload.url } : { coverUrl: upload.url },
+    );
+    setMediaBusy(null);
+    if (updateError) {
+      setMediaError(updateError.message);
+      return;
+    }
+    if (kind === 'avatar') setAvatarUrl(upload.url);
+    else setCoverUrl(upload.url);
+    await refreshUser();
+  };
+
+  const removeImage = async (kind: 'avatar' | 'cover') => {
+    setMediaBusy(kind);
+    setMediaError(null);
+    const { error: updateError } = await updateAccountProfile(
+      kind === 'avatar' ? { avatarUrl: null } : { coverUrl: null },
+    );
+    setMediaBusy(null);
+    if (updateError) {
+      setMediaError(updateError.message);
+      return;
+    }
+    if (kind === 'avatar') setAvatarUrl(null);
+    else setCoverUrl(null);
+    await refreshUser();
+  };
+
   const changePassword = async () => {
+    if (!currentPassword.trim()) {
+      setAccountMsg({ ok: false, text: t('account.passCurrentRequired') });
+      return;
+    }
     if (newPassword.trim().length < 6) {
       setAccountMsg({ ok: false, text: t('account.passWeak') });
       return;
     }
+    if (newPassword !== confirmPassword) {
+      setAccountMsg({ ok: false, text: t('account.passMismatch') });
+      return;
+    }
     setAccountBusy('pass');
+    setAccountMsg(null);
+    // On exige le mot de passe actuel avant toute modification (ré-authentification).
+    const { ok, error: verifyErr } = await verifyCurrentPassword(
+      user?.email ?? '',
+      currentPassword,
+    );
+    if (!ok) {
+      setAccountBusy(null);
+      setAccountMsg({ ok: false, text: verifyErr?.message ?? t('account.passCurrentWrong') });
+      return;
+    }
     const { error: err } = await updatePassword(newPassword.trim());
     setAccountBusy(null);
     setAccountMsg(err ? { ok: false, text: err.message } : { ok: true, text: t('account.passDone') });
-    if (!err) setNewPassword('');
+    if (!err) {
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
   };
 
   const changeEmail = async () => {
     if (!newEmail.trim()) return;
+    // Email inchangé : rien à faire, surtout ne pas annoncer un email de
+    // confirmation qui ne partira pas.
+    if (user?.email && newEmail.trim() === user.email.trim()) {
+      setAccountMsg({ ok: true, text: t('account.emailUnchanged') });
+      return;
+    }
     setAccountBusy('email');
     const { error: err } = await updateEmail(newEmail);
     setAccountBusy(null);
@@ -147,8 +269,8 @@ export function ProfileEditScreen({ navigation, route }: Props) {
 
   const confirmDelete = () => {
     Alert.alert(
-      t('pedit.deleteTitle'),
-      t('pedit.deleteMessage'),
+      t('pedit.clearLocalTitle'),
+      t('pedit.clearLocalMessage'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -177,11 +299,88 @@ export function ProfileEditScreen({ navigation, route }: Props) {
           <NotificationButton onPress={() => navigation.navigate('Notifications')} />
         </View>
 
-        <Text style={styles.kicker}>{t('pedit.kickerDevice')}</Text>
+        <Text style={styles.kicker}>{t(user ? 'pedit.kicker' : 'pedit.kickerDevice')}</Text>
         <Text style={styles.title}>
           {profile ? t('profile.editProfile') : t('profile.createProfile')}
         </Text>
-        <Text style={styles.subtitle}>{t('pedit.subtitleDevice')}</Text>
+        <Text style={styles.subtitle}>{t(user ? 'pedit.subtitle' : 'pedit.subtitleDevice')}</Text>
+
+        {user && <View style={styles.mediaCard}>
+          <AccountCover image={coverUrl}>
+            <View style={styles.coverFooter}>
+              <LinearGradient pointerEvents="none" colors={[hexToRgba(PROFILE_MEDIA.fallbackCoverColors[1], 0), hexToRgba(PROFILE_MEDIA.fallbackCoverColors[1], PROFILE_MEDIA.coverShadeOpacity)]} style={StyleSheet.absoluteFill} />
+              <View style={styles.coverCopy}>
+                <Text style={styles.coverTitle}>{t('profile.coverTitle')}</Text>
+                <Text numberOfLines={2} style={styles.coverHint}>{t('profile.coverHint')}</Text>
+              </View>
+              <View style={styles.mediaActions}>
+                {coverUrl && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('profile.removeCover')}
+                    style={styles.mediaIconBtn}
+                    disabled={mediaBusy !== null}
+                    onPress={() => void removeImage('cover')}
+                  >
+                    {mediaBusy === 'cover' ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Ionicons name="trash-outline" size={17} color={colors.white} />
+                    )}
+                  </Pressable>
+                )}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.uploadCover')}
+                  style={styles.mediaBtn}
+                  disabled={mediaBusy !== null}
+                  onPress={() => void handleImage('cover')}
+                >
+                  {mediaBusy === 'cover' ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Ionicons name="image-outline" size={17} color={colors.white} />
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </AccountCover>
+          <View style={styles.avatarRow}>
+            <View style={styles.avatarWrap}>
+              <AccountAvatar name={displayName} image={avatarUrl} variant="edit" />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('profile.uploadAvatar')}
+                style={styles.avatarEdit}
+                disabled={mediaBusy !== null}
+                onPress={() => void handleImage('avatar')}
+              >
+                {mediaBusy === 'avatar' ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Ionicons name="camera-outline" size={17} color={colors.white} />
+                )}
+              </Pressable>
+            </View>
+            <View style={styles.avatarCopy}>
+              <Text style={styles.avatarTitle}>{t('profile.avatarTitle')}</Text>
+              <Text style={styles.avatarHint}>{t('profile.avatarHint')}</Text>
+              {avatarUrl && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('profile.removeAvatar')}
+                  disabled={mediaBusy !== null}
+                  onPress={() => void removeImage('avatar')}
+                  style={styles.removeMediaLink}
+                >
+                  <Ionicons name="trash-outline" size={14} color={colors.danger} />
+                  <Text style={styles.removeMediaText}>{t('profile.removeAvatar')}</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+          {mediaError && <Text accessibilityRole="alert" style={styles.mediaError}>{mediaError}</Text>}
+        </View>}
 
         <View style={styles.form}>
           <Field label={t('pedit.nameLabel')} value={displayName} onChangeText={setDisplayName} placeholder={t('pedit.namePh')} colors={colors} styles={styles} />
@@ -234,25 +433,30 @@ export function ProfileEditScreen({ navigation, route }: Props) {
               <Text style={styles.accountSubtitle}>{t('account.subtitle')}</Text>
 
               <View style={styles.accountCard}>
+                <Text style={styles.accountLabel}>{t('account.passCurrentLabel')}</Text>
+                <PasswordField
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  placeholder={t('account.passCurrentPh')}
+                  colors={colors}
+                  styles={styles}
+                />
                 <Text style={styles.accountLabel}>{t('account.passLabel')}</Text>
-                <View style={styles.passWrap}>
-                  <TextInput
-                    secureTextEntry={!showPass}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder={t('account.passPh')}
-                    placeholderTextColor={colors.muted}
-                    underlineColorAndroid="transparent"
-                    style={styles.passInput}
-                  />
-                  <Pressable
-                    accessibilityLabel={showPass ? t('auth.hidePassword') : t('auth.showPassword')}
-                    style={styles.passEye}
-                    onPress={() => setShowPass((v) => !v)}
-                  >
-                    <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={23} color={colors.inkSoft} />
-                  </Pressable>
-                </View>
+                <PasswordField
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder={t('account.passPh')}
+                  colors={colors}
+                  styles={styles}
+                />
+                <Text style={styles.accountLabel}>{t('account.passConfirmLabel')}</Text>
+                <PasswordField
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder={t('account.passConfirmPh')}
+                  colors={colors}
+                  styles={styles}
+                />
                 <Pressable
                   style={[styles.accountBtn, accountBusy === 'pass' && styles.accountBtnDisabled]}
                   disabled={accountBusy === 'pass'}
@@ -340,10 +544,10 @@ export function ProfileEditScreen({ navigation, route }: Props) {
             </>
           )}
 
-          {profile && (
-            <Pressable style={styles.delete} onPress={confirmDelete}>
+          {profile && !user && (
+            <Pressable style={styles.clearLocal} onPress={confirmDelete}>
               <Ionicons name="trash-outline" size={20} color={colors.danger} />
-              <Text style={styles.deleteText}>{t('pedit.deleteData')}</Text>
+              <Text style={styles.clearLocalText}>{t('pedit.clearLocalData')}</Text>
             </Pressable>
           )}
         </View>
@@ -378,6 +582,43 @@ function Field({
   );
 }
 
+function PasswordField({
+  value,
+  onChangeText,
+  placeholder,
+  colors,
+  styles,
+}: {
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder: string;
+  colors: AppColors;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  const { t } = useI18n();
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={styles.passWrap}>
+      <TextInput
+        secureTextEntry={!visible}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.muted}
+        underlineColorAndroid="transparent"
+        style={styles.passInput}
+      />
+      <Pressable
+        accessibilityLabel={visible ? t('auth.hidePassword') : t('auth.showPassword')}
+        style={styles.passEye}
+        onPress={() => setVisible((v) => !v)}
+      >
+        <Ionicons name={visible ? 'eye-off-outline' : 'eye-outline'} size={23} color={colors.inkSoft} />
+      </Pressable>
+    </View>
+  );
+}
+
 const createStyles = (colors: AppColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 21, paddingTop: 48, paddingBottom: 50 },
@@ -386,6 +627,22 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   kicker: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.6, marginTop: 48 },
   title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 37, letterSpacing: -1.7, marginTop: 7 },
   subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15, lineHeight: 22, marginTop: 8 },
+  mediaCard: { marginTop: 24, borderRadius: radii['3xl'], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
+  coverFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing['4xl'] },
+  coverCopy: { flex: 1 },
+  coverTitle: { color: colors.white, fontFamily: fonts.bold, fontSize: 14 },
+  coverHint: { color: colors.white, opacity: 0.78, fontFamily: fonts.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  mediaActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  mediaBtn: { width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' },
+  mediaIconBtn: { width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' },
+  avatarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, padding: spacing.lg },
+  avatarWrap: { width: PROFILE_MEDIA.avatarSize.edit, height: PROFILE_MEDIA.avatarSize.edit },
+  avatarEdit: { position: 'absolute', right: -spacing.xs, bottom: -spacing.xs, width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.brandPrimary, borderWidth: 2, borderColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  avatarCopy: { flex: 1, minWidth: 0 },
+  avatarTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 14 },
+  avatarHint: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 17, marginTop: 2 },
+  removeMediaLink: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7 },
+  removeMediaText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 11 },
   form: { gap: 15, marginTop: 30 },
   field: { gap: 7 },
   label: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, marginLeft: 4 },
@@ -402,10 +659,21 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   },
   bioInput: { minHeight: 120, paddingTop: 16, textAlignVertical: 'top' },
   error: { color: colors.danger, fontFamily: fonts.medium, fontSize: 13, backgroundColor: colors.surface, borderRadius: 16, padding: 12 },
+  mediaError: { color: colors.danger, fontFamily: fonts.medium, fontSize: 13, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   save: { minHeight: 62, borderRadius: 31, backgroundColor: colors.brandDeep, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 5 },
   saveText: { color: colors.white, fontFamily: fonts.bold, fontSize: 16 },
-  delete: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  deleteText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 13 },
+  clearLocal: {
+    minHeight: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: colors.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  clearLocalText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 13 },
   accountDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginVertical: 26 },
   accountKicker: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.6 },
   accountSubtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20, marginTop: 6 },

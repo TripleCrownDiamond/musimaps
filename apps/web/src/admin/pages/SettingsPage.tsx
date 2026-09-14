@@ -5,9 +5,14 @@ import {
   DEFAULT_LLM_CONFIG,
   LLM_MAX_STEPS,
   LLM_MIN_STEPS,
+  hasLegalContent,
+  legalPublicationIssues,
   type LlmConfig,
 } from '@musimaps/shared'
 import type { SettingsContent } from '@/lib/cms'
+import { fetchSectionState } from '@/lib/cms'
+import { useLanguage } from '@/i18n/LanguageContext'
+import { LegalSettingsFields } from '../components/LegalSettingsFields'
 import { useSection } from '../useSection'
 import { useAdminT } from '../i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
@@ -21,6 +26,7 @@ import { PublishBar } from '../components/PublishBar'
 
 export default function SettingsPage() {
   const { t } = useAdminT()
+  const { t: productT } = useLanguage()
   const [lang, setLang] = useState<'fr' | 'en'>('fr')
   const section = useSection('settings', lang)
   const [draft, setDraft] = useState<SettingsContent | null>(null)
@@ -57,6 +63,20 @@ export default function SettingsPage() {
   const save = async () => {
     if (!draft) return { ok: false, error: 'Aucun contenu à enregistrer' }
     return section.save(draft)
+  }
+
+  const publish = async () => {
+    const saved = await save()
+    if (!saved.ok) return saved
+    // The SQL publisher publishes both drafts. Validate the global FR settings
+    // even when an editor happens to be viewing the English settings.
+    const state = await fetchSectionState('settings', 'fr')
+    const legal = (state.draft as SettingsContent).legal
+    const issues = legalPublicationIssues(legal)
+    if (hasLegalContent(legal) && issues.length) {
+      return { ok: false, error: productT('legal.incomplete', { fields: issues.map((key) => productT(key)).join(', ') }) }
+    }
+    return section.publish()
   }
 
   const addAdmin = async () => {
@@ -103,16 +123,28 @@ export default function SettingsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <LangSwitch lang={lang} onChange={setLang} />
           <PublishBar
-            dirty={section.dirty}
+            dirty={section.dirty || JSON.stringify(draft) !== JSON.stringify(section.draft)}
             loading={section.loading}
             publishedAt={section.publishedAt}
             previewUrl="/preview"
             onSave={save}
-            onPublish={section.publish}
+            onPublish={publish}
             onDiscard={section.discard}
           />
         </div>
       </div>
+
+      {lang === 'fr' ? (
+        <LegalSettingsFields value={draft.legal} onChange={(legal) => set({ legal })} />
+      ) : (
+        <Card>
+          <CardHeader><CardTitle>{productT('legal.title')}</CardTitle></CardHeader>
+          <CardContent className="grid gap-3">
+            <p className="text-sm text-muted-foreground">{productT('legal.globalSettings')}</p>
+            <Button variant="outline" onClick={() => setLang('fr')}>{productT('legal.editGlobal')}</Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

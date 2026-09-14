@@ -79,27 +79,8 @@ export const shadow = {
 };
 
 /**
- * Style du dock de navigation flottant — défini UNE fois ici pour être
- * partagé entre App.tsx (tab bar) et ExploreScreen (restauration après
- * fermeture de la fiche artiste), sans dérive.
+ * Marge latérale du pilulier du dock de navigation flottant — consommée par
+ * components/FloatingDock (le dock est centré par le flexbox du layout, cf.
+ * le composant pour la justification).
  */
-export function dockStyle(colors: AppColors, bottom: number) {
-  return {
-    position: 'absolute' as const,
-    left: 18,
-    right: 18,
-    bottom,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
-    shadowColor: '#111111',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 28,
-    elevation: 12,
-    paddingTop: 7,
-    paddingBottom: 7,
-  };
-}
+export const DOCK_SIDE_PAD = 26;

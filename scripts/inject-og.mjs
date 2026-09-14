@@ -90,6 +90,9 @@ function applySeo(html, seo, lang) {
   const ogDescription = seo.ogDescription || seo.description
 
   let out = html
+  // Le gabarit déclare `lang="fr"` : la page /en l'héritait, et les
+  // navigateurs proposaient de « traduire du français » une page anglaise.
+  out = out.replace(/<html\s+lang="[^"]*"/i, `<html lang="${isEn ? 'en' : 'fr'}"`)
   out = setTitle(out, seo.title)
   out = setMeta(out, 'name', 'description', seo.description)
   out = setMeta(out, 'name', 'keywords', seo.keywords)

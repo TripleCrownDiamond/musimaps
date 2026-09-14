@@ -107,6 +107,11 @@ export interface MapStyleDocument {
   layers?: StyleLayer[];
   /** Le fog vit à la racine du style et fonctionne aussi dans Mapbox GL JS. */
   fog?: FogStyle;
+  /** Caméra par défaut du style Mapbox — retirée par `applyBrandStyle`. */
+  center?: [number, number];
+  zoom?: number;
+  bearing?: number;
+  pitch?: number;
 }
 
 export type MapPaintProperty =
@@ -174,6 +179,15 @@ export function applyBrandStyle(
   // L'adaptateur web de @rnmapbox/maps n'exporte pas <Atmosphere>. Mettre le
   // fog dans le document garantit donc la même atmosphère sur web et natif.
   style.fog = { ...FOG[theme] };
+  // Les styles Mapbox embarquent une caméra par défaut : New York, zoom 11.
+  // Passée telle quelle en styleJSON, la carte y retombait dès qu'un
+  // remontage ou un vol perdait la commande de caméra — globe « bloqué »
+  // sur l'Hudson, l'en-tête affichant pourtant la position de l'utilisateur.
+  // La caméra appartient à l'écran, jamais au style.
+  delete style.center;
+  delete style.zoom;
+  delete style.bearing;
+  delete style.pitch;
   const layers = style.layers ?? [];
   for (const action of planStyleActions(layers, theme)) {
     const layer = layers.find((l) => l.id === action.id);

@@ -11,9 +11,10 @@
  *     `AuthError | null`. Unifié sur `{ error }` (même forme que les autres).
  *  3. `updateProfile` / `syncProfileToSupabase` — même fonction sous deux
  *     noms. Fusionnées, en gardant le repli « colonne bio absente » du mobile
- *     et le champ `avatarUrl` du web.
+ *     et les champs `avatarUrl` / `coverUrl` du web.
  */
 import { getResetPasswordUrl, getSignUpConfirmationUrl, getSupabase } from '../runtime';
+import { normalizeArtistImageUrl } from './media';
 
 export type AccountRole = 'artist' | 'melomane';
 
@@ -40,6 +41,8 @@ export interface UserProfile {
   favoriteGenres?: string[];
   /** Photo du compte (avatar) — synchro depuis la demande de référencement. */
   avatarUrl: string | null;
+  /** Image de couverture du compte, distincte de la cover artiste sur la carte. */
+  coverUrl: string | null;
 }
 
 export interface AuthError {
@@ -108,7 +111,7 @@ export async function signUp(params: {
   if (!data.user) return { user: null, error: null, needsConfirmation: false };
   // Pas de session => confirmation email requise : on ne simule pas une connexion.
   if (!data.session) return { user: null, error: null, needsConfirmation: true };
-  const profile = await fetchProfile(data.user.id, data.user.email ?? params.email.trim());
+  const profile = await fetchProfile(data.user.id, data.user.email ?? params.email.trim(), data.user);
   // Rattache sa ligne waitlist (formulaire rempli avant le compte) à ce compte.
   if (profile?.role === 'artist') void linkArtistAccountToMap();
   if (profile) return { user: profile, error: null, needsConfirmation: false };
@@ -124,7 +127,8 @@ export async function signUp(params: {
       country: params.country.trim(),
       role: params.role,
       accountType: 'personal',
-      avatarUrl: null,
+      avatarUrl: metadataAvatarUrl(data.user),
+      coverUrl: null,
     },
     error: null,
     needsConfirmation: false,
@@ -149,6 +153,21 @@ type AuthUserLike = {
   user_metadata?: Record<string, unknown> | null;
 };
 
+/**
+ * Photo fournie par le fournisseur d'identité (Google, Apple, etc.).
+ * Certaines anciennes sessions n'ont pas encore copié cette valeur dans
+ * `profiles.avatar_url` : elle reste néanmoins une source commune aux deux
+ * apps tant que le profil est en cours de migration.
+ */
+function metadataAvatarUrl(user: AuthUserLike): string | null {
+  const metadata = user.user_metadata ?? {};
+  for (const key of ['avatar_url', 'avatarUrl', 'picture', 'photo_url', 'image']) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) return normalizeArtistImageUrl(value);
+  }
+  return null;
+}
+
 /** Profil de session sûr pendant que le trigger `profiles` termine son travail. */
 function sessionShell(user: AuthUserLike): UserProfile {
   const meta = user.user_metadata ?? {};
@@ -166,7 +185,8 @@ function sessionShell(user: AuthUserLike): UserProfile {
     role: meta.role === 'artist' ? 'artist' : 'melomane',
     accountType: 'personal',
     favoriteGenres: [],
-    avatarUrl: null,
+    avatarUrl: metadataAvatarUrl(user),
+    coverUrl: null,
   };
 }
 
@@ -182,7 +202,7 @@ export async function signIn(
   });
   if (error) return { user: null, error: { message: error.message } };
   if (!data.user) return { user: null, error: null };
-  const profile = await fetchProfile(data.user.id, data.user.email ?? null) ?? sessionShell(data.user);
+  const profile = await fetchProfile(data.user.id, data.user.email ?? null, data.user) ?? sessionShell(data.user);
   // Rattache sa ligne waitlist / son pin à ce compte (migration 00053).
   if (profile?.role === 'artist') void linkArtistAccountToMap();
   return { user: profile, error: null };
@@ -210,6 +230,25 @@ export async function resetPasswordForEmail(
   return { error: error ? { message: error.message } : null };
 }
 
+/**
+ * Vérifie le mot de passe actuel en ré-authentifiant (email + password).
+ * Utilisé par « Changer le mot de passe » pour exiger le mot de passe actuel
+ * avant la mise à jour : l'API GoTrue ne permet pas de le vérifier autrement.
+ */
+export async function verifyCurrentPassword(
+  email: string,
+  password: string,
+): Promise<{ ok: boolean; error: { message: string } | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: { message: 'Supabase non configuré' } };
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim(),
+    password,
+  });
+  if (error) return { ok: false, error: { message: error.message } };
+  return { ok: true, error: null };
+}
+
 /** Enregistre le nouveau mot de passe (session de récupération active). */
 export async function updatePassword(
   newPassword: string,
@@ -230,11 +269,11 @@ export async function updateEmail(newEmail: string): Promise<{ error: AuthError 
 
 /**
  * Met à jour le profil de l'utilisateur connecté (nom, ville, genres, bio,
- * avatar). Seul le propriétaire peut modifier sa propre ligne (RLS).
+ * avatar et cover). Seul le propriétaire peut modifier sa propre ligne (RLS).
  *
  * Fusion de `updateProfile` (web) et `syncProfileToSupabase` (mobile) : on
- * garde le champ `avatarUrl` du web et le repli « colonne bio absente » du
- * mobile, qui protège les bases antérieures à l'ajout de la colonne.
+ * garde les champs `avatarUrl` / `coverUrl` du web et le repli « colonne
+ * récente absente » du mobile, qui protège les bases antérieures à leur ajout.
  */
 export async function updateProfile(params: {
   displayName?: string;
@@ -244,6 +283,7 @@ export async function updateProfile(params: {
   bio?: string;
   favoriteGenres?: string[];
   avatarUrl?: string | null;
+  coverUrl?: string | null;
 }): Promise<{ error: AuthError | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: { message: 'Supabase non configuré' } };
@@ -259,6 +299,7 @@ export async function updateProfile(params: {
     patch.favorite_genres = params.favoriteGenres.map((g) => g.trim()).filter(Boolean);
   }
   if (params.avatarUrl !== undefined) patch.avatar_url = params.avatarUrl;
+  if (params.coverUrl !== undefined) patch.cover_url = params.coverUrl;
   // Bio incluse uniquement si non vide : évite une écriture permanente sur
   // les bases où la colonne n'existe pas.
   if (params.bio !== undefined && params.bio.trim()) patch.bio = params.bio.trim();
@@ -267,10 +308,24 @@ export async function updateProfile(params: {
   if (error && /column|schema|does not exist/i.test(error.message)) {
     // Colonne absente (ancienne base, migration pas encore appliquée)
     // : on retire les colonnes problématiques et on retente.
+    const missing = {
+      bio: /bio/i.test(error.message),
+      district: /district/i.test(error.message),
+      avatar: /avatar/i.test(error.message),
+      cover: /cover/i.test(error.message),
+    };
     const retry: Record<string, string | string[] | null> = {};
     for (const [key, value] of Object.entries(patch)) {
-      if (!/bio|district|avatar/i.test(key)) retry[key] = value;
+      if (key === 'bio' && missing.bio) continue;
+      if (key === 'district' && missing.district) continue;
+      if (key === 'avatar_url' && missing.avatar) continue;
+      if (key === 'cover_url' && missing.cover) continue;
+      // Les anciennes API peuvent renvoyer une erreur générique sans le nom
+      // de la colonne : on garde alors le repli historique.
+      if (!missing.bio && !missing.district && !missing.avatar && !missing.cover && /bio|district|avatar|cover/i.test(key)) continue;
+      retry[key] = value;
     }
+    if (Object.keys(retry).length === 0) return { error: { message: error.message } };
     const second = await supabase.from('profiles').update(retry).eq('id', data.user.id);
     return { error: second.error ? { message: second.error.message } : null };
   }
@@ -308,6 +363,7 @@ interface ProfileRow {
   account_type?: string | null;
   favorite_genres?: string[] | null;
   avatar_url?: string | null;
+  cover_url?: string | null;
 }
 
 /**
@@ -319,6 +375,7 @@ interface ProfileRow {
 export async function fetchProfile(
   userId: string,
   email: string | null,
+  sessionUser?: AuthUserLike,
 ): Promise<UserProfile | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
@@ -328,17 +385,29 @@ export async function fetchProfile(
 
     const full = await supabase
       .from('profiles')
-      .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url')
+      .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url, cover_url')
       .eq('id', userId)
       .maybeSingle();
-    if (full.error && /account_type|favorite_genres|district|country|avatar_url|column .* does not exist|schema cache/i.test(full.error.message)) {
-      const base = await supabase
+    if (full.error && /account_type|favorite_genres|district|country|avatar_url|cover_url|column .* does not exist|schema cache/i.test(full.error.message)) {
+      // Déploiement progressif : si seule la nouvelle cover manque, garder
+      // les autres colonnes du profil (pays, genres et avatar compris).
+      const compatible = await supabase
         .from('profiles')
-        .select('id, display_name, city, role')
+        .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url')
         .eq('id', userId)
         .maybeSingle();
-      data = (base.data as ProfileRow | null) ?? null;
-      error = base.error ? { message: base.error.message } : null;
+      if (!compatible.error) {
+        data = (compatible.data as ProfileRow | null) ?? null;
+        error = null;
+      } else {
+        const base = await supabase
+          .from('profiles')
+          .select('id, display_name, city, role')
+          .eq('id', userId)
+          .maybeSingle();
+        data = (base.data as ProfileRow | null) ?? null;
+        error = base.error ? { message: base.error.message } : null;
+      }
     } else {
       data = (full.data as ProfileRow | null) ?? null;
       error = full.error ? { message: full.error.message } : null;
@@ -346,14 +415,17 @@ export async function fetchProfile(
     if (error) return null;
 
     if (data) {
-      let avatarUrl = data.avatar_url ?? null;
-      // Photo de la demande de référencement en attente : elle sert d'avatar
-      // tant que le profil n'a pas de photo propre.
-      if (!avatarUrl && data.role === 'artist') {
+      let avatarUrl = data.avatar_url
+        ? normalizeArtistImageUrl(data.avatar_url)
+        : (sessionUser ? metadataAvatarUrl(sessionUser) : null);
+      // Photo de la demande de référencement liée au compte : elle sert
+      // d'avatar tant que le profil n'a pas de photo propre, quel que soit le
+      // rôle du compte (un mélomane peut aussi proposer un artiste).
+      if (!avatarUrl) {
         try {
           const { data: ref } = await supabase.rpc('my_referral_request');
           if (ref && typeof ref === 'object' && 'photo' in ref && (ref as { photo?: string | null }).photo) {
-            avatarUrl = (ref as { photo: string }).photo;
+            avatarUrl = normalizeArtistImageUrl((ref as { photo: string }).photo);
           }
         } catch {
           // Best-effort : la migration 00045 peut ne pas être appliquée.
@@ -370,6 +442,7 @@ export async function fetchProfile(
         accountType: toAccountType(data.account_type),
         favoriteGenres: data.favorite_genres ?? [],
         avatarUrl,
+        coverUrl: data.cover_url ? normalizeArtistImageUrl(data.cover_url) : null,
       };
     }
     await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
@@ -383,7 +456,7 @@ export async function getSessionProfile(): Promise<UserProfile | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getUser();
   if (!data.user) return null;
-  const profile = await fetchProfile(data.user.id, data.user.email ?? null) ?? sessionShell(data.user);
+  const profile = await fetchProfile(data.user.id, data.user.email ?? null, data.user) ?? sessionShell(data.user);
   // Artiste déjà connecté (session restaurée) : rattache sa ligne waitlist /
   // son pin à ce compte — couvre les comptes créés AVANT le déploiement 00053.
   if (profile?.role === 'artist') void linkArtistAccountToMap();

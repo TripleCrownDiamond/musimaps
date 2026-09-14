@@ -6,6 +6,7 @@ import {
   addMapArtist,
   addOrUpdateMapArtist,
   discoveryEvidenceCount,
+  displayGenre,
   hasCrossSourceEvidence,
   mergeRediscoveredArtist,
   normalizeArtistSearchQuery,
@@ -26,6 +27,18 @@ describe('cross-source discovery gate', () => {
   it('normalizes the common Ayra Starr typo before querying sources', () => {
     expect(normalizeArtistSearchQuery('  Arya Star ')).toBe('Ayra Starr');
     expect(normalizeArtistSearchQuery('Ayra Starr')).toBe('Ayra Starr');
+  });
+});
+
+describe('displayGenre', () => {
+  it('translates the technical Unknown fallback', () => {
+    expect(displayGenre('Unknown', 'Inconnu')).toBe('Inconnu');
+    expect(displayGenre('  ', 'Unknown')).toBe('Unknown');
+    expect(displayGenre(null, 'Inconnu')).toBe('Inconnu');
+  });
+
+  it('keeps a real genre', () => {
+    expect(displayGenre('Afrobeats', 'Inconnu')).toBe('Afrobeats');
   });
 });
 

@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -17,6 +16,7 @@ import { ThemeProvider, useAppTheme } from './src/context/ThemeContext';
 import { DEFAULT_BRAND, fetchCmsBrand, type BrandContent } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { AchievementToast } from './src/components/AchievementToast';
+import { FloatingDock } from './src/components/FloatingDock';
 import { Toast } from './src/components/Toast';
 import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
@@ -42,7 +42,6 @@ import { WelcomeScreen, ONBOARDED_KEY } from './src/screens/WelcomeScreen';
 import { supabase } from './src/lib/supabase';
 import { nativeStorage } from './src/lib/storage';
 import { MAPBOX_TOKEN } from './src/lib/mapbox';
-import { dockStyle, fonts } from './src/theme';
 
 // Injecte le client Supabase et le stockage dans le socle partagé, AVANT
 // tout rendu : les modules de `@musimaps/shared` les lisent à l'exécution.
@@ -67,6 +66,7 @@ const linking = {
   prefixes: ['musimaps://', 'https://musimaps.com', ...(__DEV__ ? ['http://localhost:8090'] : [])],
   config: {
     screens: {
+      Onboarding: 'onboarding',
       ResetPassword: 'reset-password',
       ForgotPassword: 'forgot-password',
       Login: 'login',
@@ -84,43 +84,46 @@ const linking = {
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-function MainTabs() {
-  const { colors } = useAppTheme();
+// Bande fixe au-dessus de la zone système (hauteur = insets.top), sous les
+// icônes de la barre d'état (batterie, réseau…) : noire en sombre sous des
+// icônes blanches, couleur de fond en clair sous des icônes sombres. Réservée
+// d'abord au thème sombre, elle manquait en clair : le contenu défilait sous
+// l'heure (formulaires) et la cover noire du profil rendait les icônes
+// sombres illisibles.
+const STATUS_BAND_COLOR = '#000000';
+
+function StatusBarBand() {
+  const { theme, colors } = useAppTheme();
   const insets = useSafeAreaInsets();
+  if (insets.top <= 0) return null;
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.statusBand,
+        {
+          height: insets.top,
+          elevation: 999,
+          zIndex: 999,
+          backgroundColor: theme === 'dark' ? STATUS_BAND_COLOR : colors.background,
+        },
+      ]}
+    />
+  );
+}
+
+function MainTabs() {
   const { t } = useI18n();
 
   return (
     <Tabs.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarHideOnKeyboard: true,
-        tabBarActiveTintColor: colors.brandDeep,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarLabelStyle: {
-          fontFamily: fonts.bold,
-          fontSize: 10,
-          marginTop: 2,
-        },
-        // Dock de navigation flottant : un pilulier ancré en bas (au-dessus
-        // de la barre d'accueil iOS), comme la navbar de la landing web.
-        tabBarStyle: dockStyle(colors, insets.bottom + 22),
-        tabBarItemStyle: {
-          borderRadius: 28,
-        },
-        tabBarIcon: ({ color, focused, size }) => {
-          const icons: Record<keyof MainTabParamList, keyof typeof Ionicons.glyphMap> = {
-            Explore: focused ? 'map' : 'map-outline',
-            Discover: focused ? 'compass' : 'compass-outline',
-            Saved: focused ? 'heart' : 'heart-outline',
-            Profile: focused ? 'person' : 'person-outline',
-          };
-          return (
-            <View style={[styles.tabIcon, focused && { backgroundColor: colors.brand }]}>
-              <Ionicons name={icons[route.name]} size={size - 1} color={focused ? colors.black : color} />
-            </View>
-          );
-        },
-      })}
+      }}
+      // Dock de navigation flottant : un pilulier overlay centré par flexbox
+      // (le contenu défile dessous) — cf. components/FloatingDock.
+      tabBar={(props) => <FloatingDock {...props} />}
     >
       <Tabs.Screen name="Explore" component={ExploreScreen} options={{ title: t('tab.explore') }} />
       <Tabs.Screen name="Discover" component={DiscoverScreen} options={{ title: t('tab.discover') }} />
@@ -187,6 +190,7 @@ function AppNavigator() {
         <LanguageProvider>
           <NavigationContainer theme={navigationTheme} linking={linking}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+          <StatusBarBand />
           <RootStack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{
@@ -296,4 +300,11 @@ export default function App() {
 
 const styles = StyleSheet.create({
   tabIcon: { width: 40, height: 32, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  statusBand: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: STATUS_BAND_COLOR,
+  },
 });

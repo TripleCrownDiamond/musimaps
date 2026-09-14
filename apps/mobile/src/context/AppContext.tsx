@@ -17,6 +17,7 @@ import {
   fetchFollowing,
   getSessionProfile,
   mergeLocalFavorites,
+  removeFavorite,
   toggleFavorite as sharedToggleFavorite,
   updateProfile,
 } from '@musimaps/shared';
@@ -55,6 +56,9 @@ interface AppContextValue {
   visitedCities: string[];
   /** Clé d'appareil anonyme et stable (vues artistes, sync gamification). */
   deviceId: string | null;
+  /** Le dock de navigation est masqué lorsqu'Explore est replié sur une fiche/recherche. */
+  dockHidden: boolean;
+  setDockHidden: (hidden: boolean) => void;
   badges: (BadgeDef & { earned: boolean })[];
   /** Badges débloqués avec leur date d'obtention (historique, du plus récent au plus ancien). */
   earnedBadges: EarnedBadge[];
@@ -80,6 +84,8 @@ interface AppContextValue {
   deleteProfile: () => Promise<void>;
   recordCityVisit: (city: string) => Promise<void>;
   toggleFavorite: (artistId: string) => Promise<void>;
+  /** Retire les favoris dont l'artiste n'existe plus (liste d'ids connus et complète). */
+  pruneFavorites: (knownIds: ReadonlySet<string>) => Promise<void>;
   applyAsArtist: (application: ArtistApplication) => Promise<string | null>;
 }
 
@@ -101,10 +107,17 @@ export function AppProvider({ children }: PropsWithChildren) {
   } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [dockHidden, setDockHidden] = useState(false);
   /** Catalogue actif : publié par le CMS (site_content, clé 'badges'), sinon défauts. */
   const [badgeDefs, setBadgeDefs] = useState<BadgeDef[]>(DEFAULT_BADGES);
   const loadedRef = useRef(false);
   const firstAwardRef = useRef(true);
+  /** Compte pour lequel le premier calcul silencieux des badges a eu lieu. */
+  const awardUserRef = useRef<string | null>(null);
+  /** Compte dont les favoris et le profil ont été repris depuis Supabase. */
+  const [accountSyncedFor, setAccountSyncedFor] = useState<string | null>(null);
+  /** Compte dont les métriques partagées (streak, suivis, réservations) sont chargées. */
+  const [metricsLoadedFor, setMetricsLoadedFor] = useState<string | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Un compte est connecté : les favoris passent par Supabase, pas AsyncStorage. */
   const [signedIn, setSignedIn] = useState(false);
@@ -145,6 +158,8 @@ export function AppProvider({ children }: PropsWithChildren) {
         setStreakCount(0);
         setFollowingCount(0);
         setBookingsCount(0);
+        setAccountSyncedFor(null);
+        setMetricsLoadedFor(null);
         return;
       }
       const raw = await AsyncStorage.getItem(FAVORITES_KEY);
@@ -159,7 +174,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       // après une inscription, l'app redemandait un nom et une ville que
       // l'utilisateur venait de saisir.
       const account = await getSessionProfile();
-      if (cancelled || !account) return;
+      if (cancelled) return;
+      if (!account) {
+        setAccountSyncedFor(userId ?? null);
+        return;
+      }
       setUserRole(account.role);
       setProfile((current) => {
         const next: LocalProfile = {
@@ -177,6 +196,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(next)).catch(() => {});
         return next;
       });
+      setAccountSyncedFor(userId ?? null);
     };
 
     void supabase?.auth.getSession().then(({ data }) => {
@@ -196,7 +216,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   // Mêmes appels RPC que le web (Dashboard.tsx) — garantit que les badges
   // débloqués sont identiques quel que soit le terminal utilisé.
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn || !authUserId) return;
     let cancelled = false;
     const load = async () => {
       const [streakInfo, followIds, bookings] = await Promise.all([
@@ -208,10 +228,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       setStreakCount(streakInfo?.current ?? 0);
       setFollowingCount(followIds.length);
       setBookingsCount(bookings.length);
+      setMetricsLoadedFor(authUserId);
     };
     void load();
     return () => { cancelled = true; };
-  }, [signedIn]);
+  }, [signedIn, authUserId]);
 
   useEffect(() => {
     Promise.all([
@@ -360,6 +381,35 @@ export function AppProvider({ children }: PropsWithChildren) {
     [signedIn],
   );
 
+  // Liste courante lue au moment du nettoyage : l'écran appelant la charge en
+  // arrière-plan et ne doit pas travailler sur une copie périmée.
+  const favoritesRef = useRef<string[]>([]);
+  useEffect(() => {
+    favoritesRef.current = favorites;
+  }, [favorites]);
+
+  const pruneFavorites = useCallback(
+    async (knownIds: ReadonlySet<string>) => {
+      const orphans = favoritesRef.current.filter((id) => !knownIds.has(id));
+      if (orphans.length === 0) return;
+      if (signedIn) {
+        const removed = new Set<string>();
+        for (const id of orphans) {
+          const result = await removeFavorite(id);
+          if (result.ok) removed.add(id);
+        }
+        if (removed.size > 0) setFavorites((current) => current.filter((id) => !removed.has(id)));
+        return;
+      }
+      setFavorites((current) => {
+        const next = current.filter((id) => knownIds.has(id));
+        AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    },
+    [signedIn],
+  );
+
   const applyAsArtist = useCallback(async (application: ArtistApplication) => {
     if (!supabase) return 'Supabase n\'est pas configuré. La demande n\'a pas pu être envoyée.';
     const enriched = {
@@ -408,7 +458,21 @@ export function AppProvider({ children }: PropsWithChildren) {
   // web (Dashboard.tsx) : même appel RPC, même clé de synchro (user.id).
   // Les badges débloqués sont donc identiques sur les deux plateformes.
   useEffect(() => {
-    if (!loadedRef.current || !signedIn) return;
+    // Attend que TOUT l'état du compte soit repris (favoris, profil, streak,
+    // suivis, réservations). Sans ça, chaque donnée arrivant après le premier
+    // calcul passait pour un badge « nouveau » : toasts de points à la
+    // connexion (« Coup de cœur », « Ambassadeur »…) sans aucune action.
+    const accountReady =
+      signedIn &&
+      authUserId !== null &&
+      accountSyncedFor === authUserId &&
+      metricsLoadedFor === authUserId;
+    if (!loadedRef.current || !accountReady) return;
+    // Nouveau compte sur l'appareil : son premier calcul est silencieux.
+    if (awardUserRef.current !== authUserId) {
+      awardUserRef.current = authUserId;
+      firstAwardRef.current = true;
+    }
     const conditions: BadgeState = {
       role: gamRole,
       cities: visitedCities.length,
@@ -443,7 +507,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       setEarnedBadges(next);
       AsyncStorage.setItem(BADGES_KEY, JSON.stringify(next)).catch(() => {});
     }
-  }, [signedIn, gamRole, visitedCities, favorites, profile, streakCount, followingCount, bookingsCount, earnedBadges, badgeDefs]);
+  }, [signedIn, authUserId, accountSyncedFor, metricsLoadedFor, gamRole, visitedCities, favorites, profile, streakCount, followingCount, bookingsCount, earnedBadges, badgeDefs]);
 
   const clearLastEarnedBadge = useCallback(() => setLastEarnedBadge(null), []);
 
@@ -491,7 +555,10 @@ export function AppProvider({ children }: PropsWithChildren) {
   // soit unique et complète.
   useEffect(() => {
     const client = supabase;
+    // Même attente que les badges : ne jamais écrire des compteurs à zéro
+    // avant que le compte ait été repris.
     if (!client || !loadedRef.current || !signedIn) return;
+    if (!authUserId || accountSyncedFor !== authUserId || metricsLoadedFor !== authUserId) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       void syncGamification({
@@ -514,7 +581,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [signedIn, gamRole, authUserId, deviceId, points, earnedBadges, profile, visitedCities, favorites, streakCount, followingCount, bookingsCount]);
+  }, [signedIn, gamRole, authUserId, accountSyncedFor, metricsLoadedFor, deviceId, points, earnedBadges, profile, visitedCities, favorites, streakCount, followingCount, bookingsCount]);
 
   const value = useMemo(
     () => ({
@@ -532,8 +599,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       deleteProfile,
       recordCityVisit,
       toggleFavorite,
+      pruneFavorites,
       applyAsArtist,
       deviceId,
+      dockHidden,
+      setDockHidden,
     }),
     [
       profile,
@@ -551,7 +621,11 @@ export function AppProvider({ children }: PropsWithChildren) {
       deviceId,
       recordCityVisit,
       toggleFavorite,
+      pruneFavorites,
       applyAsArtist,
+      deviceId,
+      dockHidden,
+      setDockHidden,
     ],
   );
 

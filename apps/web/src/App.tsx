@@ -7,6 +7,7 @@ import SeoApplier from './components/SeoApplier'
 import GuestExperienceToast from './components/GuestExperienceToast'
 import { useLanguage } from './i18n/LanguageContext'
 import type { Lang } from './i18n/translations'
+import { LEGAL_LINKS } from '@musimaps/shared'
 
 const Landing = lazy(() => import('./pages/Landing'))
 const GlobeExplore = lazy(() => import('./pages/GlobeExplore'))
@@ -22,6 +23,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ProfileEdit = lazy(() => import('./pages/ProfileEdit'))
 const Admin = lazy(() => import('./admin/AdminApp'))
 const PreviewPage = lazy(() => import('./pages/PreviewPage'))
+const Legal = lazy(() => import('./pages/Legal'))
 
 /**
  * Synchronise la langue active du contexte avec le préfixe d'URL porté par la
@@ -40,6 +42,7 @@ function LangRoute({ lang }: { lang: Lang }) {
  * (préfixe `/en`). Chaque entrée est montée dans les deux arbres de routes.
  */
 const PUBLIC_ROUTES: { path: string; element: ReactElement }[] = [
+  ...LEGAL_LINKS.map(({ path, document }) => ({ path, element: <Legal document={document} /> })),
   { path: '/', element: <Landing /> },
   { path: '/globe', element: <GlobeExplore /> },
   { path: '/artist/:id', element: <ArtistProfile /> },

@@ -1,6 +1,8 @@
 import { supabase, hasSupabase } from './supabase'
 import { DEFAULT_CONTENT_EN } from './cms-en'
 import type { Lang } from '../i18n/translations'
+import { normalizeLegalContent, type LegalContent, type OnboardingSlide } from '@musimaps/shared'
+export type { OnboardingSlide } from '@musimaps/shared'
 
 /* ------------------------------------------------------------------ */
 /* Types du contenu piloté par le dashboard                           */
@@ -176,6 +178,8 @@ export interface ArtistSignupContent {
 }
 
 export interface SettingsContent {
+  /** Global legal identity and explicit FR/EN documents, stored in FR settings. */
+  legal?: LegalContent
   launchDate: string
   launchLabel: string
   onlineLabel: string
@@ -198,15 +202,6 @@ export interface SettingsContent {
   updateMessage?: string
   /** Configuration publique du moteur IA, lue par le web et l'app mobile. */
   llm: LlmConfig
-}
-
-/** Une slide de l'onboarding mobile (icône lucide + textes, par langue). */
-export interface OnboardingSlide {
-  /** Nom de l'icône lucide (ex : 'Globe', 'Search', 'Heart', 'Trophy'). */
-  icon: string
-  chip: string
-  title: string
-  text: string
 }
 
 /**
@@ -522,7 +517,7 @@ role: 'all',
         icon: 'Globe',
         chip: 'Globe interactif',
         title: 'La carte vivante de la musique',
-        text: 'Explore le globe et découvre les artistes du monde entier, comme sur la landing page web.',
+        text: 'Explore le globe et découvre les artistes du monde entier.',
       },
       {
         icon: 'Search',
@@ -591,6 +586,9 @@ export async function fetchContent(lang: Lang = 'fr'): Promise<CmsContent> {
       const current = base[key] as Record<string, unknown>
       base[key] = deepMerge(current, published as Record<string, unknown>)
     }
+    if (key === 'settings') {
+      merged.settings.legal = normalizeLegalContent(row.content?.legal)
+    }
   }
   if (lang === 'en' && frLaunchDate) merged.settings.launchDate = frLaunchDate
   return merged
@@ -628,6 +626,10 @@ export async function fetchDraftContent(lang: Lang = 'fr'): Promise<CmsContent> 
     if (chosen && typeof chosen === 'object') {
       const current = base[key] as Record<string, unknown>
       base[key] = deepMerge(current, chosen as Record<string, unknown>)
+    }
+    if (key === 'settings') {
+      const globalSettings = row.draft && Object.keys(row.draft).length > 0 ? row.draft : row.content
+      merged.settings.legal = normalizeLegalContent(globalSettings?.legal)
     }
   }
   if (lang === 'en' && frLaunchDate) merged.settings.launchDate = frLaunchDate

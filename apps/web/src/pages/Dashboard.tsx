@@ -33,7 +33,8 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { fetchBookings, type BookingRecord } from '@musimaps/shared'
+import { PROFILE_MEDIA, fetchBookings, type BookingRecord } from '@musimaps/shared'
+import { AccountAvatar, AccountCover } from '../components/AccountMedia'
 import { setAccountType } from '@musimaps/shared'
 import {
   fetchMyArtistProfile,
@@ -501,6 +502,15 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-warm-white px-5 pt-36 pb-24 sm:px-6 md:px-12 md:pt-44">
       <div className="mx-auto w-full max-w-5xl">
+        <div className="mb-6 overflow-hidden rounded-3xl border border-hairline bg-surface">
+          <AccountCover image={user.coverUrl} />
+          <div className="relative flex items-end justify-between gap-4 px-5 pb-5" style={{ marginTop: -PROFILE_MEDIA.profileOverlap }}>
+            <AccountAvatar name={user.displayName || user.email} image={user.avatarUrl} />
+            <Link to={localize('/profil')} className="flex items-center gap-2 rounded-full bg-brand-deep px-4 py-3 text-sm font-semibold text-brand-deep-foreground">
+              <PenLine className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{t('profile.editProfile')}</span>
+            </Link>
+          </div>
+        </div>
         {/* En-tête */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">

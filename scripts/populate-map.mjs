@@ -470,8 +470,15 @@ async function geocodeCity(city) {
       `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(city)}.json` +
         `?access_token=${mapboxToken}&limit=1&types=place,locality`,
     )
-    const center = data?.features?.[0]?.center
-    return center && center.length === 2 ? center : null
+    const feature = data?.features?.[0]
+    const center = feature?.center
+    if (!center || center.length !== 2) return null
+    // Pays OÙ SE TROUVE la ville (contexte Mapbox), pas la nationalité de
+    // l'artiste : le pin est posé sur la ville.
+    const countryCode = (feature.context ?? [])
+      .find((c) => String(c.id ?? '').startsWith('country'))
+      ?.short_code?.toUpperCase() ?? null
+    return { center, countryCode }
   } catch {
     return null
   }
@@ -521,13 +528,14 @@ async function processCity(city, state, runTotal = 0) {
   // On re-parcourt TOUJOURS les villes (peuplement périodique) ; la dédupe
   // par MBID (state.artists) empêche les doublons. state.cities = historique.
 
-  const coords = await geocodeCity(city)
-  if (!coords) {
+  const geocoded = await geocodeCity(city)
+  if (!geocoded) {
     console.log(`  ✗ ${city} : géocodage impossible`)
     state.cities[key] = 'no-geocode'
     return { added: 0 }
   }
-  const [lng, lat] = coords
+  const [lng, lat] = geocoded.center
+  const cityCountry = geocoded.countryCode
 
   const areaId = await findAreaId(city)
   if (!areaId) {
@@ -631,7 +639,10 @@ async function processCity(city, state, runTotal = 0) {
       }
     }
     const genre = pickGenre(cand.tags)
-    const country = cand.country || ''
+    // Règle de 00042 : `country` est le pays du pin. MusicBrainz donne la
+    // nationalité (GIMS « FR » posé à Kinshasa, 21 Savage « US » à Londres),
+    // ce qui déplaçait les groupes pays du globe (cf. migration 00067).
+    const country = cityCountry || cand.country || ''
     // Photo HD : la photo Wikipedia (vraie photo) est préférée ; sinon la
     // photo Deezer (toujours dispo en 1000×1000) sert de repli fiable.
     const finalImage = image || deezer?.picture || ''

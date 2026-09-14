@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Bell, CheckCheck, Loader2, MapPinned, Music2 } from 'lucide-react'
-import { Link, Navigate } from 'react-router-dom'
+import { Bell, CheckCheck, Loader2, MapPinned, Music2, Trash2 } from 'lucide-react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
+  deleteAllNotifications,
+  deleteNotification,
   fetchNotifications,
   formatNotificationTime,
   markAllNotificationsRead,
@@ -11,12 +14,27 @@ import {
 } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import { SecondaryPageHeader } from '../components/SecondaryPageHeader'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../components/ui/alert-dialog'
 
 export default function Notifications() {
   const { user, loading: authLoading } = useAuth()
   const { t, lang } = useLanguage()
   const localize = useLocalizedPath()
+  const navigate = useNavigate()
   const [items, setItems] = useState<AppNotification[] | null>(null)
+  const [markingAll, setMarkingAll] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
 
   const load = useCallback(async () => {
     setItems(await fetchNotifications())
@@ -43,9 +61,14 @@ export default function Notifications() {
     item.artist_id ? localize(`/artist/${item.artist_id}`) : localize('/globe')
 
   const markAll = async () => {
-    if (unread === 0) return
-    await markAllNotificationsRead()
-    setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null)
+    if (unread === 0 || markingAll) return
+    setMarkingAll(true)
+    try {
+      await markAllNotificationsRead()
+      setItems((current) => current?.map((item) => ({ ...item, read: true })) ?? null)
+    } finally {
+      setMarkingAll(false)
+    }
   }
 
   const openOne = async (item: AppNotification) => {
@@ -55,15 +78,46 @@ export default function Notifications() {
     }
   }
 
+  // Retrait immédiat de la ligne, rétabli si la base refuse la suppression.
+  const removeOne = async (item: AppNotification) => {
+    const previous = items
+    setItems((current) => current?.filter((row) => row.id !== item.id) ?? null)
+    if (!(await deleteNotification(item.id))) {
+      setItems(previous)
+      toast.error(t('notif.deleteError'))
+    }
+  }
+
+  const deleteAll = async () => {
+    if (deletingAll) return
+    setDeletingAll(true)
+    try {
+      if (await deleteAllNotifications()) setItems([])
+      else toast.error(t('notif.deleteError'))
+    } finally {
+      setDeletingAll(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-warm-white px-6 pb-24 pt-36 md:px-12">
       <div className="mx-auto max-w-4xl">
-        <Link
-          to={localize('/dashboard')}
-          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-secondary-text transition-colors hover:text-brand-deep"
-        >
-          <ArrowLeft className="h-4 w-4" /> {t('common.back')}
-        </Link>
+        <SecondaryPageHeader
+          onBack={() => window.history.length > 1 ? navigate(-1) : navigate(localize('/dashboard'))}
+          backLabel={t('common.back')}
+          unreadCount={unread}
+          beforeNotification={
+            <button
+              type="button"
+              disabled={unread === 0 || markingAll}
+              aria-busy={markingAll}
+              onClick={() => void markAll()}
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-hairline-strong px-3 py-2 text-sm font-medium text-brand-primary transition-colors hover:bg-secondary-bg disabled:cursor-default disabled:opacity-45"
+            >
+              <CheckCheck className="h-4 w-4 shrink-0" /> {t('notif.markAll')}
+            </button>
+          }
+        />
 
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -71,14 +125,30 @@ export default function Notifications() {
             <h1 className="display-font text-4xl font-extrabold tracking-tight md:text-6xl">{t('notif.historyTitle')}</h1>
             <p className="mt-3 max-w-2xl text-secondary-text">{t('notif.historySubtitle')}</p>
           </div>
-          {unread > 0 && (
-            <button
-              type="button"
-              onClick={() => void markAll()}
-              className="inline-flex items-center gap-2 rounded-full border border-hairline-strong px-4 py-2.5 text-sm font-medium transition-colors hover:bg-secondary-bg"
-            >
-              <CheckCheck className="h-4 w-4" /> {t('notif.markAll')}
-            </button>
+          {items && items.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={deletingAll}
+                  aria-busy={deletingAll}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-hairline-strong px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-default disabled:opacity-45"
+                >
+                  {deletingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 shrink-0" />}
+                  {t('notif.deleteAll')}
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('notif.deleteAllTitle')}</AlertDialogTitle>
+                  <AlertDialogDescription>{t('notif.deleteAllText')}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('notif.cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => void deleteAll()}>{t('notif.deleteConfirm')}</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </header>
 
@@ -97,11 +167,11 @@ export default function Notifications() {
         ) : (
           <ul className="overflow-hidden rounded-3xl border border-hairline bg-surface">
             {items.map((item) => (
-              <li key={item.id} className="border-b border-hairline last:border-b-0">
+              <li key={item.id} className={`flex items-start border-b border-hairline last:border-b-0 ${item.read ? '' : 'bg-brand-soft/40'}`}>
                 <Link
                   to={openTarget(item)}
                   onClick={() => void openOne(item)}
-                  className={`flex items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary-bg md:px-6 ${item.read ? '' : 'bg-brand-soft/40'}`}
+                  className="flex min-w-0 flex-1 items-start gap-4 px-5 py-4 transition-colors hover:bg-secondary-bg md:px-6"
                 >
                   <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-secondary-bg text-lg" aria-hidden="true">
                     {notificationIcon(item.type)}
@@ -123,6 +193,14 @@ export default function Notifications() {
                   </span>
                   {!item.read && <span className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-deep" />}
                 </Link>
+                <button
+                  type="button"
+                  aria-label={t('notif.delete')}
+                  onClick={() => void removeOne(item)}
+                  className="mr-3 mt-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-secondary-text transition-colors hover:bg-red-50 hover:text-red-600 md:mr-4"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </li>
             ))}
           </ul>

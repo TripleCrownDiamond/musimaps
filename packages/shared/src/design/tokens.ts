@@ -234,6 +234,14 @@ export const mapUi = {
   /** Point utilisateur : précis sur la carte, mais visuellement discret. */
   locationDotDiameter: 14,
   locationMarkerHitSize: 28,
+  /** Localisation dans l'en-tête : petite légende puis lieu sur deux lignes. */
+  locationCaptionSize: 10,
+  locationCaptionLineHeight: 12,
+  locationCaptionTracking: 0.8,
+  locationLabelSize: 12,
+  locationLabelLineHeight: 15,
+  locationLabelMaxLines: 2,
+  locationTextHaloRadius: 3,
 } as const;
 
 /**
@@ -251,6 +259,8 @@ export const mapUi = {
  * qu'elles restent égales.
  */
 export interface MapOverlay {
+  /** Halo du texte sans cartouche, lisible au-dessus du fond de carte. */
+  locationTextHalo: string;
   /** Halo sous un pin d'artiste — lime secondaire. */
   pinHalo: string;
   /** Halo d'un artiste en tendance. */
@@ -301,6 +311,7 @@ export interface MapOverlay {
 }
 
 const lightOverlay: MapOverlay = {
+  locationTextHalo: lightPalette.mapSpace,
   pinHalo: 'rgba(168, 255, 53, 0.3)',
   pinHaloTrending: 'rgba(255, 78, 91, 0.26)',
   pinHaloSelected: 'rgba(47, 82, 224, 0.32)',
@@ -321,6 +332,7 @@ const lightOverlay: MapOverlay = {
 
 const darkOverlay: MapOverlay = {
   ...lightOverlay,
+  locationTextHalo: darkPalette.mapSpace,
   clusterSurface: 'rgba(20, 24, 31, 0.96)',
   panelSurface: 'rgba(16, 28, 45, 0.92)',
   controlSurface: 'rgba(255, 255, 255, 0.12)',
@@ -383,6 +395,14 @@ export const spacing = {
 } as const;
 
 export const palettes = { light: lightPalette, dark: darkPalette } as const;
+
+/** Blue editorial emphasis, lifted in dark mode for readable large headings. */
+export const onboardingTokens = {
+  titleAccent: { light: BRAND_PRIMARY, dark: '#8CA5FF' },
+  compactHeight: 640,
+  artworkHeightRatio: 0.42,
+  compactArtworkHeightRatio: 0.32,
+} as const;
 
 export type ThemeName = keyof typeof palettes;
 export type RadiusToken = keyof typeof radii;

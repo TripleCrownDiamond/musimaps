@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { compactCount, spacing, type Artist } from '@musimaps/shared';
+import { compactCount, displayGenre, spacing, type Artist } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
 import { useAppTheme } from '../context/ThemeContext';
@@ -292,7 +292,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                   {artist.flag}  {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
                 </Text>
                 <Text style={styles.meta}>
-                  {artist.genre} · {t('sheet.followers', { count: compactCount(followersCount) })} ·{' '}
+                  {displayGenre(artist.genre, t('common.unknown'))} · {t('sheet.followers', { count: compactCount(followersCount) })} ·{' '}
                   {t('sheet.likes', { count: likesCount })}
                 </Text>
                 {/* Liens plateformes + réseaux (comme le web, dans l'onglet À propos). */}
@@ -452,7 +452,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                       {other.name}
                     </Text>
                     <Text style={styles.nearbyMeta}>
-                      {other.genre} · {other.city}
+                      {displayGenre(other.genre, t('common.unknown'))} · {other.city}
                     </Text>
                   </View>
                 </Pressable>
@@ -679,7 +679,18 @@ const createStyles = (colors: AppColors) =>
     nearbyName: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15 },
     nearbyMeta: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, marginTop: 2 },
     plans: { marginTop: 4, gap: 8, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
-    fullProfile: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+    // Filet de séparation : sans lui, le lien se collait à la dernière ligne
+    // de l'onglet À proximité et semblait en faire partie.
+    fullProfile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      paddingVertical: spacing.sm,
+      marginTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: colors.line,
+    },
     fullProfileText: { color: colors.brandPrimary, fontFamily: fonts.bold, fontSize: 13 },
     plansHead: { flexDirection: 'row', alignItems: 'center', gap: 7 },
     plansTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 13, flex: 1 },

@@ -69,6 +69,7 @@ const DARK_KEYS = [
  * panneaux sont mobile-only et n'ont pas à encombrer le CSS.
  */
 const OVERLAY_KEYS = [
+  ['--map-location-text-halo', 'locationTextHalo'],
   ['--map-label-surface', 'labelSurface'],
   ['--map-pin-ink', 'pinInk'],
   ['--map-pin-ink-inverse', 'pinInkInverse'],
@@ -112,6 +113,7 @@ const lines = [
   // Seul le voile qui CHANGE en sombre est redéfini. Le liseré de pin
   // s'oppose au fond de carte : sombre en clair, clair en sombre.
   `  --map-pin-casing: ${mapOverlays.dark.pinCasing};`,
+  `  --map-location-text-halo: ${mapOverlays.dark.locationTextHalo};`,
   ...DARK_KEYS.map(([css, key]) => `  ${css}: ${darkPalette[key]};`),
   '  color-scheme: dark;',
   '}',

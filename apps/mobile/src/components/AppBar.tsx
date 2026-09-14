@@ -3,11 +3,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { CompositeNavigationProp, NavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
-import { fetchUnreadCount } from '@musimaps/shared';
+import { fetchUnreadCount, spacing } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { fonts, shadow, type AppColors } from '../theme';
 import { BrandMark } from './Brand';
@@ -17,6 +17,17 @@ type Navigation = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
+/** Écart après la zone système, identique aux écrans principaux. */
+export const APP_BAR_TOP_GAP = 10;
+export const APP_BAR_HEIGHT = 56;
+export const APP_BAR_ACTION_SIZE = 44;
+/** Air sous la barre : les pastilles ne touchent jamais le bas du bandeau épinglé. */
+export const APP_BAR_BOTTOM_GAP = spacing.md;
+
+/** Hauteur totale du bandeau de la top bar, zone système incluse. */
+export const appBarBandHeight = (insetTop: number) =>
+  insetTop + APP_BAR_TOP_GAP + APP_BAR_HEIGHT + APP_BAR_BOTTOM_GAP;
+
 /**
  * Topbar commune — l'équivalent mobile de la navbar web : logo Musimaps à
  * gauche, cloche de notifications (badge non-lus, synchro web ⇄ mobile) à
@@ -25,6 +36,8 @@ type Navigation = CompositeNavigationProp<
  * écrans principaux pour une cohérence totale.
  */
 interface AppBarProps {
+  /** Contenu non interactif, centré dans une zone protégée des deux actions. */
+  centerContent?: ReactNode;
   navigation: Navigation | NavigationProp<RootStackParamList>;
   /** Navigation racine fournie par un écran ouvert hors des onglets. */
   rootNavigation?: NavigationProp<RootStackParamList>;
@@ -34,20 +47,31 @@ interface AppBarProps {
   /** Fiche artiste ouverte : le logo est temporairement remplacé par un bouton retour. */
   backOverride?: boolean;
   onBack?: () => void;
+  /** Action de page placée immédiatement avant la cloche. */
+  beforeNotification?: ReactNode;
+  /** Compteur fourni par l'écran lorsqu'il modifie lui-même les non-lus. */
+  unreadCount?: number;
+  /** Force la version du logo (blanche par-dessus une cover sombre). */
+  brandTone?: 'auto' | 'light' | 'dark';
 }
 
 export function AppBar({
+  centerContent,
   navigation,
   rootNavigation,
   searchCollapsed = false,
   onOpenSearch,
   backOverride = false,
   onBack,
+  beforeNotification,
+  unreadCount,
+  brandTone,
 }: AppBarProps) {
   const { colors, theme } = useAppTheme();
   const { t } = useI18n();
   const styles = useMemo(() => createStyles(colors, theme), [colors, theme]);
   const [unread, setUnread] = useState(0);
+  const displayedUnread = unreadCount ?? unread;
 
   // Anneau pulsé de l'icône search repliée (comme le bouton du web).
   const ringAnim = useRef(new Animated.Value(0)).current;
@@ -111,11 +135,17 @@ export function AppBar({
           onPress={openHome}
           style={styles.logoPress}
         >
-          <BrandMark size={40} />
+          <BrandMark size={40} tone={brandTone} />
         </Pressable>
       )}
 
+      {centerContent != null && (
+        <View style={styles.centerContent} pointerEvents="none">
+          {centerContent}
+        </View>
+      )}
       <View style={styles.actions}>
+        {beforeNotification}
         {/* Recherche repliée : l'icône search remplace temporairement la cloche. */}
         {searchCollapsed && onOpenSearch ? (
           <View style={styles.searchCollapsedWrap}>
@@ -144,9 +174,9 @@ export function AppBar({
             onPress={openNotifications}
           >
             <Ionicons name="notifications-outline" size={22} color={colors.ink} />
-            {unread > 0 && (
+            {displayedUnread > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+                <Text style={styles.badgeText}>{displayedUnread > 99 ? '99+' : displayedUnread}</Text>
               </View>
             )}
           </Pressable>
@@ -159,16 +189,26 @@ export function AppBar({
 const createStyles = (colors: AppColors, theme: 'light' | 'dark') =>
   StyleSheet.create({
     bar: {
-      minHeight: 56,
+      minHeight: APP_BAR_HEIGHT,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 2,
     },
     logoPress: { flexShrink: 1 },
+    centerContent: {
+      position: 'absolute',
+      left: 56,
+      right: 56,
+      top: 0,
+      bottom: 0,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 0,
+    },
     backButton: {
-      width: 44,
-      height: 44,
+      width: APP_BAR_ACTION_SIZE,
+      height: APP_BAR_ACTION_SIZE,
       borderRadius: 22,
       backgroundColor: theme === 'dark' ? 'rgba(16,28,45,0.92)' : 'rgba(255,255,255,0.95)',
       borderWidth: 1,
@@ -177,12 +217,12 @@ const createStyles = (colors: AppColors, theme: 'light' | 'dark') =>
       justifyContent: 'center',
       ...shadow,
     },
-    actions: { flexDirection: 'row', alignItems: 'center' },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     // Cloche sur fond arrondi avec bordure, comme sur le web (cercle
     // translucide cohérent avec l'icône search repliée et le bouton retour).
     iconButton: {
-      width: 44,
-      height: 44,
+      width: APP_BAR_ACTION_SIZE,
+      height: APP_BAR_ACTION_SIZE,
       borderRadius: 22,
       backgroundColor: theme === 'dark' ? 'rgba(16,28,45,0.92)' : 'rgba(255,255,255,0.95)',
       borderWidth: 1,

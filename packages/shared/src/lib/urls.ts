@@ -22,6 +22,7 @@ export const SITE_URL = 'https://musimaps.com';
 export const LEGAL_PATHS = {
   terms: '/cgu',
   privacy: '/confidentialite',
+  deletion: '/supprimer-compte',
 } as const;
 
 /** Préfixe de langue : le français vit à la racine, l'anglais sous `/en`. */

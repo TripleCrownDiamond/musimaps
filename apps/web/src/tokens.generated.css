@@ -38,6 +38,7 @@
   --map-subcluster-diameter: 40px;
   --map-location-dot-diameter: 14px;
   --map-location-marker-hit-size: 28px;
+  --map-location-text-halo: #F0EDE8;
   --map-label-surface: rgba(13, 15, 19, 0.92);
   --map-pin-ink: #0B1420;
   --map-pin-ink-inverse: #FFFFFF;
@@ -51,6 +52,7 @@
 :root[data-theme='dark'] {
   --map-dot: rgba(255, 255, 255, 0.06);
   --map-pin-casing: #FFFFFF;
+  --map-location-text-halo: #000000;
   --color-warm-white: #0D0F13;
   --color-secondary-bg: #191D24;
   --color-surface: #14181F;

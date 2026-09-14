@@ -7,7 +7,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  artists as catalogue,
+  displayGenre,
   fetchAllArtistPopularity,
   fetchMapArtists,
   parseFollowersCount,
@@ -17,7 +17,7 @@ import {
   type Artist,
 } from '@musimaps/shared';
 import { ArtistAvatar } from '../components/ArtistAvatar';
-import { AppBar } from '../components/AppBar';
+import { AppBar, APP_BAR_BOTTOM_GAP, APP_BAR_TOP_GAP } from '../components/AppBar';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
@@ -83,17 +83,13 @@ export function DiscoverScreen({ navigation }: Props) {
 
   useFocusEffect(load);
 
-  /** Catalogue éditorial + artistes découverts, comme sur la carte. */
-  const allArtists = useMemo<Artist[]>(
-    () => {
-      const byId = new Map<string, Artist>();
-      for (const artist of catalogue) byId.set(artist.id, artist);
-      // La donnée publiée remplace le catalogue si les deux partagent un id.
-      for (const artist of mapArtists) byId.set(artist.id, artist);
-      return [...byId.values()];
-    },
-    [mapArtists],
-  );
+  /**
+   * Source unique : les artistes publiés sur la carte, comme le web et la
+   * recherche. Le catalogue éditorial y ajoutait un artiste absent de la
+   * carte (122 artistes ici, 121 dans la recherche ; Lagos 9 contre 8), avec
+   * une bio et des dates rédigées en français.
+   */
+  const allArtists = mapArtists;
 
   /** Genres présents, du plus fourni au moins fourni. */
   const genres = useMemo(() => {
@@ -162,7 +158,7 @@ export function DiscoverScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <View style={[styles.appBarWrap, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.appBarWrap, { paddingTop: insets.top + APP_BAR_TOP_GAP }]}>
         <AppBar navigation={navigation} />
       </View>
       <ScrollView
@@ -195,6 +191,7 @@ export function DiscoverScreen({ navigation }: Props) {
                 selected={genre}
                 onSelect={setGenre}
                 allLabel={t('globe.discoverGenre')}
+                formatLabel={(value) => displayGenre(value, t('common.unknown'))}
                 styles={styles}
               />
             </Section>
@@ -249,7 +246,7 @@ export function DiscoverScreen({ navigation }: Props) {
                       <View style={styles.resultCopy}>
                         <Text style={styles.resultName} numberOfLines={1}>{artist.name}</Text>
                         <Text style={styles.resultMeta} numberOfLines={1}>
-                          {[artist.genre, artist.city, artist.country].filter(Boolean).join(' · ') || t('discover.unknownLocation')}
+                          {[displayGenre(artist.genre, t('common.unknown')), artist.city, artist.country].filter(Boolean).join(' · ')}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={colors.muted} />
@@ -308,12 +305,15 @@ function ChipRow({
   selected,
   onSelect,
   allLabel,
+  formatLabel = (value) => value,
   styles,
 }: {
   options: Array<{ label: string; count: number }>;
   selected: string | null;
   onSelect: (value: string | null) => void;
   allLabel: string;
+  /** Libellé affiché ; la valeur filtrée reste la donnée brute. */
+  formatLabel?: (value: string) => string;
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
@@ -322,7 +322,7 @@ function ChipRow({
       {options.map((option) => (
         <Chip
           key={option.label}
-          label={`${option.label} · ${option.count}`}
+          label={`${formatLabel(option.label)} · ${option.count}`}
           active={selected === option.label}
           onPress={() => onSelect(selected === option.label ? null : option.label)}
           styles={styles}
@@ -360,7 +360,7 @@ function Chip({
 const createStyles = (colors: AppColors, isDark: boolean) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: colors.background },
-    appBarWrap: { paddingHorizontal: 20, paddingBottom: spacing.md },
+    appBarWrap: { paddingHorizontal: 20, paddingBottom: APP_BAR_BOTTOM_GAP },
     content: { paddingHorizontal: 20, paddingTop: spacing.lg, gap: spacing['2xl'] },
     empty: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 14, lineHeight: 20 },
     loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

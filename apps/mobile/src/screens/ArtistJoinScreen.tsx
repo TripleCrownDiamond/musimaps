@@ -23,7 +23,13 @@ import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
-import { fetchMyArtistProfile, updateMyArtistProfile, uploadArtistImage } from '@musimaps/shared';
+import {
+  fetchMyArtistProfile,
+  geoCountryOf,
+  updateMyArtistProfile,
+  updateProfile as updateAccountProfile,
+  uploadArtistImage,
+} from '@musimaps/shared';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ArtistJoin'>;
 
@@ -77,7 +83,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { applyAsArtist } = useApp();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refresh: refreshUser } = useAuth();
   const prefill = route.params ?? {};
 
   const [form, setForm] = useState<FormState>(() => ({
@@ -92,6 +98,14 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
 
   const platformLabel = PLATFORMS.find((p) => p.key === form.platform)?.label ?? form.platform;
   const socialLabel = SOCIALS.find((s) => s.key === form.social)?.label ?? form.social;
+
+  // Ville connue sans pays (compte sans pays enregistré) : même déduction que
+  // l'édition du profil, sans jamais écraser un pays choisi.
+  useEffect(() => {
+    if (form.country || !form.city) return;
+    const code = geoCountryOf(form.city, '');
+    if (code) setForm((f) => (f.country ? f : { ...f, country: code }));
+  }, [form.city, form.country]);
 
   // ── Auto-fill from logged-in user profile + claimed profile ─────────
   const filledRef = useRef(false);
@@ -193,6 +207,14 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
     });
     setLoading(false);
     if (message) return setError(message);
+
+    // La photo envoyée depuis l'écran artiste doit aussi rester la photo du
+    // compte. Le web écrit déjà `profiles.avatar_url` ici ; on garde le même
+    // comportement sur mobile pour que le profil soit identique partout.
+    if (user && form.photo) {
+      const { error: avatarError } = await updateAccountProfile({ avatarUrl: form.photo });
+      if (!avatarError) await refreshUser();
+    }
 
     // Sync to claimed profile (best-effort, like web)
     if (user) {
