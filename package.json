@@ -12,6 +12,7 @@
   },
   "scripts": {
     "build": "npm run build:web && node scripts/copy-dist.mjs",
+    "start": "node scripts/serve-web.mjs",
     "dev:web": "npm run dev --workspace @musimaps/web",
     "dev:mobile": "npm run start --workspace @musimaps/mobile",
     "build:web": "npm run build --workspace @musimaps/web && node scripts/inject-og.mjs",
@@ -48,5 +49,8 @@
     "nodemailer": "^9.0.4",
     "pg": "^8.22.0",
     "vitest": "^3.2.7"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
