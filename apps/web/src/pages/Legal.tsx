@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { LEGAL_LINKS, legalContactEmail, normalizeLegalContent, type LegalDocument } from '@musimaps/shared'
+import { LEGAL_LINKS, formatLegalDate, legalContactEmail, normalizeLegalContent, type LegalDocument } from '@musimaps/shared'
 import { useCms } from '@/context/CmsContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLanguage, useLocalizedPath } from '@/i18n/LanguageContext'
@@ -16,6 +16,9 @@ export default function Legal({ document }: { document: LegalDocument }) {
   const email = legalContactEmail(legal.contactEmail)
   const body = legal[document][lang].trim()
   const accountPath = localize('/profil#delete-account')
+  // La date vient d'un champ date de l'admin (2026-09-20) : telle quelle, elle
+  // s'affichait en format machine au milieu d'un texte rédigé.
+  const updatedOn = formatLegalDate(legal.updatedOn, lang)
   return (
     <>
       <main className="min-h-screen bg-warm-white px-6 pt-44 pb-20 text-primary-text">
@@ -34,7 +37,7 @@ export default function Legal({ document }: { document: LegalDocument }) {
                 {(['publisherName', 'publisherAddress', 'registrationNumber', 'updatedOn'] as const).map((field) => legal[field].trim() ? (
                   <div key={field}>
                     <dt className="font-semibold">{t(`legal.${field}`)}</dt>
-                    <dd className="mt-1 whitespace-pre-line text-secondary-text">{legal[field]}</dd>
+                    <dd className="mt-1 whitespace-pre-line text-secondary-text">{field === 'updatedOn' ? updatedOn : legal[field]}</dd>
                   </div>
                 ) : null)}
                 {email && <div><dt className="font-semibold">{t('legal.contact')}</dt><dd className="mt-1"><a className="underline" href={`mailto:${encodeURIComponent(email)}`}>{email}</a></dd></div>}

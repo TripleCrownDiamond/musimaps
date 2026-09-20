@@ -64,3 +64,18 @@ export function hasLegalContent(value: unknown): boolean {
   return Object.values(legal).some((field) => typeof field === 'string'
     ? Boolean(field.trim()) : Boolean(field.fr.trim() || field.en.trim()));
 }
+
+/**
+ * Date de mise à jour lisible : l'admin la saisit au format d'un champ date
+ * (2026-09-20), et la page l'affichait tel quel au milieu d'un texte rédigé.
+ * Une valeur libre (« septembre 2026 ») est rendue sans transformation.
+ */
+export function formatLegalDate(value: string, lang: Lang): string {
+  const raw = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const date = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return raw;
+  return new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'fr-FR', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  }).format(date);
+}
