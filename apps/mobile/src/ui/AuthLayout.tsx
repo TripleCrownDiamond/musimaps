@@ -21,10 +21,12 @@ import {
   View,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radii, spacing } from '@musimaps/shared';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import { fonts } from '../theme';
+import { StatusBarScrim } from './StatusBarScrim';
 
 interface AuthLayoutProps {
   /** Glyphe de la pastille lime en tête d'écran. */
@@ -48,6 +50,7 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   const { colors } = useAppTheme();
   const { t } = useI18n();
+  const insets = useSafeAreaInsets();
 
   return (
     <KeyboardAvoidingView
@@ -56,7 +59,7 @@ export function AuthLayout({
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
         showsVerticalScrollIndicator={false}
       >
         {onBack ? (
@@ -99,6 +102,7 @@ export function AuthLayout({
           </Pressable>
         ) : null}
       </ScrollView>
+      <StatusBarScrim color={colors.background} />
     </KeyboardAvoidingView>
   );
 }
@@ -107,7 +111,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   content: {
     paddingHorizontal: spacing['2xl'],
-    paddingTop: spacing.lg,
     paddingBottom: spacing['4xl'],
     gap: spacing.lg,
   },

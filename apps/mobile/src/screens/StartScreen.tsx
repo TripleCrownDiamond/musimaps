@@ -3,10 +3,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { Image, Linking, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { lightPalette, privacyUrl, spacing, termsUrl } from '@musimaps/shared';
-import { useI18n } from '../i18n';
+import { lightPalette, privacyUrl, radii, spacing, termsUrl } from '@musimaps/shared';
+import { LANGS, languageName, useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { Button } from '../ui';
 import { fonts } from '../theme';
@@ -39,7 +39,7 @@ const ON_MEDIA = {
  * Les contrôles restent accessibles et s’adaptent à toutes les hauteurs d’écran.
  */
 export function StartScreen({ navigation }: Props) {
-  const { t, lang } = useI18n();
+  const { t, lang, langPref, setLangPref } = useI18n();
   /**
    * Textes publiés depuis l'admin (section « Onboarding app »). Repli champ
    * par champ sur les textes embarqués : un champ vide dans l'admin, ou un CMS
@@ -98,6 +98,27 @@ export function StartScreen({ navigation }: Props) {
             style={styles.logo}
             accessibilityLabel="Musimaps"
           />
+        </View>
+        {/* Langue choisie dès l'accueil, puis modifiable dans le Profil. Chaque
+            langue s'affiche dans sa propre langue : on la reconnaît même si
+            l'app démarre dans l'autre. */}
+        <View style={styles.langRow}>
+          {LANGS.map((code) => {
+            const active = langPref === code;
+            return (
+              <Pressable
+                key={code}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => setLangPref(code)}
+                style={[styles.langChip, active && styles.langChipActive]}
+              >
+                <Text style={[styles.langChipText, active && styles.langChipTextActive]}>
+                  {languageName(code)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
         <View style={styles.content}>
           <Text style={styles.tagline}>{tagline}</Text>
@@ -183,6 +204,25 @@ const styles = StyleSheet.create({
     width: 210,
     height: 45,
   },
+  langRow: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.lg,
+    padding: spacing.xs,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: ON_MEDIA.textSoft,
+    zIndex: 2,
+  },
+  langChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.full,
+  },
+  langChipActive: { backgroundColor: lightPalette.brandSecondary },
+  langChipText: { color: ON_MEDIA.text, fontFamily: fonts.bold, fontSize: 13 },
+  langChipTextActive: { color: ON_MEDIA.backdrop },
   content: {
     flex: 1,
     justifyContent: 'flex-end',

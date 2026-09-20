@@ -40,6 +40,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AccountCover } from '../components/AccountMedia';
 import { APP_BAR_ACTION_SIZE } from '../components/AppBar';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { BookingModal } from '../components/BookingModal';
@@ -234,7 +235,6 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
         headerHeight={headerHeight}
         background={colors.background}
         topBarBackground="transparent"
-        stickyTopBarColor={colors.brandPrimary}
         topBar={
           <View style={styles.heroActionsBand}>
             <Pressable
@@ -249,11 +249,11 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
           </View>
         }
         cover={
-        <View style={[styles.hero, { backgroundColor: colors.brandPrimary }]}>
-          {artist.image ? (
-            <Image source={{ uri: artist.image }} style={styles.cover} resizeMode="cover" />
-          ) : null}
-          <View style={[styles.coverVeil, { backgroundColor: colors.brandPrimary }]} />
+        <View style={[styles.hero, { backgroundColor: colors.surface }]}>
+          {/* Même cover que le profil utilisateur : l'image de couverture de
+              l'artiste, sinon la cover par défaut. L'ancien aplat bleu se
+              confondait avec le bandeau bleu épinglé au défilement. */}
+          <AccountCover image={artist.cover} height={headerHeight} />
           {/* Photo de profil : moitié sur la cover, moitié en dehors. */}
           <View style={styles.avatarOverlap}>
             <ArtistAvatar
@@ -449,9 +449,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  hero: { flex: 1, paddingHorizontal: PROFILE_GUTTER },
-  cover: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.42 },
-  coverVeil: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, opacity: 0.48 },
+  hero: { flex: 1 },
   avatarOverlap: { position: 'absolute', left: PROFILE_GUTTER, bottom: -ARTIST_AVATAR_OVERLAP },
   back: { width: APP_BAR_ACTION_SIZE, height: APP_BAR_ACTION_SIZE, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
   heroActionsBand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

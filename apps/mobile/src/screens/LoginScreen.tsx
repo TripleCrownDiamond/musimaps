@@ -36,7 +36,8 @@ export function LoginScreen({ navigation }: Props) {
     else {
       void checkin(); // streak de connexion quotidienne (fire-and-forget)
       showToast(t('toast.welcomeBack'), 'checkmark-circle');
-      navigation.navigate('Main', { screen: 'Profile' });
+      // Une connexion ramène au globe, cœur du produit (comme le web).
+      navigation.navigate('Main', { screen: 'Explore' });
     }
   };
 

@@ -49,6 +49,8 @@ export interface DiscoveredArtist {
   lng: number
   bio: string
   image?: string
+  /** Image de couverture (bannière du profil public), migration 00031. */
+  cover?: string
   source: string
   platforms: ArtistPlatforms
   socials: ArtistSocials
@@ -1536,7 +1538,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
-    'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers, slug'
+    'id, name, genre, city, district, country, flag, lat, lng, bio, image, cover, source, platforms, socials, verified, claimed_by, events, followers, slug'
   const BASE_SELECT = 'id, name, genre, city, district, country, flag, lat, lng, bio, image, source'
   let { data, error } = await supabase
     .from('map_artists')
@@ -1568,6 +1570,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     flag: row.flag ?? '🌍',
     lat: row.lat,
     lng: row.lng,
+    cover: ('cover' in row ? row.cover : null) ?? undefined,
     bio: row.bio ?? '',
     image: row.image ?? undefined,
     source: row.source ?? 'musicbrainz',
@@ -1763,6 +1766,7 @@ export function toArtist(d: DiscoveredArtist): MapArtistView {
     coordinates: [d.lng, d.lat],
     bio: d.bio,
     image: d.image,
+    cover: d.cover,
     followers: d.followers ?? '',
     color: DEFAULT_COLOR,
     tracks: [],

@@ -21,8 +21,20 @@ import { MESSAGES, translate, type Lang, type MessageKey } from '@musimaps/share
 export type { Lang, MessageKey }
 export { MESSAGES }
 
-/** Preference de langue : systeme, ou un choix explicite FR/EN. */
-export type LangPref = 'system' | Lang
+/**
+ * Langue choisie par l'utilisateur : à l'accueil, puis dans le Profil.
+ * L'option « Système » a disparu ; la langue de l'appareil ne sert plus que de
+ * point de départ tant qu'aucun choix n'a été fait.
+ */
+export type LangPref = Lang
+
+/** Langues proposées, dans l'ordre d'affichage. */
+export const LANGS: readonly Lang[] = ['fr', 'en']
+
+/** Nom d'une langue dans cette langue même (« Français », « English »). */
+export function languageName(code: Lang): string {
+  return translate(code, code === 'fr' ? 'lang.french' : 'lang.english')
+}
 
 const LANG_PREF_KEY = 'musimaps.mobile.lang-pref'
 
@@ -76,7 +88,7 @@ export const LEVEL_TITLE_EN: Record<number, string> = {
 
 interface I18nValue {
   lang: Lang
-  /** Préférence active : 'system' (langue de l'appareil) ou FR/EN explicite. */
+  /** Langue choisie (FR ou EN). */
   langPref: LangPref
   /** Change la préférence (persistée sur l'appareil, comme le thème). */
   setLangPref: (pref: LangPref) => void
@@ -87,24 +99,22 @@ interface I18nValue {
 const I18nContext = createContext<I18nValue | null>(null)
 
 /**
- * Fournit la langue de l'appareil (préférence persistée : Système / FR / EN)
- * et la fonction t(). Par défaut 'system' → détection de la langue de
- * l'appareil ; un choix explicite reste appliqué jusqu'à retour à « Système ».
+ * Fournit la langue choisie (persistée sur l'appareil) et la fonction t().
+ * Sans choix enregistré, on part de la langue de l'appareil. Une ancienne
+ * préférence « system » est ignorée et revient donc à cette même langue.
  */
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [langPref, setLangPrefState] = useState<LangPref>('system')
+  const [langPref, setLangPrefState] = useState<LangPref>(detectDeviceLang)
 
   useEffect(() => {
     AsyncStorage.getItem(LANG_PREF_KEY)
       .then((saved) => {
-        if (saved === 'system' || saved === 'fr' || saved === 'en') {
-          setLangPrefState(saved);
-        }
+        if (saved === 'fr' || saved === 'en') setLangPrefState(saved);
       })
       .catch(() => {});
   }, []);
 
-  const lang: Lang = langPref === 'system' ? detectDeviceLang() : langPref
+  const lang: Lang = langPref
 
   const setLangPref = useCallback((pref: LangPref) => {
     setLangPrefState(pref);

@@ -53,7 +53,15 @@ interface AppBarProps {
   unreadCount?: number;
   /** Force la version du logo (blanche par-dessus une cover sombre). */
   brandTone?: 'auto' | 'light' | 'dark';
+  /**
+   * Logo posé sur une pastille surélevée, comme la cloche : lisible sur une
+   * cover comme sur un fond clair, sans bandeau coloré derrière la barre.
+   */
+  elevatedBrand?: boolean;
 }
+
+/** Taille du logo dans sa pastille (la pastille garde APP_BAR_ACTION_SIZE). */
+const ELEVATED_BRAND_MARK_SIZE = 24;
 
 export function AppBar({
   centerContent,
@@ -66,6 +74,7 @@ export function AppBar({
   beforeNotification,
   unreadCount,
   brandTone,
+  elevatedBrand = false,
 }: AppBarProps) {
   const { colors, theme } = useAppTheme();
   const { t } = useI18n();
@@ -133,9 +142,13 @@ export function AppBar({
           accessibilityLabel="Musimaps — accueil"
           hitSlop={8}
           onPress={openHome}
-          style={styles.logoPress}
+          style={elevatedBrand ? styles.iconButton : styles.logoPress}
         >
-          <BrandMark size={40} tone={brandTone} />
+          {elevatedBrand ? (
+            <BrandMark size={ELEVATED_BRAND_MARK_SIZE} />
+          ) : (
+            <BrandMark size={40} tone={brandTone} />
+          )}
         </Pressable>
       )}
 

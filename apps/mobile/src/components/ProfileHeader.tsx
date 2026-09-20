@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PROFILE_GUTTER } from '@musimaps/shared';
+import { ScreenStatusBar } from '../ui/ScreenStatusBar';
+import { StatusBarScrim } from '../ui/StatusBarScrim';
 import { APP_BAR_BOTTOM_GAP, APP_BAR_HEIGHT, APP_BAR_TOP_GAP, appBarBandHeight } from './AppBar';
 
 type Props = {
@@ -14,12 +16,6 @@ type Props = {
    * laisse la cover passer dessous (boutons flottants sur la photo).
    */
   topBarBackground?: string;
-  /**
-   * Couleur du bandeau épinglé une fois le header défilé (cover passée sous
-   * la barre). Sans cette couleur, le bandeau garde `topBarBackground` en
-   * toutes positions.
-   */
-  stickyTopBarColor?: string;
   /**
    * Rangée du bandeau du haut, toujours épinglée en haut de l'écran. Le
    * bandeau fournit la zone système, la gouttière et l'air sous la rangée :
@@ -50,7 +46,6 @@ export function ProfileHeader({
   headerHeight,
   background,
   topBarBackground = background,
-  stickyTopBarColor,
   topBar,
   cover,
   style,
@@ -59,23 +54,30 @@ export function ProfileHeader({
 }: Props) {
   const insets = useSafeAreaInsets();
   const collapsedHeight = appBarBandHeight(insets.top);
-  const [scrolled, setScrolled] = useState(false);
+  const overCover = topBarBackground === 'transparent';
+  /**
+   * La cover a quitté la zone système. Le bandeau bleu épinglé qui prenait le
+   * relais au défilement a disparu : seules les pastilles surélevées (logo,
+   * retour, cloche) restent fixes, lisibles sur la cover comme sur le blanc.
+   */
+  const [coverPassed, setCoverPassed] = useState(false);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setScrolled(e.nativeEvent.contentOffset.y > headerHeight - collapsedHeight);
+    const passed = e.nativeEvent.contentOffset.y > headerHeight - insets.top;
+    setCoverPassed((current) => (current === passed ? current : passed));
   };
-
-  const topBarColor =
-    stickyTopBarColor && scrolled ? stickyTopBarColor : topBarBackground;
 
   return (
     <View style={[{ flex: 1, backgroundColor: background }, style]}>
+      {/* Icônes système blanches tant que la cover sombre est dessous ; ensuite
+          elles reprennent la couleur du thème, au-dessus du fond de page. */}
+      {overCover && !coverPassed && <ScreenStatusBar style="light" />}
       {/* Top bar épinglée en haut de l'écran, toujours visible. */}
       <View
         pointerEvents="box-none"
         style={[
           styles.stickyTopBar,
-          { backgroundColor: topBarColor, height: collapsedHeight, paddingTop: insets.top + APP_BAR_TOP_GAP },
+          { backgroundColor: topBarBackground, height: collapsedHeight, paddingTop: insets.top + APP_BAR_TOP_GAP },
         ]}
       >
         <View pointerEvents="box-none" style={styles.topBarRow}>
@@ -101,6 +103,8 @@ export function ProfileHeader({
 
         <View style={contentStyle}>{children}</View>
       </ScrollView>
+      {/* Le contenu ne défile pas sous l'heure une fois la cover passée. */}
+      {overCover && coverPassed && <StatusBarScrim color={background} />}
     </View>
   );
 }

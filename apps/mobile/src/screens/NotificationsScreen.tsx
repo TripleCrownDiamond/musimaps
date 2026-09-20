@@ -14,6 +14,7 @@ import {
   formatNotificationTime,
   markAllNotificationsRead,
   markNotificationRead,
+  notificationDestination,
   notificationIcon,
   radii,
   spacing,
@@ -65,10 +66,26 @@ export function NotificationsScreen({ navigation }: Props) {
       await markNotificationRead(item.id);
       setItems((prev) => prev?.map((n) => (n.id === item.id ? { ...n, read: true } : n)) ?? null);
     }
-    if (item.artist_id) {
-      navigation.navigate('ArtistProfile', { artistId: item.artist_id });
-    } else {
-      navigation.navigate('Main', { screen: 'Explore' });
+    const destination = notificationDestination(item);
+    switch (destination.kind) {
+      case 'artist':
+        navigation.navigate('ArtistProfile', { artistId: destination.artistId });
+        break;
+      case 'nearby':
+        navigation.navigate('Main', {
+          screen: 'Explore',
+          params: { discoverNearby: true, searchKey: Date.now() },
+        });
+        break;
+      case 'achievement':
+        navigation.navigate('BadgeDetail', { badgeId: destination.badgeId });
+        break;
+      case 'achievements':
+        navigation.navigate('Badges');
+        break;
+      case 'globe':
+        navigation.navigate('Main', { screen: 'Explore' });
+        break;
     }
   };
 

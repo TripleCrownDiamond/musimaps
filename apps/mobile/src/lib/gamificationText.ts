@@ -16,6 +16,24 @@ export function badgeText(t: Translate, id: string, field: 'title' | 'desc', fal
   return value === key ? fallback : value;
 }
 
+/** Date d'obtention d'un badge : « Aujourd'hui à 14:05 », « Hier », sinon date courte. */
+export function formatEarnedDate(timestamp: number, lang: 'fr' | 'en', t: Translate): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return t('badges.today', {
+      time: `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`,
+    });
+  }
+  const yesterday = new Date(now.getTime() - 86400000);
+  if (date.toDateString() === yesterday.toDateString()) return t('badges.yesterday');
+  return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 /** Titre de niveau traduit — les paliers partagés sont rédigés en français. */
 export function levelTitle(t: Translate, level: { level: number; title: string }): string {
   const key = `gamify.level.${level.level}`;

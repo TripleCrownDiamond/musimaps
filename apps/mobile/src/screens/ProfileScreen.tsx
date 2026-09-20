@@ -14,7 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { PROFILE_GUTTER, PROFILE_MEDIA, PROFILE_HEADER_HEIGHT, LEGAL_LINKS, SITE_URL, getLevelInfo, radii, siteUrl, spacing } from '@musimaps/shared';
 import { AccountAvatar, AccountCover } from '../components/AccountMedia';
-import { useI18n } from '../i18n';
+import { LANGS, languageName, useI18n } from '../i18n';
 import { checkin, type StreakInfo } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { Card } from '../ui';
@@ -85,9 +85,8 @@ export function ProfileScreen({ navigation }: Props) {
         headerHeight={PROFILE_HEADER_HEIGHT}
         background={colors.background}
         topBarBackground="transparent"
-        stickyTopBarColor={colors.brandPrimary}
         contentStyle={styles.content}
-        topBar={<AppBar navigation={navigation} brandTone="light" />}
+        topBar={<AppBar navigation={navigation} elevatedBrand />}
         cover={
           <View style={styles.accountMedia}>
             <AccountCover image={user?.coverUrl} height={PROFILE_HEADER_HEIGHT} />
@@ -278,19 +277,8 @@ export function ProfileScreen({ navigation }: Props) {
           </Card>
         )}
 
-        {user && (
-          <Card style={styles.menuItem} onPress={() => navigation.navigate('Badges')}>
-            <View style={styles.menuIcon}>
-              <Ionicons name="trophy-outline" size={22} color={colors.brandPrimary} />
-            </View>
-            <View style={styles.menuCopy}>
-              <Text style={styles.menuTitle}>{t('badges.title')}</Text>
-              <Text style={styles.menuText}>{t('profile.badgesHint')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-          </Card>
-        )}
-
+        {/* Pas d'entrée « Badges & trophées » ici : la carte de niveau, en
+            haut de l'écran, mène déjà à la même page. */}
         <Card style={styles.menuItem} onPress={() => navigation.navigate('ArtistJoin')}>
           <View style={styles.menuIcon}>
             <Ionicons name="mic-outline" size={22} color={colors.brandPrimary} />
@@ -322,21 +310,18 @@ export function ProfileScreen({ navigation }: Props) {
           <View style={styles.menuCopy}>
             <Text style={styles.menuTitle}>{t('profile.language')}</Text>
             <View style={styles.langRow}>
-              {(['system', 'fr', 'en'] as const).map((pref) => {
-                const active = langPref === pref;
+              {LANGS.map((code) => {
+                const active = langPref === code;
                 return (
                   <Pressable
-                    key={pref}
+                    key={code}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     style={[styles.langChip, active && styles.langChipActive]}
-                    onPress={() => setLangPref(pref)}
+                    onPress={() => setLangPref(code)}
                   >
                     <Text style={[styles.langChipText, active && styles.langChipTextActive]}>
-                      {pref === 'system'
-                        ? t('lang.system')
-                        : pref === 'fr'
-                          ? t('lang.french')
-                          : t('lang.english')}
+                      {languageName(code)}
                     </Text>
                   </Pressable>
                 );
@@ -433,7 +418,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   statLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 10, marginTop: 2 },
   statDivider: { width: StyleSheet.hairlineWidth, height: 34, backgroundColor: colors.line },
   progressCard: { margin: PROFILE_GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.md },
-  accountInfoCard: { marginHorizontal: PROFILE_GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.sm },
+  accountInfoCard: { margin: PROFILE_GUTTER, marginTop: 0, padding: spacing.lg, gap: spacing.sm },
   accountInfoTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15, marginBottom: spacing.xs },
   accountInfoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   accountInfoText: { flex: 1, color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12 },
@@ -478,7 +463,9 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   },
   badgeMoreText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 12 },
   badgesLabel: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
-  menu: { paddingHorizontal: PROFILE_GUTTER, gap: spacing.md },
+  // Même écart que les cartes du dessus (marge PROFILE_GUTTER) : le menu les
+  // resserrait à 12 px contre 20 px au-dessus.
+  menu: { paddingHorizontal: PROFILE_GUTTER, gap: PROFILE_GUTTER },
   primaryCard: {
     minHeight: 88,
     backgroundColor: colors.brandPrimary,
@@ -518,7 +505,7 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   primaryTitle: { color: colors.white },
   primaryText: { color: colors.white, opacity: 0.8 },
   streakCard: {
-    marginHorizontal: PROFILE_GUTTER,
+    margin: PROFILE_GUTTER,
     marginTop: 0,
     flexDirection: 'row',
     alignItems: 'center',

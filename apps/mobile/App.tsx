@@ -5,8 +5,8 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, StyleSheet, View } from 'react-native';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Linking, Platform, StyleSheet } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { configureRuntime } from '@musimaps/shared';
 import { AppProvider } from './src/context/AppContext';
@@ -21,6 +21,7 @@ import { Toast } from './src/components/Toast';
 import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { ArtistJoinScreen } from './src/screens/ArtistJoinScreen';
+import { BadgeDetailScreen } from './src/screens/BadgeDetailScreen';
 import { BadgesScreen } from './src/screens/BadgesScreen';
 import { ClaimedProfileScreen } from './src/screens/ClaimedProfileScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
@@ -83,34 +84,6 @@ const linking = {
 };
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-
-// Bande fixe au-dessus de la zone système (hauteur = insets.top), sous les
-// icônes de la barre d'état (batterie, réseau…) : noire en sombre sous des
-// icônes blanches, couleur de fond en clair sous des icônes sombres. Réservée
-// d'abord au thème sombre, elle manquait en clair : le contenu défilait sous
-// l'heure (formulaires) et la cover noire du profil rendait les icônes
-// sombres illisibles.
-const STATUS_BAND_COLOR = '#000000';
-
-function StatusBarBand() {
-  const { theme, colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
-  if (insets.top <= 0) return null;
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.statusBand,
-        {
-          height: insets.top,
-          elevation: 999,
-          zIndex: 999,
-          backgroundColor: theme === 'dark' ? STATUS_BAND_COLOR : colors.background,
-        },
-      ]}
-    />
-  );
-}
 
 function MainTabs() {
   const { t } = useI18n();
@@ -190,7 +163,6 @@ function AppNavigator() {
         <LanguageProvider>
           <NavigationContainer theme={navigationTheme} linking={linking}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-          <StatusBarBand />
           <RootStack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{
@@ -207,6 +179,7 @@ function AppNavigator() {
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen name="ArtistJoin" component={ArtistJoinScreen} options={{ presentation: 'modal' }} />
             <RootStack.Screen name="Badges" component={BadgesScreen} />
+            <RootStack.Screen name="BadgeDetail" component={BadgeDetailScreen} />
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Signup" component={SignupScreen} />
             <RootStack.Screen name="Confirmation" component={ConfirmationScreen} options={{ animation: 'fade' }} />
@@ -300,11 +273,4 @@ export default function App() {
 
 const styles = StyleSheet.create({
   tabIcon: { width: 40, height: 32, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  statusBand: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: STATUS_BAND_COLOR,
-  },
 });

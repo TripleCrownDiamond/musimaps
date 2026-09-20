@@ -9,36 +9,14 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { getLevelInfo, radii, spacing, SITE_URL } from '@musimaps/shared';
-import { useI18n, type MessageKey } from '../i18n';
+import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { Button, Card, ScreenHeader, Section } from '../ui';
 import { NotificationButton } from '../components/NotificationButton';
 import { fonts, type AppColors } from '../theme';
-import { badgeText, levelTitle } from '../lib/gamificationText';
+import { badgeText, formatEarnedDate, levelTitle } from '../lib/gamificationText';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Badges'>;
-
-type Lang = 'fr' | 'en'
-
-type Translate = (key: MessageKey, params?: Record<string, string | number>) => string
-
-function formatDate(timestamp: number, lang: Lang, t: Translate): string {
-  const date = new Date(timestamp);
-  const now = new Date();
-  const sameDay = date.toDateString() === now.toDateString();
-  if (sameDay) {
-    return t('badges.today', {
-      time: `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`,
-    });
-  }
-  const yesterday = new Date(now.getTime() - 86400000);
-  if (date.toDateString() === yesterday.toDateString()) return t('badges.yesterday');
-  return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 /** Écran dédié : niveau, points, badges débloqués (historique) et à débloquer. */
 export function BadgesScreen({ navigation }: Props) {
@@ -162,14 +140,19 @@ export function BadgesScreen({ navigation }: Props) {
             </Card>
           ) : (
             history.map((entry) => (
-              <Card key={entry.id} style={styles.row}>
+              <Card
+                key={entry.id}
+                style={styles.row}
+                accessibilityLabel={t('badges.openAria', { label: badgeText(t, entry.id, 'title', entry.def!.label) })}
+                onPress={() => navigation.navigate('BadgeDetail', { badgeId: entry.id })}
+              >
                 <View style={styles.rewardMedal}>
                   <Ionicons name={badgeIcon(entry.def!.icon)} size={22} color={colors.black} />
                 </View>
                 <View style={styles.rowCopy}>
                   <Text style={styles.rowLabel}>{badgeText(t, entry.id, 'title', entry.def!.label)}</Text>
                   <Text style={styles.rowMeta}>
-                    {t('badges.earnedDate', { date: formatDate(entry.earnedAt, lang, t) })}
+                    {t('badges.earnedDate', { date: formatEarnedDate(entry.earnedAt, lang, t) })}
                   </Text>
                 </View>
                 <View style={styles.rewardPoints}>
@@ -189,7 +172,12 @@ export function BadgesScreen({ navigation }: Props) {
             </Card>
           ) : (
             locked.map((badge) => (
-              <Card key={badge.id} style={[styles.row, styles.lockedRow]}>
+              <Card
+                key={badge.id}
+                style={[styles.row, styles.lockedRow]}
+                accessibilityLabel={t('badges.openAria', { label: badgeText(t, badge.id, 'title', badge.label) })}
+                onPress={() => navigation.navigate('BadgeDetail', { badgeId: badge.id })}
+              >
                 <View style={styles.lockedIcon}>
                   <Ionicons name="lock-closed" size={16} color={colors.muted} />
                 </View>

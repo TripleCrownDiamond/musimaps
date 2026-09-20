@@ -140,6 +140,35 @@ export function explorationAfterArtistClose(artists: Artist[], selected: Artist,
   return { place, index: 0 }
 }
 
+/**
+ * Zone « autour de moi » : les artistes du rayon de découverte, du plus proche
+ * au plus lointain. La découverte s'ouvre sur le premier, et les flèches de la
+ * barre de lieu parcourent les suivants. `null` quand personne n'est à portée.
+ */
+export function nearbyExploration(artists: Artist[], location: MapLocation): MapPlace | null {
+  const nearby = artistsNearLocation(artists, location.coordinates)
+  const first = nearby[0]
+  if (!first) return null
+  const code = location.countryCode?.toUpperCase() || geoCountryOf(first.city, first.country)
+  return {
+    kind: 'city',
+    name: location.city?.trim() || location.district?.trim() || first.city.trim(),
+    code,
+    flag: flagFor(code),
+    artists: nearby,
+  }
+}
+
+/** Zone d'une ville choisie dans Découvrir, ouverte sur son premier artiste. */
+export function cityExploration(artists: Artist[], city: string): MapPlace | null {
+  const wanted = city.trim().toLowerCase()
+  const inCity = wanted ? artists.filter((artist) => artist.city.trim().toLowerCase() === wanted) : []
+  const first = inCity[0]
+  if (!first) return null
+  const code = geoCountryOf(first.city, first.country)
+  return { kind: 'city', name: first.city.trim(), code, flag: flagFor(code), artists: inCity }
+}
+
 /** Artistes les plus proches dans le rayon de découverte de la position. */
 export function artistsNearLocation<T extends GeoLocatable>(
   artists: T[],

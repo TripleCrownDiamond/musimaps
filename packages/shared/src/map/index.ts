@@ -533,6 +533,43 @@ export const PIN_LAYOUT_ZOOM = 13;
 /** Zoom au-delà duquel la barre de recherche se replie en icône. */
 export const SEARCH_COLLAPSE_ZOOM = 3.2;
 
+/** Géométrie de la sheet de recherche du globe (mobile). */
+export const SEARCH_SHEET = {
+  /** Hauteur au repos, clavier fermé, en part de la hauteur d'écran. */
+  heightRatio: 0.62,
+  /** Bande de carte laissée visible au-dessus de la sheet, clavier ouvert. */
+  mapPeekRatio: 0.2,
+  /** Hauteur minimale clavier ouvert : titre, champ et deux ou trois résultats. */
+  minKeyboardHeight: 260,
+} as const;
+
+/**
+ * Hauteur de la sheet de recherche.
+ *
+ * Clavier ouvert, la sheet (62 % de l'écran) était remontée de toute la
+ * hauteur du clavier : son haut passait sous la barre d'état. Elle se pose
+ * désormais sur le clavier et se raccourcit pour laisser une bande de carte,
+ * sans descendre sous le minimum utile ni dépasser l'espace disponible.
+ */
+export function searchSheetHeight({
+  windowHeight,
+  keyboardHeight,
+  topInset,
+}: {
+  windowHeight: number;
+  keyboardHeight: number;
+  topInset: number;
+}): number {
+  const resting = windowHeight * SEARCH_SHEET.heightRatio;
+  if (keyboardHeight <= 0) return resting;
+  const available = Math.max(0, windowHeight - keyboardHeight - topInset);
+  const compact = Math.max(
+    SEARCH_SHEET.minKeyboardHeight,
+    available - windowHeight * SEARCH_SHEET.mapPeekRatio,
+  );
+  return Math.min(resting, compact, available);
+}
+
 /** Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile). */
 export const PIN_LABEL_ZOOM = 12.5;
 

@@ -224,6 +224,9 @@ export default function GlobeMap({
   // Un geste utilisateur suspend seulement le tick courant. Le bouton Play
   // reste actif et la rotation reprend dès que Mapbox a fini le geste.
   const gestureActiveRef = useRef(false)
+  /** Numéro du dernier vol programmé : un vol plus récent annule la reprise
+   *  de rotation promise par « Vue globe ». */
+  const cameraMoveRef = useRef(0)
   useEffect(() => {
     spinRef.current = autoRotate
   }, [autoRotate])
@@ -402,6 +405,7 @@ export default function GlobeMap({
     const handle: GlobeMapHandle = {
       flyTo: (coordinates, zoom = CAMERA.country.zoom, duration = CAMERA.city.duration) => {
         spinRef.current = false
+        cameraMoveRef.current += 1
         onRotateChangeRef.current?.(false)
         map.flyTo({ center: coordinates, zoom, duration, essential: true, curve: 1.6 })
       },
@@ -411,6 +415,7 @@ export default function GlobeMap({
         const rendered = renderedPosition(artistsRef.current, id, PIN_LAYOUT_ZOOM)
         if (!rendered) return
         spinRef.current = false
+        cameraMoveRef.current += 1
         onRotateChangeRef.current?.(false)
         map.flyTo({
           center: rendered,
@@ -426,6 +431,7 @@ export default function GlobeMap({
         const first = firstRenderedPosition(artists, PIN_LAYOUT_ZOOM)
         if (!first) return
         spinRef.current = false
+        cameraMoveRef.current += 1
         onRotateChangeRef.current?.(false)
         map.flyTo({
           center: first.coordinates,
@@ -440,8 +446,16 @@ export default function GlobeMap({
         // annule le flyTo (et on resterait au niveau ville au lieu de
         // revenir au niveau pays/monde).
         spinRef.current = false
+        const move = ++cameraMoveRef.current
         onRotateChangeRef.current?.(false)
         map.flyTo({ ...GLOBE_VIEW, duration: CAMERA.globe.duration, essential: true })
+        // La vue globe est l'état d'accueil : le globe s'y remet à tourner
+        // une fois arrivé, sauf si un autre vol a été lancé entre-temps.
+        map.once('moveend', () => {
+          if (move !== cameraMoveRef.current || !isGlobeView(map.getZoom())) return
+          spinRef.current = true
+          onRotateChangeRef.current?.(true)
+        })
       },
     }
     map.once('load', () => {

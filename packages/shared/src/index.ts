@@ -55,6 +55,8 @@ export interface Artist {
   trending?: boolean;
   /** Photo HD de l'artiste (Wikipedia), affichée sur la fiche. */
   image?: string;
+  /** Image de couverture du profil public, posée par l'artiste revendiqué. */
+  cover?: string;
   /** Quartier / district de l'artiste (ex. « Yopougon », « Bastille ») —
    *  disperse les pins d'une même ville et ancre la localisation réelle. */
   district?: string;

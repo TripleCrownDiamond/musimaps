@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -23,9 +24,11 @@ import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { StatusBarScrim } from '../ui';
 import {
   fetchMyArtistProfile,
   geoCountryOf,
+  spacing,
   updateMyArtistProfile,
   updateProfile as updateAccountProfile,
   uploadArtistImage,
@@ -80,6 +83,7 @@ const initialForm: FormState = {
 
 export function ArtistJoinScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { applyAsArtist } = useApp();
@@ -247,7 +251,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.top}>
@@ -384,6 +388,7 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
           <Text style={styles.privacy}>{t('join.privacy')}</Text>
         </View>
       </ScrollView>
+      <StatusBarScrim color={colors.background} />
     </KeyboardAvoidingView>
   );
 }
@@ -424,7 +429,7 @@ function Field({
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 21, paddingTop: 54, paddingBottom: 55 },
+  content: { padding: 21, paddingBottom: 55 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.brandSoft, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18 },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Check, ChevronLeft, CircleHelp, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, X } from 'lucide-react'
 import GlobeMap, { type GlobeMapHandle } from '../components/GlobeMap'
 import ArtistSheet from '../components/ArtistSheet'
@@ -16,6 +16,7 @@ import {
   artistsNearLocation,
   artistMapLocation,
   explorationAfterArtistClose,
+  nearbyExploration,
   mapLocationHeading,
   countryByName,
   distanceKm,
@@ -69,6 +70,7 @@ import { addSearchHistory, clearSearchHistory, getSearchHistory } from '@musimap
 import { useAuth } from '../context/AuthContext'
 import { isValidEmail, saveSignup } from '../lib/waitlist'
 import { reverseGeocodeBrowser } from '../lib/geolocate'
+import { DISCOVER_NEARBY_PARAM, DISCOVER_NEARBY_VALUE } from '../lib/notificationLink'
 
 /** Normalise une chaîne : minuscules + accents retirés (recherche tolérante).
  *  Tolère null/undefined (certains artistes n'ont pas de ville ni de pays). */
@@ -362,6 +364,49 @@ export default function GlobeExplore() {
       toast.info(t('loc.nearbyNone'), { description: t('loc.detected', { location: label }) })
     }
   }, [allArtists, t, userLocation])
+
+  // Découverte guidée depuis la notification « artistes près de vous »
+  // (?discover=nearby) : premier artiste de la zone, flèches prêtes. Le lien
+  // ouvrait le globe sans montrer d'artiste. Même règle que le mobile.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const discoverNearbyRequested = searchParams.get(DISCOVER_NEARBY_PARAM) === DISCOVER_NEARBY_VALUE
+  useEffect(() => {
+    if (!discoverNearbyRequested || allArtists.length === 0) return
+    const next = new URLSearchParams(searchParams)
+    next.delete(DISCOVER_NEARBY_PARAM)
+    setSearchParams(next, { replace: true })
+    void (async () => {
+      const result = await reverseGeocodeBrowser()
+      if (!result?.coordinates) {
+        toast.error(result?.denied ? t('auth.locationDenied') : t('loc.locationUnavailable'))
+        return
+      }
+      const location: MapLocation = {
+        coordinates: result.coordinates,
+        district: result.district,
+        city: result.city,
+        country: result.country,
+        countryCode: result.countryCode,
+      }
+      location.label = mapLocationLabel(location)
+      setUserLocation(location)
+      const place = nearbyExploration(allArtists, location)
+      const first = place?.artists[0]
+      if (!place || !first) {
+        toast.info(t('loc.nearbyNone'))
+        mapRef.current?.flyTo(location.coordinates, CAMERA.location.zoom, CAMERA.location.duration)
+        return
+      }
+      setSearchOpen(false)
+      setSelected(null)
+      setSelectedPlace(place)
+      setPlaceIndex(0)
+      setVisiblePins(place.artists)
+      setHighlightedId(first.id)
+      setExplorationLocation(artistMapLocation(first))
+      mapRef.current?.focusArtist(first.id)
+    })()
+  }, [allArtists, discoverNearbyRequested, searchParams, setSearchParams, t])
 
   /** Artistes dont le NOM contient la requête (pas la ville ni le genre). */
   const artistResults = useMemo(() => {

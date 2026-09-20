@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Artist } from '../index'
-import { artistMapLocation, artistsInExploration, explorationAfterArtistClose, mapLocationHeading, type MapLocation, type MapPlace } from './location'
+import { artistMapLocation, artistsInExploration, cityExploration, explorationAfterArtistClose, mapLocationHeading, nearbyExploration, type MapLocation, type MapPlace } from './location'
 import { clusterCameraTarget, nearestMapTarget, nextIndexWithinPlace, PIN_LAYOUT_ZOOM, renderedPosition, CAMERA } from './index'
 
 const artist = (id: string, coordinates: [number, number]): Artist => ({
@@ -72,6 +72,32 @@ describe('navigation après fermeture d’une fiche Découvrir', () => {
     expect(place.artists).toEqual([selected])
     expect(nextIndexWithinPlace(place.artists, index, 1)).toBe(0)
     expect(nextIndexWithinPlace(place.artists, index, -1)).toBe(0)
+  })
+})
+
+describe('découverte guidée', () => {
+  const lagos: MapLocation = { coordinates: [3.34, 6.59], city: 'Lagos', countryCode: 'NG' }
+
+  it('ouvre la zone autour de moi sur l’artiste le plus proche', () => {
+    const far = artist('far', [3.6, 6.59])
+    const close = artist('close', [3.345, 6.595])
+    const abroad = artist('abroad', [2.35, 48.85])
+    const place = nearbyExploration([far, abroad, close], lagos)
+    expect(place?.artists.map(a => a.id)).toEqual(['close', 'far'])
+    expect(place).toMatchObject({ kind: 'city', name: 'Lagos', code: 'NG', flag: '🇳🇬' })
+  })
+
+  it('ne crée pas de zone vide autour de moi', () => {
+    expect(nearbyExploration([artist('abroad', [2.35, 48.85])], lagos)).toBeNull()
+  })
+
+  it('regroupe la ville choisie dans Découvrir', () => {
+    const inLagos = artist('lagos', [3.38, 6.45])
+    const inAbuja = { ...artist('abuja', [7.49, 9.07]), city: 'Abuja' }
+    expect(cityExploration([inAbuja, inLagos], ' lagos ')).toMatchObject({
+      kind: 'city', name: 'Lagos', code: 'NG', artists: [inLagos],
+    })
+    expect(cityExploration([inAbuja], 'Lagos')).toBeNull()
   })
 })
 

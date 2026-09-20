@@ -13,6 +13,10 @@ export type MainTabParamList = {
     searchKey?: number;
     /** La localisation a déjà été tranchée (écran Welcome) : ne pas re-demander. */
     skipLocation?: boolean;
+    /** Découverte guidée : artiste le plus proche de l'appareil, flèches actives. */
+    discoverNearby?: boolean;
+    /** Découverte guidée d'une ville choisie dans l'onglet Découvrir. */
+    discoverZone?: string;
   } | undefined;
   Discover: undefined;
   Saved: undefined;
@@ -34,6 +38,8 @@ export type RootStackParamList = {
     bio?: string;
   } | undefined;
   Badges: undefined;
+  /** Fiche d'un accomplissement (notification de badge, liste des badges). */
+  BadgeDetail: { badgeId: string };
   Login: undefined;
   Signup: { role?: AccountRole; email?: string } | undefined;
   Confirmation: { email: string; profile: 'artiste' | 'amateur'; artistName?: string };

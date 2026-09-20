@@ -21,7 +21,7 @@ export default function Login() {
   const redirectTo =
     typeof requestedPath === 'string' && requestedPath.startsWith('/')
       ? requestedPath
-      : localize('/dashboard')
+      : localize('/globe')
 
   useEffect(() => {
     if (!loading && user) navigate(redirectTo, { replace: true })

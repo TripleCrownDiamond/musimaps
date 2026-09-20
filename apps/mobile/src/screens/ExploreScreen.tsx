@@ -23,6 +23,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type GestureResponderEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +39,8 @@ import {
   artistsNearLocation,
   artistMapLocation,
   explorationAfterArtistClose,
+  cityExploration,
+  nearbyExploration,
   mapLocationHeading,
   cities,
   artists as catalogue,
@@ -91,11 +94,13 @@ import {
   spinPixelsFor,
   spinDeltaFor,
   SEARCH_COLLAPSE_ZOOM,
+  searchSheetHeight,
   tierOf,
   type Artist,
   type ClusterLevel,
   type PopularityTier,
   type MapLocation,
+  type MapPlace,
   radii,
   spacing,
 } from '@musimaps/shared';
@@ -259,6 +264,7 @@ export function ExploreScreen({ navigation, route }: Props) {
   const { deviceId, recordCityVisit, showToast, setDockHidden } = useApp();
   const { t, lang } = useI18n();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   /** Voile des surfaces posées sur la carte — même jeu que le web. */
   const overlay = mapOverlays[theme];
   const styles = useMemo(() => createStyles(colors, overlay), [colors, overlay]);
@@ -309,6 +315,8 @@ export function ExploreScreen({ navigation, route }: Props) {
   const cameraCommandIssuedRef = useRef(false);
   /** Recentrage déjà tenté pour la destination en cours (au plus un par vol). */
   const cameraCorrectedRef = useRef(false);
+  /** « Vue globe » en cours : la rotation reprend à l'arrivée en vue globe. */
+  const resumeSpinOnArrivalRef = useRef(false);
   const mapSurfaceRef = useRef<View>(null);
   const mapOriginRef = useRef({ x: 0, y: 0 });
   const bindMapView = useCallback((map: Mapbox.MapView | null) => {
@@ -445,7 +453,9 @@ export function ExploreScreen({ navigation, route }: Props) {
   // reste ignoré pour la session en cours.
   useFocusEffect(
     useCallback(() => {
-      const hasDestination = Boolean(route.params?.artistId || (route.params?.city && !route.params?.skipLocation));
+      const hasDestination = Boolean(
+        route.params?.artistId || route.params?.discoverZone || (route.params?.city && !route.params?.skipLocation),
+      );
       if (hasDestination) setLocState('skipped');
       if (locSkippedRef.current) return;
       if (initialLocationHandledRef.current) return;
@@ -507,7 +517,7 @@ export function ExploreScreen({ navigation, route }: Props) {
       return () => {
         cancelled = true;
       };
-    }, [route.params?.skipLocation, route.params?.coordinates, route.params?.artistId, route.params?.city]),
+    }, [route.params?.skipLocation, route.params?.coordinates, route.params?.artistId, route.params?.city, route.params?.discoverZone]),
   );
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
@@ -729,9 +739,10 @@ export function ExploreScreen({ navigation, route }: Props) {
     zoomLevel: number,
     duration = CAMERA.artist.duration,
   ) => {
-    // Comme sur le web, une destination explicite arrête la rotation. Seul
-    // Play peut la relancer, une fois revenu en vue globe.
+    // Comme sur le web, une destination explicite arrête la rotation. Play la
+    // relance, et « Vue globe » aussi une fois arrivée (voir resetView).
     setRotation(false);
+    resumeSpinOnArrivalRef.current = false;
     hasNavigatedRef.current = true;
     setPendingLoc(null);
     suspendSpinForCameraMove();
@@ -801,6 +812,10 @@ export function ExploreScreen({ navigation, route }: Props) {
     setHighlightedId(null);
     setVisiblePins([]);
     flyTo(GLOBE_CENTER, GLOBE_ZOOM, CAMERA.globe.duration);
+    // La vue globe est l'état d'accueil : le globe s'y remet à tourner. Tout
+    // vol arrêtait la rotation jusqu'au prochain Play, et comme la carte se
+    // centre d'abord sur la position, on ne voyait plus jamais le globe tourner.
+    resumeSpinOnArrivalRef.current = true;
   };
 
   // Demande l'autorisation de localisation, puis révèle les artistes locaux.
@@ -1370,6 +1385,7 @@ export function ExploreScreen({ navigation, route }: Props) {
     if (Platform.OS !== 'web') {
       hasNavigatedRef.current = true;
       pendingCameraRef.current = null;
+      resumeSpinOnArrivalRef.current = false;
       touchActiveRef.current = true;
       clearGestureRelease();
       gestureActiveRef.current = true;
@@ -1536,6 +1552,74 @@ export function ExploreScreen({ navigation, route }: Props) {
     recordCityVisit,
     allArtists,
   ]);
+
+  /**
+   * Découverte guidée : on atterrit sur le premier artiste de la zone, barre de
+   * lieu et flèches prêtes pour parcourir les suivants. La notification
+   * « artistes près de vous » ne faisait que centrer la carte sur la position.
+   */
+  const openExploration = useCallback(
+    (place: MapPlace) => {
+      const first = place.artists[0];
+      if (!first) return;
+      setSearchOpen(false);
+      setSelected(null);
+      setSelectedPlace(place);
+      setPlaceIndex(0);
+      setVisiblePins(place.artists);
+      setHighlightedId(first.id);
+      setExplorationLocation(artistMapLocation(first));
+      recordCityVisit(`${first.city}, ${first.country}`).catch(() => {});
+      const rendered = renderedPosition(place.artists, first.id, PIN_LAYOUT_ZOOM) ?? first.coordinates;
+      flyTo(rendered, CAMERA.artist.zoom, CAMERA.artist.duration);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [recordCityVisit],
+  );
+
+  // Notification de proximité ou onglet Découvrir. Pas d'annulation au
+  // rechargement des artistes : la clé est déjà consommée, la demande ne
+  // serait jamais rejouée.
+  const handledExplorationKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const zone = route.params?.discoverZone;
+    if ((!zone && !route.params?.discoverNearby) || allArtists.length === 0) return;
+    const key = `${zone ?? 'nearby'}|${route.params?.searchKey ?? ''}`;
+    if (handledExplorationKeyRef.current === key) return;
+    handledExplorationKeyRef.current = key;
+    if (zone) {
+      const place = cityExploration(allArtists, zone);
+      if (place) openExploration(place);
+      return;
+    }
+    void (async () => {
+      // L'utilisateur a demandé ses voisins : la demande d'autorisation est
+      // légitime ici, contrairement à l'ouverture silencieuse de la carte.
+      const permission = await resolveWithin(
+        Location.requestForegroundPermissionsAsync(),
+        LOCATION_PERMISSION_TIMEOUT_MS,
+      );
+      if (!permission || permission.status !== 'granted') {
+        showToast(t('auth.locationDenied'), 'location', 'error');
+        return;
+      }
+      setLocState('granted');
+      const location = userLocation ?? (await readExpoMapLocation());
+      if (!location) {
+        showToast(t('loc.locationUnavailable'), 'location', 'error');
+        return;
+      }
+      setUserLocation(location);
+      const place = nearbyExploration(allArtists, location);
+      if (place) {
+        openExploration(place);
+      } else {
+        showToast(t('loc.nearbyNone'), 'location');
+        setPendingLoc(location.coordinates);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route.params?.discoverZone, route.params?.discoverNearby, route.params?.searchKey, allArtists, openExploration]);
 
   // Entrée du panneau de recherche (comme le web : slide + fade).
   const sheetAnim = useRef(new Animated.Value(0)).current;
@@ -1816,6 +1900,13 @@ export function ExploreScreen({ navigation, route }: Props) {
         attributionEnabled={false}
         onPress={closeArtist}
         onMapIdle={(event) => {
+          // « Vue globe » arrivée : Mapbox plafonne le zoom du globe, qui
+          // n'atteint jamais exactement GLOBE_ZOOM. On se fie donc à la vue
+          // globe elle-même, pas à l'arrivée au zoom demandé.
+          if (resumeSpinOnArrivalRef.current && isGlobeView(event.properties.zoom)) {
+            resumeSpinOnArrivalRef.current = false;
+            setRotation(true);
+          }
           const target = pendingCameraRef.current;
           if (target && 'zoomLevel' in target && target.zoomLevel != null) {
             const arrival = cameraArrival(
@@ -2209,7 +2300,11 @@ export function ExploreScreen({ navigation, route }: Props) {
             style={[
               styles.sheet,
               {
-                paddingBottom: insets.bottom + 14,
+                // Clavier ouvert : posée sur le clavier et raccourcie, une bande
+                // de carte reste visible au-dessus (cf. searchSheetHeight).
+                height: searchSheetHeight({ windowHeight, keyboardHeight: kbInset, topInset: insets.top }),
+                marginBottom: kbInset,
+                paddingBottom: (kbInset > 0 ? 0 : insets.bottom) + 14,
                 opacity: sheetAnim,
                 transform: [
                   {
@@ -2218,7 +2313,6 @@ export function ExploreScreen({ navigation, route }: Props) {
                       outputRange: [28, 0],
                     }),
                   },
-                  { translateY: -kbInset },
                 ],
               },
             ]}
@@ -2265,7 +2359,7 @@ export function ExploreScreen({ navigation, route }: Props) {
 
             <ScrollView
               style={styles.resultsScroll}
-              contentContainerStyle={[styles.resultsContent, { paddingBottom: 20 + kbInset }]}
+              contentContainerStyle={styles.resultsContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -2890,7 +2984,6 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
     searchPanel: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 1500, justifyContent: 'flex-end' },
     scrim: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: overlay.scrim, zIndex: 0 },
     sheet: {
-      height: '62%',
       backgroundColor: colors.surface,
       borderTopLeftRadius: 32,
       borderTopRightRadius: 32,

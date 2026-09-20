@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { SecondaryPageHeader } from '../components/SecondaryPageHeader'
+import { notificationHref } from '../lib/notificationLink'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,8 +58,7 @@ export default function Notifications() {
 
   if (!user) return <Navigate to={localize('/login')} state={{ from: localize('/notifications') }} replace />
 
-  const openTarget = (item: AppNotification) =>
-    item.artist_id ? localize(`/artist/${item.artist_id}`) : localize('/globe')
+  const openTarget = (item: AppNotification) => notificationHref(item, localize)
 
   const markAll = async () => {
     if (unread === 0 || markingAll) return

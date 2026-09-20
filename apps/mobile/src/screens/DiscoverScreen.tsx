@@ -51,7 +51,6 @@ export function DiscoverScreen({ navigation }: Props) {
   const styles = useMemo(() => createStyles(colors, theme === 'dark'), [colors, theme]);
 
   const [genre, setGenre] = useState<string | null>(null);
-  const [city, setCity] = useState<string | null>(null);
   const [mapArtists, setMapArtists] = useState<Artist[]>([]);
   const [popularityById, setPopularityById] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -115,15 +114,13 @@ export function DiscoverScreen({ navigation }: Props) {
       .map(([label, count]) => ({ label, count }));
   }, [allArtists]);
 
-  /** Artistes retenus par les filtres — alimente le tirage et le compteur. */
+  /**
+   * Artistes retenus par le genre — alimente le tirage et le compteur. La
+   * ville n'est plus un filtre : choisir une ville ouvre sa zone sur la carte.
+   */
   const pool = useMemo(
-    () =>
-      allArtists.filter((a) => {
-        if (genre && a.genre?.trim() !== genre) return false;
-        if (city && a.city?.trim() !== city) return false;
-        return true;
-      }),
-    [allArtists, genre, city],
+    () => (genre ? allArtists.filter((a) => a.genre?.trim() === genre) : allArtists),
+    [allArtists, genre],
   );
 
   const scoreFor = useCallback(
@@ -150,6 +147,19 @@ export function DiscoverScreen({ navigation }: Props) {
   /** Ouvre un artiste sur la carte — la carte reste la surface de lecture. */
   const openArtist = (artist: Artist) =>
     navigation.navigate('Explore', { artistId: artist.id, searchKey: Date.now() });
+
+  /**
+   * Découverte par zone : la carte atterrit sur le premier artiste, et les
+   * flèches de la barre de lieu parcourent les suivants. Choisir une ville ne
+   * faisait que filtrer la liste ci-dessous.
+   */
+  const openZone = (value: string | null) => {
+    if (value) navigation.navigate('Explore', { discoverZone: value, searchKey: Date.now() });
+  };
+
+  /** Autour de moi : l'artiste le plus proche, puis les suivants par distance. */
+  const openNearby = () =>
+    navigation.navigate('Explore', { discoverNearby: true, searchKey: Date.now() });
 
   const shuffle = () => {
     if (pool.length === 0) return;
@@ -185,6 +195,21 @@ export function DiscoverScreen({ navigation }: Props) {
           <Text style={styles.empty}>{t('discover.empty')}</Text>
         ) : (
           <>
+            <Pressable
+              accessibilityRole="button"
+              onPress={openNearby}
+              style={({ pressed }) => [styles.nearMe, pressed && styles.pressed]}
+            >
+              <View style={styles.nearMeIcon}>
+                <Ionicons name="navigate" size={20} color={colors.black} />
+              </View>
+              <View style={styles.resultCopy}>
+                <Text style={styles.nearMeTitle}>{t('discover.nearMe')}</Text>
+                <Text style={styles.resultMeta}>{t('discover.nearMeSub')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
+            </Pressable>
+
             <Section title={t('discover.byGenre')}>
               <ChipRow
                 options={genres}
@@ -196,12 +221,11 @@ export function DiscoverScreen({ navigation }: Props) {
               />
             </Section>
 
-            <Section title={t('discover.byCity')}>
+            <Section title={t('discover.byCity')} subtitle={t('discover.byCitySub')}>
               <ChipRow
                 options={cities}
-                selected={city}
-                onSelect={setCity}
-                allLabel={t('globe.discoverCity')}
+                selected={null}
+                onSelect={openZone}
                 styles={styles}
               />
             </Section>
@@ -299,7 +323,7 @@ export function DiscoverScreen({ navigation }: Props) {
   );
 }
 
-/** Bande de puces défilante — « Tous » plus une puce par valeur. */
+/** Bande de puces défilante — « Tous » (si `allLabel`) plus une puce par valeur. */
 function ChipRow({
   options,
   selected,
@@ -311,14 +335,17 @@ function ChipRow({
   options: Array<{ label: string; count: number }>;
   selected: string | null;
   onSelect: (value: string | null) => void;
-  allLabel: string;
+  /** Absent : pas de puce « Tous » (les villes ouvrent une zone, pas un filtre). */
+  allLabel?: string;
   /** Libellé affiché ; la valeur filtrée reste la donnée brute. */
   formatLabel?: (value: string) => string;
   styles: ReturnType<typeof createStyles>;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-      <Chip label={allLabel} active={selected === null} onPress={() => onSelect(null)} styles={styles} />
+      {allLabel ? (
+        <Chip label={allLabel} active={selected === null} onPress={() => onSelect(null)} styles={styles} />
+      ) : null}
       {options.map((option) => (
         <Chip
           key={option.label}
@@ -367,6 +394,25 @@ const createStyles = (colors: AppColors, isDark: boolean) =>
     loadingText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13 },
     errorBox: { gap: spacing.sm, padding: spacing.lg, borderRadius: radii['2xl'], backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.line },
     errorText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+    nearMe: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      padding: spacing.lg,
+      borderRadius: radii['2xl'],
+      backgroundColor: colors.brandSoft,
+      borderWidth: 1,
+      borderColor: colors.line,
+    },
+    nearMeIcon: {
+      width: 44,
+      height: 44,
+      borderRadius: radii.full,
+      backgroundColor: colors.brandSecondary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nearMeTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15 },
     chipRow: { gap: spacing.sm, paddingRight: spacing.lg },
     chip: {
       paddingHorizontal: spacing.lg,

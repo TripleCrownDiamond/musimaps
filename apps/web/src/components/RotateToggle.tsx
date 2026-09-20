@@ -1,4 +1,5 @@
 import { Pause, Play } from 'lucide-react'
+import { useLanguage } from '../i18n/LanguageContext'
 
 interface RotateToggleProps {
   active: boolean
@@ -14,12 +15,14 @@ export default function RotateToggle({
   theme = 'light',
   className = '',
 }: RotateToggleProps) {
+  const { t } = useLanguage()
   const base =
     theme === 'dark'
       ? 'bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-xl'
       : 'bg-surface/85 hover:bg-surface shadow-lg backdrop-blur-xl'
 
-  const label = active ? 'Mettre la rotation en pause' : 'Relancer la rotation'
+  // Libellés traduits : ils restaient en français sur /en.
+  const label = active ? t('globe.rotatePause') : t('globe.rotateResume')
 
   return (
     <button

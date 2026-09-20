@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   BadgeCheck,
   Banknote,
@@ -20,11 +20,13 @@ import {
   ImagePlus,
   Link2,
   Loader2,
+  Lock,
   Mail,
   MapPin,
   Mic2,
   PenLine,
   Send,
+  Share2,
   Sparkles,
   Trash2,
   Trophy,
@@ -33,7 +35,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { PROFILE_MEDIA, fetchBookings, type BookingRecord } from '@musimaps/shared'
+import { PROFILE_MEDIA, SITE_URL, fetchBookings, type BookingRecord } from '@musimaps/shared'
 import { AccountAvatar, AccountCover } from '../components/AccountMedia'
 import { setAccountType } from '@musimaps/shared'
 import {
@@ -86,6 +88,15 @@ import { useRef } from 'react'
 import { BarChart, ChartCard, Donut, HBarList, TrendArea } from '../components/charts'
 import { AnimatedAvatar } from '../components/AnimatedAvatar'
 import HelpHint from '../components/HelpHint'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog'
+import { BADGE_PARAM, REWARDS_PARAM } from '../lib/notificationLink'
 
 /** Palette de la marque pour les graphiques (light/dark via variables CSS). */
 const DEEP = 'var(--color-brand-deep)'
@@ -211,6 +222,43 @@ export default function Dashboard() {
   // Panneaux pliables — ouverts seulement quand l'utilisateur clique.
   const [showAnalytics, setShowAnalytics] = useState(false)
   const [showRewards, setShowRewards] = useState(false)
+  // Fiche d'un badge : ouverte depuis sa notification (?badge=), depuis « tous
+  // les accomplissements » (?rewards=) ou d'un clic dans la liste. Une
+  // notification de badge menait au globe, sans rapport avec le badge.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [openBadgeId, setOpenBadgeId] = useState<string | null>(null)
+  const rewardsRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const badgeId = searchParams.get(BADGE_PARAM)
+    if ((!badgeId && !searchParams.has(REWARDS_PARAM)) || !rewards) return
+    setShowRewards(true)
+    if (badgeId) setOpenBadgeId(badgeId)
+    const next = new URLSearchParams(searchParams)
+    next.delete(BADGE_PARAM)
+    next.delete(REWARDS_PARAM)
+    setSearchParams(next, { replace: true })
+    requestAnimationFrame(() => rewardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }, [rewards, searchParams, setSearchParams])
+  const openBadge = rewards?.find((badge) => badge.id === openBadgeId) ?? null
+  const OpenBadgeIcon = openBadge ? badgeIcon(openBadge.icon) : null
+
+  const shareBadge = async (badge: ComputedBadge) => {
+    const text = `${t('badges.detailShareMessage', {
+      name: user?.displayName || t('profile.defaultName'),
+      label: t(`gamify.badge.${badge.id}.title` as never),
+      points: badge.points,
+    })} ${SITE_URL}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ text })
+        return
+      }
+      await navigator.clipboard.writeText(text)
+      toast.success(t('badges.shareCopied'))
+    } catch {
+      /* partage annulé par l'utilisateur */
+    }
+  }
   const [showNotifications, setShowNotifications] = useState(false)
 
 
@@ -1089,7 +1137,7 @@ export default function Dashboard() {
               </div>
             )}
             {rewards && (
-              <div className="rounded-3xl border border-hairline bg-surface p-5 sm:p-6">
+              <div ref={rewardsRef} className="scroll-mt-24 rounded-3xl border border-hairline bg-surface p-5 sm:p-6">
                 <button type="button" onClick={() => setShowRewards((v) => !v)} className="flex w-full items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand-deep">
@@ -1123,7 +1171,17 @@ export default function Dashboard() {
                     return (
                       <li
                         key={badge.id}
-                        className={`rounded-2xl border p-4 transition-colors ${
+                        role="button"
+                        tabIndex={0}
+                        aria-label={t('badges.openAria', { label: t(`gamify.badge.${badge.id}.title` as never) })}
+                        onClick={() => setOpenBadgeId(badge.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            setOpenBadgeId(badge.id)
+                          }
+                        }}
+                        className={`cursor-pointer rounded-2xl border p-4 transition-colors ${
                           badge.earned
                             ? 'border-brand-deep/30 bg-brand-soft/40'
                             : 'border-hairline bg-surface/60 hover:border-hairline-strong'
@@ -1167,6 +1225,57 @@ export default function Dashboard() {
                   })}
                 </ul>
                 )}
+                <Dialog open={openBadge !== null} onOpenChange={(open) => { if (!open) setOpenBadgeId(null) }}>
+                  {openBadge && OpenBadgeIcon && (
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader className="items-center text-center sm:text-center">
+                        <span
+                          className={`mb-2 flex h-20 w-20 items-center justify-center rounded-full ${
+                            openBadge.earned ? 'bg-brand text-black' : 'bg-secondary-bg text-secondary-text'
+                          }`}
+                        >
+                          {openBadge.earned ? <OpenBadgeIcon className="h-9 w-9" /> : <Lock className="h-8 w-8" />}
+                        </span>
+                        <p className="text-xs font-bold uppercase tracking-wide text-brand-deep">
+                          {openBadge.earned ? t('badges.detailUnlocked') : t('badges.detailLocked')}
+                        </p>
+                        <DialogTitle className="display-font text-2xl">
+                          {t(`gamify.badge.${openBadge.id}.title` as never)}
+                        </DialogTitle>
+                        <DialogDescription>{t(`gamify.badge.${openBadge.id}.desc` as never)}</DialogDescription>
+                      </DialogHeader>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-hairline-strong">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-brand-deep to-brand"
+                            style={{ width: `${Math.round(openBadge.progress * 100)}%` }}
+                          />
+                        </div>
+                        <span className="shrink-0 text-xs font-semibold text-secondary-text">
+                          {openBadge.earned ? `+${openBadge.points} pts` : `${openBadge.current}/${openBadge.target}`}
+                        </span>
+                      </div>
+                      <DialogFooter className="gap-2 sm:justify-center">
+                        {openBadge.earned ? (
+                          <button
+                            type="button"
+                            onClick={() => void shareBadge(openBadge)}
+                            className="flex items-center justify-center gap-2 rounded-full bg-brand-deep px-6 py-3 text-sm font-medium text-brand-deep-foreground transition-transform hover:scale-105"
+                          >
+                            <Share2 className="h-4 w-4" /> {t('badges.detailShare')}
+                          </button>
+                        ) : (
+                          <Link
+                            to={localize('/globe')}
+                            className="flex items-center justify-center gap-2 rounded-full bg-brand-deep px-6 py-3 text-sm font-medium text-brand-deep-foreground transition-transform hover:scale-105"
+                          >
+                            <Globe2 className="h-4 w-4" /> {t('badges.continueExploring')}
+                          </Link>
+                        )}
+                      </DialogFooter>
+                    </DialogContent>
+                  )}
+                </Dialog>
               </div>
             )}
           </div>

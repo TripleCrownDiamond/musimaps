@@ -150,6 +150,14 @@ export default function ArtistProfile() {
         {/* Banniere */}
         <section className="relative flex h-[60vh] min-h-[420px] flex-col items-stretch overflow-hidden bg-gradient-to-br from-brand-deep via-black to-black px-6 pb-12 pt-28 md:px-12">
           <div className="map-bg absolute inset-0 opacity-10" />
+          {/* Cover posée par l'artiste revendiqué, comme sur le mobile ; le
+              dégradé de marque reste la bannière par défaut. */}
+          {artist.cover && (
+            <>
+              <img src={artist.cover} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
+            </>
+          )}
           {/* Le retour à la carte se fait via la navbar (logo) ou le bouton
               « Voir sur la carte » de la colonne latérale. */}
           <div className="relative z-10 mt-auto flex-1 items-end justify-center sm:flex">

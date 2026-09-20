@@ -16,3 +16,5 @@ export { Card, Field, Section } from './Card';
 export { AuthLayout } from './AuthLayout';
 export { ScreenHeader } from './ScreenHeader';
 export { PasswordInput } from './PasswordInput';
+export { ScreenStatusBar } from './ScreenStatusBar';
+export { StatusBarScrim } from './StatusBarScrim';

@@ -14,6 +14,7 @@ import {
   type AppNotification,
 } from '@musimaps/shared'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from './ui/dropdown-menu'
+import { notificationHref } from '../lib/notificationLink'
 
 export default function NotificationBell({ showWhenLoggedOut = false, unreadCount }: { showWhenLoggedOut?: boolean; unreadCount?: number } = {}) {
   const { user } = useAuth()
@@ -121,7 +122,7 @@ export default function NotificationBell({ showWhenLoggedOut = false, unreadCoun
             items.map((item) => (
               <div key={item.id} className={`flex items-start border-b border-hairline ${item.read ? 'opacity-60' : ''}`}>
               <Link
-                to={item.artist_id ? localize(`/artist/${item.artist_id}`) : localize('/globe')}
+                to={notificationHref(item, localize)}
                 onClick={() => void markNotificationRead(item.id)}
                 className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 transition-colors hover:bg-secondary-bg"
               >

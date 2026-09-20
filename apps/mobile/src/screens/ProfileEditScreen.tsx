@@ -15,6 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocationFields } from '../components/LocationFields';
 import { NotificationButton } from '../components/NotificationButton';
 import { AccountAvatar, AccountCover } from '../components/AccountMedia';
@@ -39,10 +40,12 @@ import {
 } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { StatusBarScrim } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ProfileEdit'>;
 
 export function ProfileEditScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
@@ -288,7 +291,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.root}>
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -552,6 +555,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
           )}
         </View>
       </ScrollView>
+      <StatusBarScrim color={colors.background} />
     </KeyboardAvoidingView>
   );
 }
@@ -621,7 +625,7 @@ function PasswordField({
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 21, paddingTop: 48, paddingBottom: 50 },
+  content: { paddingHorizontal: 21, paddingBottom: 50 },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   back: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   kicker: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.6, marginTop: 48 },

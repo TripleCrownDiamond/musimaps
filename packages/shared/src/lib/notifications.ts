@@ -81,6 +81,36 @@ export function notificationIcon(type: string): string {
   return NOTIFICATION_ICONS[type as NotificationType] ?? '🔔';
 }
 
+/** Où mène une notification ouverte — même règle sur le web et le mobile. */
+export type NotificationDestination =
+  | { kind: 'artist'; artistId: string }
+  /** Artiste le plus proche de l'appareil, navigation par flèches dans la zone. */
+  | { kind: 'nearby' }
+  | { kind: 'achievement'; badgeId: string }
+  /** Tous les accomplissements (niveau, badges, série). */
+  | { kind: 'achievements' }
+  | { kind: 'globe' };
+
+/**
+ * Destination d'une notification.
+ *
+ * Toute alerte sans artiste ouvrait le globe centré sur la position : « des
+ * artistes près de vous » ne montrait aucun artiste, et un badge débloqué
+ * renvoyait sur la carte. Une alerte de proximité mène désormais à l'artiste
+ * le plus proche ; un badge, à sa fiche ; une série, aux accomplissements.
+ */
+export function notificationDestination(
+  item: Pick<AppNotification, 'type' | 'artist_id' | 'ref'>,
+): NotificationDestination {
+  if (item.type === 'achievement') {
+    return item.ref ? { kind: 'achievement', badgeId: item.ref } : { kind: 'achievements' };
+  }
+  if (item.type === 'streak') return { kind: 'achievements' };
+  if (item.artist_id) return { kind: 'artist', artistId: item.artist_id };
+  if (item.type === 'nearby') return { kind: 'nearby' };
+  return { kind: 'globe' };
+}
+
 /** Notifications de l'utilisateur connecté, les plus récentes d'abord. */
 export async function fetchNotifications(): Promise<AppNotification[]> {
   const supabase = getSupabase();

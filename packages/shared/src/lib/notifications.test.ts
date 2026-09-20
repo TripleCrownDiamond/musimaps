@@ -1,5 +1,31 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { formatNotificationTime } from './notifications';
+import { formatNotificationTime, notificationDestination } from './notifications';
+
+describe('notificationDestination', () => {
+  const alert = { artist_id: null, ref: null };
+
+  it('ouvre l’artiste concerné', () => {
+    expect(notificationDestination({ ...alert, type: 'discovery', artist_id: 'a1' }))
+      .toEqual({ kind: 'artist', artistId: 'a1' });
+    expect(notificationDestination({ ...alert, type: 'nearby', artist_id: 'a2' }))
+      .toEqual({ kind: 'artist', artistId: 'a2' });
+  });
+
+  it('mène à l’artiste le plus proche pour une alerte de proximité', () => {
+    expect(notificationDestination({ ...alert, type: 'nearby' })).toEqual({ kind: 'nearby' });
+  });
+
+  it('ouvre la fiche du badge débloqué, jamais la carte', () => {
+    expect(notificationDestination({ ...alert, type: 'achievement', ref: 'first-city' }))
+      .toEqual({ kind: 'achievement', badgeId: 'first-city' });
+    expect(notificationDestination({ ...alert, type: 'achievement' })).toEqual({ kind: 'achievements' });
+    expect(notificationDestination({ ...alert, type: 'streak' })).toEqual({ kind: 'achievements' });
+  });
+
+  it('retombe sur le globe pour une alerte sans cible', () => {
+    expect(notificationDestination({ ...alert, type: 'booking' })).toEqual({ kind: 'globe' });
+  });
+});
 
 const NOW = Date.parse('2026-09-13T12:00:00Z');
 const MINUTE = 60_000;

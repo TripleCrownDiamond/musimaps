@@ -8,7 +8,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts } from '../theme';
-import { Button, Card, Section } from '../ui';
+import { Button, Card, Section, StatusBarScrim } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Confirmation'>;
 
@@ -187,6 +187,7 @@ export function ConfirmationScreen({ navigation, route }: Props) {
           </Pressable>
         </Section>
       </ScrollView>
+      <StatusBarScrim color={colors.background} />
     </View>
   );
 }

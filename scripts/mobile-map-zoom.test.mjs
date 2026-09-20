@@ -110,6 +110,25 @@ test('le recentrage mobile arrête la rotation avant le vol, même avant le proc
   assert.match(webExploreSource, /flyTo\(next\.coordinates, CAMERA\.location\.zoom, CAMERA\.location\.duration\)/);
 });
 
+test('« Vue globe » relance la rotation une fois le globe atteint, sur les deux surfaces', () => {
+  // Tout vol arrêtait la rotation jusqu'au prochain Play : la carte se centrant
+  // d'abord sur la position, le globe ne tournait plus jamais tout seul.
+  const resetStart = source.indexOf('const resetView =');
+  const reset = source.slice(resetStart, source.indexOf('};', resetStart));
+  assert.ok(reset.indexOf('flyTo(GLOBE_CENTER') < reset.indexOf('resumeSpinOnArrivalRef.current = true'));
+  assert.match(
+    source,
+    /resumeSpinOnArrivalRef\.current && isGlobeView\(event\.properties\.zoom\)\) \{\s*resumeSpinOnArrivalRef\.current = false;\s*setRotation\(true\)/,
+  );
+  // Un autre vol lancé entre-temps annule la reprise promise.
+  const fly = source.slice(source.indexOf('const flyTo ='), source.indexOf('const flyToArtist ='));
+  assert.match(fly, /resumeSpinOnArrivalRef\.current = false/);
+  assert.match(
+    webMapSource,
+    /move !== cameraMoveRef\.current \|\| !isGlobeView\(map\.getZoom\(\)\)\) return\s*spinRef\.current = true\s*onRotateChangeRef\.current\?\.\(true\)/,
+  );
+});
+
 test('le zoom et le bouton Play utilisent la même règle partagée sur les deux surfaces', () => {
   assert.match(source, /isGlobeView\(mapZoom\) && <Pressable/);
   assert.match(webExploreSource, /hasMapboxToken && isGlobeView\(mapZoom\)/);
@@ -180,7 +199,11 @@ test('l’adaptateur Expo Web ne laisse pas réapparaître le branding Mapbox', 
 
 test('la recherche reste en bas, garde la searchbox fixe et trie les résultats', () => {
   assert.match(source, /searchPanel: \{[^}]*justifyContent: 'flex-end'/);
-  assert.match(source, /sheet: \{\s*height: '62%',/);
+  // Clavier ouvert : la sheet se pose dessus et se raccourcit (règle partagée),
+  // au lieu d'être translatée de toute la hauteur du clavier jusque sous l'heure.
+  assert.match(source, /height: searchSheetHeight\(\{ windowHeight, keyboardHeight: kbInset, topInset: insets\.top \}\)/);
+  assert.match(source, /marginBottom: kbInset/);
+  assert.doesNotMatch(source, /translateY: -kbInset/);
   assert.doesNotMatch(source, /resultsScrollTop/);
   assert.match(source, /style=\{styles\.resultsScroll\}/);
   assert.match(source, /outputRange: \[28, 0\]/);
