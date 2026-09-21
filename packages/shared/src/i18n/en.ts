@@ -694,6 +694,7 @@ export const en: Record<MessageKey, string> = {
   'loc.nearbyNotification': 'Discover {count} artist{s} around you — {location}',
   'loc.subtitle': 'Turn on your location to reveal artists near you.',
   'loc.title': 'Allow location access',
+  'loc.unnamedPlace': 'Your location',
   'mapAdmin.cancel': 'Cancel',
   'mapAdmin.city': 'City',
   'mapAdmin.close': 'Close editor',

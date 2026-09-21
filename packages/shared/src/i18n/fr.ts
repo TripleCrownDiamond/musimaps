@@ -697,6 +697,7 @@ export const fr = {
   'loc.nearbyNotification': 'Découvrez {count} artiste{s} autour de vous — {location}',
   'loc.subtitle': 'Activez votre position pour révéler les artistes près de chez vous.',
   'loc.title': 'Autoriser la localisation',
+  'loc.unnamedPlace': 'Votre position',
   'mapAdmin.cancel': 'Annuler',
   'mapAdmin.city': 'Ville',
   'mapAdmin.close': 'Fermer l\'éditeur',

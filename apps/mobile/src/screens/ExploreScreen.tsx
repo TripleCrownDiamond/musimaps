@@ -402,6 +402,8 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [userLocation, setUserLocation] = useState<MapLocation | null>(null);
   const [explorationLocation, setExplorationLocation] = useState<MapLocation | null>(null);
   const locationHeading = mapLocationHeading(userLocation, explorationLocation, lang);
+  /** Position connue mais sans nom de lieu : on l'annonce quand même. */
+  const headingLabel = locationHeading ? locationHeading.label || t('loc.unnamedPlace') : '';
   // Une réponse GPS tardive ou un retour d'onglet ne doit pas remplacer
   // la destination choisie dans Découvrir, la recherche ou les pins.
   const hasNavigatedRef = useRef(false);
@@ -2186,13 +2188,13 @@ export function ExploreScreen({ navigation, route }: Props) {
             <View
               style={styles.locationStatus}
               accessible
-              accessibilityLabel={t(locationHeading.descriptionKey, { location: locationHeading.label })}
+              accessibilityLabel={t(locationHeading.descriptionKey, { location: headingLabel })}
             >
               <Text style={styles.locationStatusCaption} numberOfLines={1}>
                 {t(locationHeading.captionKey)}
               </Text>
               <Text style={styles.locationStatusText} numberOfLines={mapUi.locationLabelMaxLines} ellipsizeMode="tail">
-                {locationHeading.label}
+                {headingLabel}
               </Text>
             </View>
           ) : undefined}

@@ -20,6 +20,13 @@ describe('contexte de découverte', () => {
   it('permet de découvrir sans autorisation GPS', () => {
     expect(mapLocationHeading(null, artistMapLocation(selected))?.captionKey).toBe('globe.discovering')
   })
+  it('annonce une position connue même sans nom de lieu', () => {
+    // Géocodage inverse en échec : l'en-tête disparaissait de l'écran alors
+    // que la carte, elle, connaissait la position.
+    expect(mapLocationHeading({ coordinates: [2.352, 6.370] }, null)).toMatchObject({
+      label: '', captionKey: 'loc.here',
+    })
+  })
   it('réaffiche la position au recentrage explicite', () => {
     expect(mapLocationHeading(device, null)).toMatchObject({ captionKey: 'loc.here', label: 'Godomey, Benin' })
     expect(mapLocationHeading(null, null)).toBeNull()

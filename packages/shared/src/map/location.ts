@@ -107,8 +107,10 @@ export function mapLocationHeading(
 ) {
   const location = exploration ?? device
   if (!location) return null
+  // Un géocodage inverse en échec laisse une position sans ville ni pays.
+  // L'en-tête disparaissait alors de l'écran, alors que la carte connaît la
+  // position : on le garde, et l'app pose son propre libellé de repli.
   const label = mapLocationLabel(location, lang)
-  if (!label) return null
   return {
     label,
     captionKey: exploration ? 'globe.discovering' as const : 'loc.here' as const,

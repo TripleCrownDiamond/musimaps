@@ -95,6 +95,8 @@ export default function GlobeExplore() {
   const [userLocation, setUserLocation] = useState<MapLocation | null>(null)
   const [explorationLocation, setExplorationLocation] = useState<MapLocation | null>(null)
   const locationHeading = mapLocationHeading(userLocation, explorationLocation, lang)
+  /** Position connue mais sans nom de lieu : on l'annonce quand même. */
+  const headingLabel = locationHeading ? locationHeading.label || t('loc.unnamedPlace') : ''
   const [locationBusy, setLocationBusy] = useState(false)
   const locationNoticeRef = useRef<string | null>(null)
 
@@ -1045,8 +1047,8 @@ export default function GlobeExplore() {
         <div className="min-w-0 flex-1 text-center" data-testid="map-location-header">
           {locationHeading && !searchOpen && (
             <div
-              aria-label={t(locationHeading.descriptionKey, { location: locationHeading.label })}
-              title={locationHeading.label}
+              aria-label={t(locationHeading.descriptionKey, { location: headingLabel })}
+              title={headingLabel}
               className="text-primary-text"
               style={{ textShadow: `0 0 ${mapUi.locationTextHaloRadius}px ${mapOverlays[theme].locationTextHalo}` }}
             >
@@ -1066,7 +1068,7 @@ export default function GlobeExplore() {
                   WebkitLineClamp: mapUi.locationLabelMaxLines,
                 }}
               >
-                {locationHeading.label}
+                {headingLabel}
               </p>
             </div>
           )}
