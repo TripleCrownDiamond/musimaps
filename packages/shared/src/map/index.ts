@@ -228,15 +228,34 @@ export function isScopeArmed(zoom: number): boolean {
  * tous les zooms, et le décalage réel DIMINUE quand on s'approche : 1,5 km à
  * z11, 291 m à z15. Plus lisible et plus honnête à la fois.
  */
-function spiralRadius(index: number, zoom: number): number {
-  const wanted = (TARGET_SEPARATION_PX * (1 + 0.55 * Math.sqrt(index))) / pixelsPerDegree(zoom);
+function spiralRadius(index: number, zoom: number, separationPx: number = TARGET_SEPARATION_PX): number {
+  const wanted = (separationPx * (1 + 0.55 * Math.sqrt(index))) / pixelsPerDegree(zoom);
   return Math.min(MAX_OFFSET_DEG, wanted);
 }
+
+/**
+ * Séparation de secours pour les gros amas.
+ *
+ * Une scène entière peut partager la coordonnée de SA ville (Cotonou, Lagos…) :
+ * au-delà d'une vingtaine de pins sur le même point, la spirale à 46 px
+ * demanderait un rayon qui ment sur la position (plafond `MAX_OFFSET_DEG`
+ * atteint → pins à nouveau empilés au bord). On resserre alors la séparation
+ * plutôt que d'empiler : moins aéré, mais chaque pin reste distinct.
+ */
+const DENSE_SEPARATION_PX = 28;
+const DENSE_GROUP_SIZE = 20;
 
 /**
  * Écarte les pins empilés (même point géocodé) en spirale déterministe.
  * Tri par nom → le décalage est stable entre deux rendus, et chaque pin
  * reste dans un rayon honnête autour de la vraie position.
+ *
+ * Ancrage par quartier : quand une ville porte des dizaines d'artistes,
+ * le champ `district` (Vèdoko, Ganhi, Dantokpa…) donne la vraie granularité.
+ * Chaque quartier forme un sous-groupe dont l'ancre est le barycentre de SES
+ * artistes ; des ancres qui se partagent encore le même point s'écartent
+ * entre elles en spirale. Les pins de quartiers différents ne s'empilent
+ * donc plus jamais, et le reste du groupe tourne autour de son ancre.
  *
  * Le rayon grandit AVEC le zoom : serré à z9 (vue d'ensemble), ouvert à
  * z14+ pour des pins nettement séparés, sans jamais inventer de position
@@ -260,18 +279,79 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
     group.sort((a, b) => a.name.localeCompare(b.name));
     const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length;
     const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
-    group.forEach((artist, i) => {
-      const angle = i * GOLDEN_ANGLE;
-      const radius = spiralRadius(i, zoom);
-      // La longitude se resserre avec la latitude : sans cette correction,
-      // deux pins séparés de 46 px à l'équateur n'en font plus que 20 à
-      // Oslo. On divise par cos(lat) pour garder la séparation à l'écran.
-      const lngScale = Math.max(0.25, Math.cos((cLat * Math.PI) / 180));
-      out.set(artist.id, [
-        cLng + (Math.cos(angle) * radius) / lngScale,
-        Math.min(85, Math.max(-85, cLat + Math.sin(angle) * radius)),
-      ]);
-    });
+    // La longitude se resserre avec la latitude : sans cette correction,
+    // deux pins séparés de 46 px à l'équateur n'en font plus que 20 à
+    // Oslo. On divise par cos(lat) pour garder la séparation à l'écran.
+    const lngScale = Math.max(0.25, Math.cos((cLat * Math.PI) / 180));
+    const separation = group.length > DENSE_GROUP_SIZE ? DENSE_SEPARATION_PX : TARGET_SEPARATION_PX;
+
+    // Sous-groupes par quartier (absence de district = quartier unique).
+    const quarters = new Map<string, Artist[]>();
+    for (const artist of group) {
+      const qKey = artist.district?.trim() ?? '';
+      const quarter = quarters.get(qKey);
+      if (quarter) quarter.push(artist);
+      else quarters.set(qKey, [artist]);
+    }
+
+    if (quarters.size === 1) {
+      group.forEach((artist, i) => {
+        const angle = i * GOLDEN_ANGLE;
+        const radius = spiralRadius(i, zoom, separation);
+        out.set(artist.id, [
+          cLng + (Math.cos(angle) * radius) / lngScale,
+          Math.min(85, Math.max(-85, cLat + Math.sin(angle) * radius)),
+        ]);
+      });
+      continue;
+    }
+
+    // Ancre de chaque quartier : barycentre de SES artistes. Plusieurs
+    // quartiers au même point (données grossières) s'écartent en spirale ;
+    // une ancre seule reste sur sa vraie position.
+    const anchors = [...quarters.entries()].map(([qKey, members]) => ({
+      qKey,
+      lng: members.reduce((s, a) => s + a.coordinates[0], 0) / members.length,
+      lat: members.reduce((s, a) => s + a.coordinates[1], 0) / members.length,
+    }));
+    const anchorBuckets = new Map<string, typeof anchors>();
+    for (const anchor of anchors) {
+      const key = bucketKey([anchor.lng, anchor.lat]);
+      const bucket = anchorBuckets.get(key);
+      if (bucket) bucket.push(anchor);
+      else anchorBuckets.set(key, [anchor]);
+    }
+    const anchorPositions = new Map<string, [number, number]>();
+    for (const bucket of anchorBuckets.values()) {
+      if (bucket.length === 1) {
+        anchorPositions.set(bucket[0].qKey, [bucket[0].lng, bucket[0].lat]);
+        continue;
+      }
+      bucket.sort((a, b) => a.qKey.localeCompare(b.qKey));
+      const bLng = bucket.reduce((s, a) => s + a.lng, 0) / bucket.length;
+      const bLat = bucket.reduce((s, a) => s + a.lat, 0) / bucket.length;
+      bucket.forEach((anchor, i) => {
+        const angle = i * GOLDEN_ANGLE;
+        const radius = spiralRadius(i, zoom, separation);
+        anchorPositions.set(anchor.qKey, [
+          bLng + (Math.cos(angle) * radius) / lngScale,
+          Math.min(85, Math.max(-85, bLat + Math.sin(angle) * radius)),
+        ]);
+      });
+    }
+
+    for (const [qKey, members] of quarters) {
+      members.sort((a, b) => a.name.localeCompare(b.name));
+      const [aLng, aLat] = anchorPositions.get(qKey) ?? [cLng, cLat];
+      members.forEach((artist, i) => {
+        const angle = i * GOLDEN_ANGLE;
+        const radius = spiralRadius(i, zoom, separation);
+        out.set(artist.id, [
+          aLng + (Math.cos(angle) * radius) / lngScale,
+          Math.min(85, Math.max(-85, aLat + Math.sin(angle) * radius)),
+        ]);
+      });
+    }
   }
   return out;
 }

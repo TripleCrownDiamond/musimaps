@@ -125,6 +125,52 @@ describe('declump', () => {
     const atOther = declump(STACKED, PIN_LAYOUT_ZOOM + 2);
     expect(atOther.get('b')).not.toEqual(atLayout.get('b'));
   });
+
+  it('sépare chaque pin d’un amas dense sans dépasser le plafond de véracité', () => {
+    // Une scène entière (Cotonou ~72 artistes) partage la coordonnée de SA
+    // ville : la spirale standard sature le plafond de 1,5 km et re-empile.
+    // Séparation resserrée → positions distinctes MÊME au plafond.
+    const dense = Array.from({ length: 72 }, (_, i) =>
+      at(`d${i}`, `Artist ${String(i).padStart(2, '0')}`, [2.43, 6.37]),
+    );
+    const spread = declump(dense, PIN_LAYOUT_ZOOM);
+    const positions = new Set(dense.map((a) => spread.get(a.id)!.join(',')));
+    expect(positions.size).toBe(dense.length);
+  });
+
+  it('ancre chaque quartier sur sa vraie position (champ district)', () => {
+    // Vèdoko et Ganhi sont deux quartiers réels de Cotonou : leurs pins ne
+    // doivent pas tourner ensemble autour du même barycentre.
+    const vedoko = at('v1', 'Alpha', [2.42, 6.37]);
+    vedoko.district = 'Vèdoko';
+    const ganhi = at('g1', 'Bravo', [2.43, 6.36]);
+    ganhi.district = 'Ganhi';
+    const spread = declump([vedoko, ganhi], PIN_LAYOUT_ZOOM);
+    // Quartiers distincts → ancres distinctes (pas de barycentre commun).
+    expect(spread.get('v1')).not.toEqual(spread.get('g1'));
+    expect(spread.get('v1')![0]).toBeLessThan(spread.get('g1')![0]);
+  });
+
+  it('répartit aussi des quartiers grossièrement au même point', () => {
+    // Données imprécises : deux quartiers géocodés au même endroit.
+    const a = at('qa', 'Alpha', [2.43, 6.37]);
+    a.district = 'Vèdoko';
+    const b = at('qb', 'Bravo', [2.43, 6.37]);
+    b.district = 'Ganhi';
+    const c = at('qc', 'Charlie', [2.43, 6.37]);
+    c.district = 'Vèdoko';
+    const spread = declump([a, b, c], PIN_LAYOUT_ZOOM);
+    const v1 = spread.get('qa')!;
+    const v2 = spread.get('qc')!;
+    const g = spread.get('qb')!;
+    expect(new Set([v1.join(','), v2.join(','), g.join(',')]).size).toBe(3);
+    // Les deux Vèdoko tournent autour de la MÊME ancre.
+    const center = [
+      (v1[0] + v2[0]) / 2,
+      (v1[1] + v2[1]) / 2,
+    ];
+    expect(Math.hypot(center[0] - 2.43, center[1] - 6.37)).toBeLessThan(0.05);
+  });
 });
 
 describe('cohérence rendu ↔ caméra', () => {
