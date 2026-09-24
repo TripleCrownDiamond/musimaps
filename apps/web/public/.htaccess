@@ -37,6 +37,14 @@ Options -MultiViews
   RewriteRule ^sitemap\.xml$ - [END]
   RewriteRule ^robots\.txt$ - [END]
 
+  # Chaque profil artiste possède un HTML social pré-généré. Le navigateur
+  # charge toujours la même SPA, mais WhatsApp, Facebook, LinkedIn et X voient
+  # immédiatement le nom, la bio et l'image propres à l'artiste.
+  RewriteCond %{DOCUMENT_ROOT}/artist/$1.html -f
+  RewriteRule ^artist/([^/]+)/?$ artist/$1.html [END]
+  RewriteCond %{DOCUMENT_ROOT}/en/artist/$1.html -f
+  RewriteRule ^en/artist/([^/]+)/?$ en/artist/$1.html [END]
+
   # Let Apache serve real files and directories directly.
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d

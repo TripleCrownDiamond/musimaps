@@ -13,9 +13,17 @@
  *   - og:url cohérente avec la langue du fichier ;
  *   - les deux langues ne servent pas la même URL canonique.
  *
+ * Sur les pages artiste produites par inject-og, en plus :
+ *   - og:url = canonical (les deux balises doivent annoncer la même adresse) ;
+ *   - og:url porte le SLUG (00069 attribue un slug à chaque artiste) — une
+ *     og:url en identifiant brut (UUID) signifie que le backfill a sauté ;
+ *   - la page-id et la page-slug d'un même artiste annoncent la même og:url
+ *     (c'est voulu : une seule adresse canonique) — seule une collision
+ *     ENTRE LANGUES, ou entre DEUX ARTISTES, est fautive.
+ *
  * Usage : node scripts/check-og.mjs   (`npm run test:og`)
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -35,12 +43,27 @@ const targets = [
   { file: path.join(dist, 'en', 'index.html'), lang: 'en', expectUrl: 'https://musimaps.com/en' },
 ]
 
+// Quand le build a accès à Supabase, inject-og produit aussi un document brut
+// par profil artiste. Ils sont vérifiés ici parce que ce sont précisément ces
+// fichiers (et non le DOM React) que lisent les robots sociaux. Pas d'URL
+// attendue ici : elle est déduite des balises elles-mêmes (voir plus bas).
+for (const lang of ['fr', 'en']) {
+  const folder = lang === 'en' ? path.join(dist, 'en', 'artist') : path.join(dist, 'artist')
+  if (!existsSync(folder)) continue
+  for (const name of readdirSync(folder).filter((entry) => entry.endsWith('.html'))) {
+    targets.push({ file: path.join(folder, name), lang, expectUrl: null })
+  }
+}
+
 if (!existsSync(targets[0].file)) {
   console.error('check-og : dist/index.html introuvable — lancez `npm run build:web` d’abord.')
   process.exit(1)
 }
 
-const seenUrls = new Set()
+// og:url → titre : la page-id et la page-slug d'un MÊME artiste partagent
+// normalement la même adresse canonique ; la retrouver sur un autre titre
+// (autre artiste) révèle en revanche une collision.
+const seenUrls = new Map()
 
 for (const { file, lang, expectUrl } of targets) {
   const label = path.relative(root, file)
@@ -60,12 +83,35 @@ for (const { file, lang, expectUrl } of targets) {
   }
 
   const url = metaContent(html, 'og:url')
-  if (url && url.replace(/\/$/, '') !== expectUrl.replace(/\/$/, '')) {
-    failures.push(`${label} : og:url attendue ${expectUrl}, reçue « ${url} »`)
-  }
   if (url) {
-    if (seenUrls.has(url)) failures.push(`${label} : og:url dupliquée entre les langues (${url})`)
-    seenUrls.add(url)
+    if (expectUrl) {
+      if (url.replace(/\/$/, '') !== expectUrl.replace(/\/$/, '')) {
+        failures.push(`${label} : og:url attendue ${expectUrl}, reçue « ${url} »`)
+      }
+    } else {
+      // Page artiste : og:url annonce la forme canonique slugée (00069
+      // attribue un slug à chaque artiste), jamais l'identifiant interne.
+      const m = url.match(/^https:\/\/musimaps\.com(\/en)?\/artist\/([a-zA-Z0-9_-]+)$/)
+      if (!m) {
+        failures.push(`${label} : og:url « ${url} » n’est pas une page artiste`)
+      } else if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(m[2])
+      ) {
+        failures.push(`${label} : og:url sur l’identifiant brut ${m[2]} — le slug est attendu`)
+      }
+      // og:url et canonical doivent désigner la même adresse.
+      const canonical = html.match(/<link\s+rel="canonical"\s+href="([^"]*)"/i)?.[1]
+      if (canonical && canonical !== url) {
+        failures.push(`${label} : canonical « ${canonical} » ≠ og:url « ${url} »`)
+      }
+    }
+
+    const seen = seenUrls.get(url)
+    if (seen && seen.title !== metaContent(html, 'og:title')) {
+      failures.push(`${label} : og:url « ${url} » partagée par deux artistes`)
+    } else if (!seen) {
+      seenUrls.set(url, { title: metaContent(html, 'og:title') })
+    }
   }
 }
 

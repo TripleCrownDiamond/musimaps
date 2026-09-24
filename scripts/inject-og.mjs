@@ -71,6 +71,13 @@ function setTitle(html, value) {
   return html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${attr(value)}</title>`)
 }
 
+function setCanonical(html, value) {
+  const tag = `<link rel="canonical" href="${attr(value)}" />`
+  return /<link\s+rel="canonical"[^>]*>/i.test(html)
+    ? html.replace(/<link\s+rel="canonical"[^>]*>/i, tag)
+    : html.replace('</head>', `    ${tag}\n  </head>`)
+}
+
 /** URL absolue : le CMS stocke tantôt un chemin relatif, tantôt une URL complète. */
 function absolute(url) {
   if (!url) return ''
@@ -120,12 +127,90 @@ function applySeo(html, seo, lang) {
   out = setMeta(out, 'name', 'twitter:image', twitterImage)
 
   // Canonical : le FR vit sur `/`, l'EN sur `/en` — pas de doublon d'indexation.
-  const canonical = `<link rel="canonical" href="${pageUrl}" />`
-  out = /<link\s+rel="canonical"[^>]*>/i.test(out)
-    ? out.replace(/<link\s+rel="canonical"[^>]*>/i, canonical)
-    : out.replace('</head>', `    ${canonical}\n  </head>`)
+  out = setCanonical(out, pageUrl)
 
   return out
+}
+
+/**
+ * Grave une carte sociale spécifique à un artiste dans un document HTML.
+ *
+ * `identifier` est le segment d'URL du fichier servi (slug, sinon id) : il
+ * pilote l'adresse du document. En revanche og:url et canonical annoncent
+ * TOUJOURS la forme slugée — depuis 00069 chaque artiste possède un slug,
+ * et l'id comme le slug renvoient la même page : donner aux robots les deux
+ * adresses ferait doubler l'indexation d'un même contenu.
+ */
+function applyArtistSeo(html, artist, lang, identifier) {
+  const isEn = lang === 'en'
+  const prefix = isEn ? '/en' : ''
+  const canonical = safeArtistIdentifier(artist.slug) || identifier
+  const pageUrl = `${SITE}${prefix}/artist/${encodeURIComponent(canonical)}`
+  const location = [artist.city, artist.country].filter(Boolean).join(', ')
+  const genre = artist.genre || (isEn ? 'Artist' : 'Artiste')
+  const rawDescription = artist.bio || (isEn
+    ? `Discover ${artist.name}, ${genre}${location ? ` from ${location}` : ''}, on Musimaps.`
+    : `Découvrez ${artist.name}, ${genre}${location ? ` à ${location}` : ''}, sur Musimaps.`)
+  // Une bio peut être très longue et contenir des citations. Les aperçus
+  // sociaux ont besoin d'un résumé compact ; les guillemets typographiques
+  // évitent aussi toute ambiguïté dans l'attribut HTML brut.
+  const compactDescription = rawDescription.replace(/\s+/g, ' ').trim().replace(/"/g, '”')
+  const description = compactDescription.length > 220
+    ? `${compactDescription.slice(0, 217).trimEnd()}…`
+    : compactDescription
+  const title = `${artist.name} — ${location || genre} | Musimaps`
+  const image = absolute(artist.image || (isEn ? '/og-en.jpg' : '/og-fr.jpg'))
+
+  // La page-id canonicalise vers le slug : un robot qui suit og:url depuis
+  // l'une ou l'autre adresse atterrit sur la même URL canonique.
+  let out = html.replace(/<html\s+lang="[^"]*"/i, `<html lang="${isEn ? 'en' : 'fr'}"`)
+  out = setTitle(out, title)
+  out = setMeta(out, 'name', 'description', description)
+  out = setMeta(out, 'property', 'og:type', 'profile')
+  out = setMeta(out, 'property', 'og:site_name', 'Musimaps')
+  out = setMeta(out, 'property', 'og:locale', isEn ? 'en_US' : 'fr_FR')
+  out = setMeta(out, 'property', 'og:url', pageUrl)
+  out = setMeta(out, 'property', 'og:title', `${artist.name} | Musimaps`)
+  out = setMeta(out, 'property', 'og:description', description)
+  out = setMeta(out, 'property', 'og:image', image)
+  out = setMeta(out, 'property', 'og:image:width', OG_IMAGE_WIDTH)
+  out = setMeta(out, 'property', 'og:image:height', OG_IMAGE_HEIGHT)
+  out = setMeta(out, 'property', 'og:image:alt', artist.name)
+  out = setMeta(out, 'name', 'twitter:card', 'summary_large_image')
+  out = setMeta(out, 'name', 'twitter:title', `${artist.name} | Musimaps`)
+  out = setMeta(out, 'name', 'twitter:description', description)
+  out = setMeta(out, 'name', 'twitter:image', image)
+  return setCanonical(out, pageUrl)
+}
+
+function safeArtistIdentifier(value) {
+  const text = String(value || '').trim()
+  return /^[a-zA-Z0-9_-]{1,120}$/.test(text) ? text : ''
+}
+
+function writeArtistDocuments(source, artists) {
+  let written = 0
+  for (const artist of artists) {
+    const identifiers = new Set([
+      safeArtistIdentifier(artist.id),
+      safeArtistIdentifier(artist.slug),
+    ].filter(Boolean))
+    for (const identifier of identifiers) {
+      for (const lang of ['fr', 'en']) {
+        const folder = lang === 'en'
+          ? path.join(dist, 'en', 'artist')
+          : path.join(dist, 'artist')
+        mkdirSync(folder, { recursive: true })
+        writeFileSync(
+          path.join(folder, `${identifier}.html`),
+          applyArtistSeo(source, artist, lang, identifier),
+          'utf8',
+        )
+        written++
+      }
+    }
+  }
+  return written
 }
 
 async function main() {
@@ -134,6 +219,7 @@ async function main() {
     console.error('inject-og : apps/web/dist/index.html introuvable — lancez le build d’abord.')
     process.exit(1)
   }
+  const source = readFileSync(indexPath, 'utf8')
 
   const env = loadEnv(path.join(root, 'apps', 'web', '.env.local'))
   const url = env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
@@ -143,30 +229,40 @@ async function main() {
       'inject-og : VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absents — ' +
         'balises du HTML source conservées (le partage n’utilisera pas le CMS).',
     )
+    writeFileSync(indexPath, applySeo(source, {}, 'fr'), 'utf8')
+    mkdirSync(path.join(dist, 'en'), { recursive: true })
+    writeFileSync(path.join(dist, 'en', 'index.html'), applySeo(source, {}, 'en'), 'utf8')
     return
   }
 
   let row
+  let artistRows = []
   try {
-    const res = await fetch(
+    const [res, artistRes] = await Promise.all([
+      fetch(
       // `site_content_public` est la vue lisible en anonyme (la table
       // `site_content` porte les brouillons et reste réservée à l'admin).
       `${url.replace(/\/$/, '')}/rest/v1/site_content_public?key=eq.seo&select=content,content_en`,
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    )
+      ),
+      fetch(
+        `${url.replace(/\/$/, '')}/rest/v1/map_artists?select=id,name,genre,city,country,bio,image,slug&limit=500`,
+        { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+      ),
+    ])
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     row = (await res.json())[0]
+    if (artistRes.ok) artistRows = await artistRes.json()
+    else console.warn(`inject-og : profils artistes illisibles (HTTP ${artistRes.status}).`)
   } catch (err) {
     console.warn(`inject-og : CMS illisible (${err.message}) — balises source conservées.`)
-    return
+    row = { content: {}, content_en: {} }
   }
 
   if (!row) {
     console.warn('inject-og : aucune ligne « seo » publiée dans le CMS — balises source conservées.')
-    return
+    row = { content: {}, content_en: {} }
   }
-
-  const source = readFileSync(indexPath, 'utf8')
 
   const fr = row.content && typeof row.content === 'object' ? row.content : {}
   writeFileSync(indexPath, applySeo(source, fr, 'fr'), 'utf8')
@@ -175,9 +271,11 @@ async function main() {
   mkdirSync(path.join(dist, 'en'), { recursive: true })
   writeFileSync(path.join(dist, 'en', 'index.html'), applySeo(source, en, 'en'), 'utf8')
 
+  const artistDocuments = writeArtistDocuments(source, artistRows)
+
   const shown = (s) => s.ogImage || s.twitterImage || '(image de repli)'
   console.log(
-    `inject-og : SEO du CMS grave — fr og:image=${shown(fr)} · en og:image=${shown(en)}`,
+    `inject-og : SEO du CMS grave — fr og:image=${shown(fr)} · en og:image=${shown(en)} · ${artistDocuments} pages artiste`,
   )
 }
 
