@@ -55,7 +55,6 @@ interface MapArtistRow {
   lng: number
   bio: string | null
   image: string | null
-  cover: string | null
   source: string | null
   platforms: ArtistPlatforms | null
   socials: ArtistSocials | null
@@ -121,7 +120,6 @@ export default function DiscoveredPage() {
     continent: string
     bio: string
     image: string
-    cover: string
     verified: boolean
     bookable: boolean
     slug: string
@@ -146,7 +144,7 @@ export default function DiscoveredPage() {
     }
     // La migration 00016 ajoute plateformes/sociaux/vérification — repli si absents.
     const RICH_SELECT =
-      'id, name, genre, city, district, country, flag, lat, lng, bio, image, cover, source, platforms, socials, verified, slug, claimed_by, bookable, created_at'
+      'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, slug, claimed_by, bookable, created_at'
     const BASE_SELECT =
       'id, name, genre, city, country, flag, lat, lng, bio, image, source, created_at'
     let { data, error } = await supabase!
@@ -208,7 +206,6 @@ export default function DiscoveredPage() {
       continent: '',
       bio: row.bio ?? '',
       image: row.image ?? '',
-      cover: row.cover ?? '',
       slug: row.slug ?? '',
       verified: row.verified,
       bookable: row.bookable,
@@ -298,7 +295,6 @@ export default function DiscoveredPage() {
       lng,
       bio: editForm.bio.trim(),
       image: editForm.image.trim() || undefined,
-      cover: editForm.cover.trim() || undefined,
       verified: editForm.verified,
       slug: editForm.slug.trim() || undefined,
       platforms: editForm.platforms,
@@ -720,14 +716,6 @@ export default function DiscoveredPage() {
                   <ImageField
                     value={editForm.image}
                     onChange={(value) => setEditForm({ ...editForm, image: value })}
-                    objectFit="cover"
-                  />
-                </div>
-                <div>
-                  <Label>{t('d.field.cover')}</Label>
-                  <ImageField
-                    value={editForm.cover}
-                    onChange={(value) => setEditForm({ ...editForm, cover: value })}
                     objectFit="cover"
                   />
                 </div>

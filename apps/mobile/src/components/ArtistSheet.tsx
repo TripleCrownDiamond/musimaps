@@ -547,19 +547,19 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
             />
           </Pressable>
           <Pressable
-            accessibilityLabel={t('sheet.shareAria')}
+            accessibilityLabel={t('artistShare.aria', { name: artist.name })}
             style={styles.iconBtn}
             onPress={() => {
               // Sans URL, le destinataire recevait un texte sans aucun moyen
               // de revenir sur Musimaps. iOS lit `url`, Android ne lit que
               // `message` : on met le lien dans les deux.
-              const url = artistUrl(artist.slug || artist.id);
+              const url = artistUrl(artist.slug || artist.id, lang);
               void Share.share({
-                title: artist.name,
-                message: `${t('sheet.shareMessage', {
+                title: t('artistShare.title', { name: artist.name }),
+                message: `${t('artistShare.message', {
                   name: artist.name,
-                  genre: artist.genre,
-                  city: artist.city,
+                  genre: displayGenre(artist.genre, t('common.unknown')),
+                  location: [artist.city, artist.country].filter(Boolean).join(', '),
                 })} ${url}`,
                 url,
               }).catch(() => undefined);

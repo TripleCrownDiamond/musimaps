@@ -22,7 +22,7 @@ import {
   slugify,
   artistUrl,
   PROFILE_GUTTER,
-  PROFILE_HEADER_HEIGHT,
+  spacing,
   type ClaimedArtistProfile,
   type ArtistBooking,
   type BookingPlan,
@@ -39,19 +39,12 @@ import { NotificationButton } from '../components/NotificationButton';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClaimedProfile'>;
 
-/** Hauteur de la cover pleine largeur et de la rangée photo en overlay bas. */
-const COVER_HEIGHT = 200;
-const PHOTO_ROW_HEIGHT = 100;
-
 export function ClaimedProfileScreen({ navigation }: Props) {
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t } = useI18n();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  // Header fixe : cover pleine largeur (200) + rangée photo en overlay bas
-  // (100), hauteur normale uniforme des profils.
-  const headerHeight = PROFILE_HEADER_HEIGHT;
 
   const [loading, setLoading] = useState(true);
   const [claimed, setClaimed] = useState<ClaimedArtistProfile | null>(null);
@@ -88,7 +81,7 @@ export function ClaimedProfileScreen({ navigation }: Props) {
   }, []);
 
   // ── Image helpers ─────────────────────────────────────────────────
-  const pickImage = useCallback(async (kind: 'cover' | 'photo') => {
+  const pickImage = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       return { canceled: true, assets: null } as ImagePicker.ImagePickerResult;
@@ -96,50 +89,47 @@ export function ClaimedProfileScreen({ navigation }: Props) {
     return ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: kind === 'cover' ? [16, 9] : [1, 1],
+      aspect: [1, 1],
       quality: 0.85,
     });
   }, []);
 
-  const handleImage = useCallback(async (kind: 'cover' | 'photo') => {
+  const handleImage = useCallback(async () => {
     if (!claimed) return;
-    const result = await pickImage(kind);
+    const result = await pickImage();
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
     setSavingProfile(true);
-    const upload = await uploadArtistImage(
-      { uri: asset.uri, name: asset.fileName ?? `${kind}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
-      kind === 'cover' ? 'covers' : 'artists',
-    );
+    const upload = await uploadArtistImage({
+      uri: asset.uri,
+      name: asset.fileName ?? 'photo.jpg',
+      type: asset.mimeType ?? 'image/jpeg',
+    });
     if (upload.error) {
       setSavingProfile(false);
       setStatusMsg({ ok: false, text: upload.error });
       return;
     }
-    const update = kind === 'cover'
-      ? await updateMyArtistProfile({ cover: upload.url })
-      : await updateMyArtistProfile({ image: upload.url });
+    const update = await updateMyArtistProfile({ image: upload.url });
     setSavingProfile(false);
     if (!update.ok) {
       setStatusMsg({ ok: false, text: update.error ?? t('dash.saveFailed') });
       return;
     }
-    setClaimed((prev) => prev ? (kind === 'cover' ? { ...prev, cover: upload.url } : { ...prev, image: upload.url }) : prev);
-    setStatusMsg({ ok: true, text: kind === 'cover' ? t('dash.changeCover') : t('dash.changePhoto') });
+    setClaimed((prev) => prev ? { ...prev, image: upload.url } : prev);
+    setStatusMsg({ ok: true, text: t('dash.changePhoto') });
   }, [claimed, pickImage, t]);
 
-  const clearImage = useCallback(async (kind: 'cover' | 'photo') => {
+  const clearImage = useCallback(async () => {
     if (!claimed) return;
     setSavingProfile(true);
-    const update = kind === 'cover'
-      ? await updateMyArtistProfile({ cover: '' })
-      : await updateMyArtistProfile({ image: '' });
+    const update = await updateMyArtistProfile({ image: '' });
     setSavingProfile(false);
     if (!update.ok) {
       setStatusMsg({ ok: false, text: update.error ?? t('dash.saveFailed') });
       return;
     }
-    setClaimed((prev) => prev ? (kind === 'cover' ? { ...prev, cover: '' } : { ...prev, image: '' }) : prev);
+    setClaimed((prev) => prev ? { ...prev, image: '' } : prev);
   }, [claimed, t]);
 
   // ── Bio / Genre save ──────────────────────────────────────────────
@@ -239,7 +229,6 @@ export function ClaimedProfileScreen({ navigation }: Props) {
 
   return (
     <ProfileHeader
-      headerHeight={headerHeight}
       background={colors.background}
       contentStyle={styles.content}
       topBar={
@@ -251,68 +240,54 @@ export function ClaimedProfileScreen({ navigation }: Props) {
           <NotificationButton onPress={() => navigation.navigate('Notifications')} />
         </View>
       }
-      cover={
-        <View style={styles.stickyCover}>
-          {/* ── Cover full-bleed ── */}
-          <View style={styles.coverWrap}>
-            {claimed.cover ? (
-              <Image source={{ uri: claimed.cover }} style={styles.coverImg} resizeMode="cover" />
+      header={
+        <View style={styles.claimedHeader}>
+          <View style={styles.photoWrap}>
+            {claimed.image ? (
+              <Image source={{ uri: claimed.image }} style={styles.photo} />
             ) : (
-              <View style={[styles.coverImg, { backgroundColor: colors.surfaceMuted }]} />
+              <View style={[styles.photo, { backgroundColor: colors.brand }]}>
+                <Text style={styles.photoInitial}>{claimed.name[0]}</Text>
+              </View>
             )}
-            <View style={styles.coverActions}>
-              <Pressable
-                style={styles.coverBtn}
+            <Pressable style={styles.photoEdit} disabled={savingProfile} onPress={() => void handleImage()}>
+              {savingProfile ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons name="camera" size={16} color={colors.white} />
+              )}
+            </Pressable>
+          </View>
+          <View style={styles.headerIdentity}>
+            <View style={styles.headerTitleRow}>
+              <Text style={[styles.artistName, { color: colors.ink }]} numberOfLines={1}>{claimed.name}</Text>
+              {claimed.verified ? (
+                <Ionicons name="checkmark-circle" size={22} color={colors.brandPrimary} />
+              ) : null}
+            </View>
+            <Text style={[styles.artistMeta, { color: colors.inkSoft }]} numberOfLines={1}>
+              {claimed.flag} {claimed.city}, {claimed.country} · {claimed.genre}
+            </Text>
+            <View style={styles.headerActions}>
+              <Button
+                size="sm"
+                variant="outline"
                 disabled={savingProfile}
-                onPress={() => void handleImage('cover')}
-              >
-                <Ionicons name="image-outline" size={16} color={colors.white} />
-                <Text style={styles.coverBtnText}>{t('dash.changeCover')}</Text>
-              </Pressable>
-              {claimed.cover && (
-                <Pressable
-                  style={styles.coverBtn}
-                  disabled={savingProfile}
-                  onPress={() => void clearImage('cover')}
-                >
-                  <Ionicons name="trash-outline" size={16} color={colors.white} />
-                  <Text style={styles.coverBtnText}>{t('dash.removeCover')}</Text>
+                onPress={() => void handleImage()}
+                icon={<Ionicons name="camera-outline" size={14} color={colors.ink} />}
+                label={t('dash.changePhoto')}
+              />
+              {claimed.image && (
+                <Pressable style={styles.removePhoto} disabled={savingProfile} onPress={() => void clearImage()}>
+                  <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                  <Text style={[styles.removePhotoText, { color: colors.danger }]}>{t('dash.removePhoto')}</Text>
                 </Pressable>
               )}
-            </View>
-          </View>
-
-          {/* ── Photo + infos, ancrés en bas (remontent au repli) ── */}
-          <View style={styles.photoRow}>
-            <View style={styles.photoWrap}>
-              {claimed.image ? (
-                <Image source={{ uri: claimed.image }} style={styles.photo} />
-              ) : (
-                <View style={[styles.photo, { backgroundColor: colors.brand }]}>
-                  <Text style={styles.photoInitial}>{claimed.name[0]}</Text>
-                </View>
-              )}
-              <Pressable style={styles.photoEdit} disabled={savingProfile} onPress={() => void handleImage('photo')}>
-                <Ionicons name="camera" size={16} color={colors.white} />
-              </Pressable>
-            </View>
-            <View style={styles.photoInfo}>
-              <Text style={[styles.artistName, { color: colors.white }]} numberOfLines={1}>{claimed.name}</Text>
-              <Text style={[styles.artistMeta, { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
-                {claimed.flag} {claimed.city}, {claimed.country} · {claimed.genre}
-              </Text>
             </View>
           </View>
         </View>
       }
     >
-      {claimed.image && (
-        <Pressable style={styles.removePhoto} disabled={savingProfile} onPress={() => void clearImage('photo')}>
-          <Ionicons name="trash-outline" size={15} color={colors.danger} />
-          <Text style={[styles.removePhotoText, { color: colors.danger }]}>{t('dash.removePhoto')}</Text>
-        </Pressable>
-      )}
-
       {/* ── Bio / Genre ── */}
       <Section title={t('profile.about')}>
         <Card>
@@ -510,29 +485,19 @@ const createStyles = (colors: AppColors) =>
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     back: { width: APP_BAR_ACTION_SIZE, height: APP_BAR_ACTION_SIZE, borderRadius: APP_BAR_ACTION_SIZE / 2, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
     title: { fontFamily: fonts.displayBlack, fontSize: 20, letterSpacing: -0.5 },
-    // Cover ancrée : remplit le header épinglé, recadrée par overflow.
-    stickyCover: { flex: 1 },
-    coverWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
-    coverImg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-    coverActions: { position: 'absolute', bottom: PHOTO_ROW_HEIGHT + 10, right: 10, flexDirection: 'row', gap: 8 },
-    coverBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6 },
-    coverBtnText: { color: colors.white, fontFamily: fonts.bold, fontSize: 11 },
-    // Photo ancrée en bas : remonte avec le bord inférieur du header.
-    photoRow: {
-      position: 'absolute', left: 0, right: 0, bottom: 0,
-      flexDirection: 'row', alignItems: 'center', gap: 14,
-      paddingHorizontal: 20, paddingVertical: 10,
-      backgroundColor: 'rgba(0,0,0,0.35)',
-    },
+    // En-tête sans cover : photo à gauche, identité et actions à droite.
+    claimedHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingHorizontal: PROFILE_GUTTER, marginTop: spacing.lg },
     photoWrap: { position: 'relative' },
-    photo: { width: 80, height: 80, borderRadius: 40 },
-    photoInitial: { fontFamily: fonts.displayBlack, fontSize: 32, color: colors.black, alignSelf: 'center', lineHeight: 80 },
-    photoEdit: { position: 'absolute', bottom: 0, right: 0, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.brandDeep, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.background },
-    photoInfo: { flex: 1 },
-    artistName: { fontFamily: fonts.displayBlack, fontSize: 22, letterSpacing: -0.8 },
-    artistMeta: { fontFamily: fonts.body, fontSize: 13, marginTop: 2 },
-    removePhoto: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, marginBottom: 16 },
-    removePhotoText: { fontFamily: fonts.medium, fontSize: 13 },
+    photo: { width: 88, height: 88, borderRadius: 44 },
+    photoInitial: { fontFamily: fonts.displayBlack, fontSize: 34, color: colors.black, textAlign: 'center', lineHeight: 88 },
+    photoEdit: { position: 'absolute', bottom: 0, right: 0, width: 30, height: 30, borderRadius: 15, backgroundColor: colors.brandDeep, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
+    headerIdentity: { flex: 1, minWidth: 0 },
+    headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    artistName: { flexShrink: 1, fontFamily: fonts.displayBlack, fontSize: 24, letterSpacing: -0.8 },
+    artistMeta: { fontFamily: fonts.body, fontSize: 13, marginTop: 3, flexShrink: 1 },
+    headerActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+    removePhoto: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 },
+    removePhotoText: { fontFamily: fonts.medium, fontSize: 12 },
     // Booking
     toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     toggleLabel: { fontFamily: fonts.bold, fontSize: 14 },

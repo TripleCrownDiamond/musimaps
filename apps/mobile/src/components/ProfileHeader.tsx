@@ -1,19 +1,15 @@
-import { useState, type ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent, type StyleProp, type ViewStyle } from 'react-native';
+import type { ReactNode } from 'react';
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PROFILE_GUTTER } from '@musimaps/shared';
-import { ScreenStatusBar } from '../ui/ScreenStatusBar';
-import { StatusBarScrim } from '../ui/StatusBarScrim';
 import { APP_BAR_BOTTOM_GAP, APP_BAR_HEIGHT, APP_BAR_TOP_GAP, appBarBandHeight } from './AppBar';
 
 type Props = {
-  /** Hauteur totale du header (cover + photo). Toujours pleine. */
-  headerHeight: number;
   /** Couleur de fond de l'écran (d'ordinaire colors.background). */
   background: string;
   /**
    * Fond du bandeau du haut, par défaut `background`. Passer `transparent`
-   * laisse la cover passer dessous (boutons flottants sur la photo).
+   * laisse le contenu passer dessous (boutons flottants sur la page).
    */
   topBarBackground?: string;
   /**
@@ -22,8 +18,12 @@ type Props = {
    * l'écran ne passe que ses boutons.
    */
   topBar: ReactNode;
-  /** Cover pleine largeur sous le bandeau du haut (défile avec le contenu). */
-  cover: ReactNode;
+  /**
+   * En-tête de profil, dans le flux du contenu (défile sous le bandeau du
+   * haut). Sans cover, l'en-tête est une simple carte uniforme : avatar à
+   * gauche, infos à droite, actions à côté du nom.
+   */
+  header?: ReactNode;
   style?: StyleProp<ViewStyle>;
   contentStyle?: StyleProp<ViewStyle>;
   children: ReactNode;
@@ -31,53 +31,37 @@ type Props = {
 
 /**
  * En-tête de profil (compte, artiste, revendiqué), épinglé sur TOUS les
- * écrans : la top bar reste toujours en haut de l'écran, la cover (et le
- * contenu) défilent dessous.
+ * écrans : la top bar reste toujours en haut de l'écran, le contenu (et
+ * l'en-tête) défilent dessous.
  *
  * La géométrie du bandeau (hauteur, marges) vit ici et nulle part ailleurs :
  * chaque écran la recalculait avec ses propres littéraux, et le profil
  * artiste collait ses boutons au bas du bandeau bleu.
  *
- * La cover garde TOUJOURS sa hauteur normale (`headerHeight`) ; la photo de
- * profil, ancrée à son bord inférieur, défile avec elle et n'est jamais
- * coupée (moitié sur la cover, moitié dehors).
+ * La cover a disparu des profils : l'en-tête optionnel est posé sur le fond
+ * uniforme de l'écran, et un espaceur de la hauteur du bandeau évite que le
+ * contenu passe sous la barre épinglée.
  */
 export function ProfileHeader({
-  headerHeight,
   background,
   topBarBackground = background,
   topBar,
-  cover,
+  header,
   style,
   contentStyle,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const collapsedHeight = appBarBandHeight(insets.top);
-  const overCover = topBarBackground === 'transparent';
-  /**
-   * La cover a quitté la zone système. Le bandeau bleu épinglé qui prenait le
-   * relais au défilement a disparu : seules les pastilles surélevées (logo,
-   * retour, cloche) restent fixes, lisibles sur la cover comme sur le blanc.
-   */
-  const [coverPassed, setCoverPassed] = useState(false);
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const passed = e.nativeEvent.contentOffset.y > headerHeight - insets.top;
-    setCoverPassed((current) => (current === passed ? current : passed));
-  };
+  const bandHeight = appBarBandHeight(insets.top);
 
   return (
     <View style={[{ flex: 1, backgroundColor: background }, style]}>
-      {/* Icônes système blanches tant que la cover sombre est dessous ; ensuite
-          elles reprennent la couleur du thème, au-dessus du fond de page. */}
-      {overCover && !coverPassed && <ScreenStatusBar style="light" />}
       {/* Top bar épinglée en haut de l'écran, toujours visible. */}
       <View
         pointerEvents="box-none"
         style={[
           styles.stickyTopBar,
-          { backgroundColor: topBarBackground, height: collapsedHeight, paddingTop: insets.top + APP_BAR_TOP_GAP },
+          { backgroundColor: topBarBackground, height: bandHeight, paddingTop: insets.top + APP_BAR_TOP_GAP },
         ]}
       >
         <View pointerEvents="box-none" style={styles.topBarRow}>
@@ -89,22 +73,12 @@ export function ProfileHeader({
         style={{ backgroundColor: background }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={60}
-        onScroll={onScroll}
       >
-        {/* Header dans le flux : hauteur pleine constante, défile sous la barre.
-            Sans overflow hidden : la photo de profil peut déborder à moitié
-            par-dessous la cover (moitié sur la cover, moitié dehors). */}
-        <View style={{ height: headerHeight }}>
-          <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
-            {cover}
-          </View>
-        </View>
-
+        {/* Espaceur : la barre épinglée recouvre le haut du flux. */}
+        <View style={{ height: bandHeight }} />
+        {header}
         <View style={contentStyle}>{children}</View>
       </ScrollView>
-      {/* Le contenu ne défile pas sous l'heure une fois la cover passée. */}
-      {overCover && coverPassed && <StatusBarScrim color={background} />}
     </View>
   );
 }

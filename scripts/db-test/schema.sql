@@ -60,7 +60,6 @@ CREATE TABLE public.map_artists (
   bio text,
   source text,
   image text,
-  cover text,
   followers text, -- 00055 (district est ajouté par 00056 elle-même)
   platforms jsonb NOT NULL DEFAULT '{}',
   socials jsonb NOT NULL DEFAULT '{}',

@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,7 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LocationFields } from '../components/LocationFields';
 import { NotificationButton } from '../components/NotificationButton';
-import { AccountAvatar, AccountCover } from '../components/AccountMedia';
+import { AccountAvatar } from '../components/AccountMedia';
 import { NeighborhoodField } from '../components/NeighborhoodField';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
@@ -35,7 +34,6 @@ import {
   radii,
   PROFILE_MEDIA,
   spacing,
-  hexToRgba,
   geoCountryOf,
 } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
@@ -58,10 +56,9 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [genres, setGenres] = useState(profile?.favoriteGenres.join(', ') ?? '');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
-  const [coverUrl, setCoverUrl] = useState<string | null>(user?.coverUrl ?? null);
-  const [mediaBusy, setMediaBusy] = useState<'avatar' | 'cover' | null>(null);
-  // Affichée dans la carte photo/cover : l'erreur du formulaire vit tout en
-  // bas de l'écran, hors de vue quand on vient de toucher la cover.
+  const [mediaBusy, setMediaBusy] = useState(false);
+  // Affichée dans la carte photo : l'erreur du formulaire vit tout en bas de
+  // l'écran, hors de vue quand on vient de toucher la photo.
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -107,8 +104,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!user) return;
     setAvatarUrl(user.avatarUrl);
-    setCoverUrl(user.coverUrl);
-  }, [user?.avatarUrl, user?.coverUrl]);
+  }, [user?.avatarUrl]);
 
   const finish = () => {
     if (route.params?.fromStart) navigation.replace('Main', { screen: 'Profile' });
@@ -130,7 +126,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     finish();
   };
 
-  const handleImage = async (kind: 'avatar' | 'cover') => {
+  const handleImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       setMediaError(t('profile.mediaPermission'));
@@ -139,48 +135,43 @@ export function ProfileEditScreen({ navigation, route }: Props) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: kind === 'cover' ? [...PROFILE_MEDIA.coverAspect] : [1, 1],
+      aspect: [1, 1],
       quality: 0.85,
     });
     if (result.canceled || !result.assets?.[0]) return;
     const asset = result.assets[0];
-    setMediaBusy(kind);
+    setMediaBusy(true);
     setMediaError(null);
-    const upload = await uploadProfileImage(
-      { uri: asset.uri, name: asset.fileName ?? `${kind}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
-      kind,
-    );
+    const upload = await uploadProfileImage({
+      uri: asset.uri,
+      name: asset.fileName ?? 'avatar.jpg',
+      type: asset.mimeType ?? 'image/jpeg',
+    });
     if (upload.error) {
-      setMediaBusy(null);
+      setMediaBusy(false);
       setMediaError(upload.error);
       return;
     }
-    const { error: updateError } = await updateAccountProfile(
-      kind === 'avatar' ? { avatarUrl: upload.url } : { coverUrl: upload.url },
-    );
-    setMediaBusy(null);
+    const { error: updateError } = await updateAccountProfile({ avatarUrl: upload.url });
+    setMediaBusy(false);
     if (updateError) {
       setMediaError(updateError.message);
       return;
     }
-    if (kind === 'avatar') setAvatarUrl(upload.url);
-    else setCoverUrl(upload.url);
+    setAvatarUrl(upload.url);
     await refreshUser();
   };
 
-  const removeImage = async (kind: 'avatar' | 'cover') => {
-    setMediaBusy(kind);
+  const removeImage = async () => {
+    setMediaBusy(true);
     setMediaError(null);
-    const { error: updateError } = await updateAccountProfile(
-      kind === 'avatar' ? { avatarUrl: null } : { coverUrl: null },
-    );
-    setMediaBusy(null);
+    const { error: updateError } = await updateAccountProfile({ avatarUrl: null });
+    setMediaBusy(false);
     if (updateError) {
       setMediaError(updateError.message);
       return;
     }
-    if (kind === 'avatar') setAvatarUrl(null);
-    else setCoverUrl(null);
+    setAvatarUrl(null);
     await refreshUser();
   };
 
@@ -309,45 +300,6 @@ export function ProfileEditScreen({ navigation, route }: Props) {
         <Text style={styles.subtitle}>{t(user ? 'pedit.subtitle' : 'pedit.subtitleDevice')}</Text>
 
         {user && <View style={styles.mediaCard}>
-          <AccountCover image={coverUrl}>
-            <View style={styles.coverFooter}>
-              <LinearGradient pointerEvents="none" colors={[hexToRgba(PROFILE_MEDIA.fallbackCoverColors[1], 0), hexToRgba(PROFILE_MEDIA.fallbackCoverColors[1], PROFILE_MEDIA.coverShadeOpacity)]} style={StyleSheet.absoluteFill} />
-              <View style={styles.coverCopy}>
-                <Text style={styles.coverTitle}>{t('profile.coverTitle')}</Text>
-                <Text numberOfLines={2} style={styles.coverHint}>{t('profile.coverHint')}</Text>
-              </View>
-              <View style={styles.mediaActions}>
-                {coverUrl && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('profile.removeCover')}
-                    style={styles.mediaIconBtn}
-                    disabled={mediaBusy !== null}
-                    onPress={() => void removeImage('cover')}
-                  >
-                    {mediaBusy === 'cover' ? (
-                      <ActivityIndicator size="small" color={colors.white} />
-                    ) : (
-                      <Ionicons name="trash-outline" size={17} color={colors.white} />
-                    )}
-                  </Pressable>
-                )}
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('profile.uploadCover')}
-                  style={styles.mediaBtn}
-                  disabled={mediaBusy !== null}
-                  onPress={() => void handleImage('cover')}
-                >
-                  {mediaBusy === 'cover' ? (
-                    <ActivityIndicator size="small" color={colors.white} />
-                  ) : (
-                    <Ionicons name="image-outline" size={17} color={colors.white} />
-                  )}
-                </Pressable>
-              </View>
-            </View>
-          </AccountCover>
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
               <AccountAvatar name={displayName} image={avatarUrl} variant="edit" />
@@ -355,10 +307,10 @@ export function ProfileEditScreen({ navigation, route }: Props) {
                 accessibilityRole="button"
                 accessibilityLabel={t('profile.uploadAvatar')}
                 style={styles.avatarEdit}
-                disabled={mediaBusy !== null}
-                onPress={() => void handleImage('avatar')}
+                disabled={mediaBusy}
+                onPress={() => void handleImage()}
               >
-                {mediaBusy === 'avatar' ? (
+                {mediaBusy ? (
                   <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Ionicons name="camera-outline" size={17} color={colors.white} />
@@ -372,8 +324,8 @@ export function ProfileEditScreen({ navigation, route }: Props) {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('profile.removeAvatar')}
-                  disabled={mediaBusy !== null}
-                  onPress={() => void removeImage('avatar')}
+                  disabled={mediaBusy}
+                  onPress={() => void removeImage()}
                   style={styles.removeMediaLink}
                 >
                   <Ionicons name="trash-outline" size={14} color={colors.danger} />
@@ -632,13 +584,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   title: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 37, letterSpacing: -1.7, marginTop: 7 },
   subtitle: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 15, lineHeight: 22, marginTop: 8 },
   mediaCard: { marginTop: 24, borderRadius: radii['3xl'], backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' },
-  coverFooter: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.md, paddingHorizontal: spacing.lg, paddingBottom: spacing.md, paddingTop: spacing['4xl'] },
-  coverCopy: { flex: 1 },
-  coverTitle: { color: colors.white, fontFamily: fonts.bold, fontSize: 14 },
-  coverHint: { color: colors.white, opacity: 0.78, fontFamily: fonts.body, fontSize: 11, lineHeight: 15, marginTop: 2 },
-  mediaActions: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  mediaBtn: { width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' },
-  mediaIconBtn: { width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.black, alignItems: 'center', justifyContent: 'center' },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, padding: spacing.lg },
   avatarWrap: { width: PROFILE_MEDIA.avatarSize.edit, height: PROFILE_MEDIA.avatarSize.edit },
   avatarEdit: { position: 'absolute', right: -spacing.xs, bottom: -spacing.xs, width: PROFILE_MEDIA.actionSize, height: PROFILE_MEDIA.actionSize, borderRadius: radii.full, backgroundColor: colors.brandPrimary, borderWidth: 2, borderColor: colors.surface, alignItems: 'center', justifyContent: 'center' },

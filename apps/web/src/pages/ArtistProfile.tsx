@@ -11,12 +11,13 @@ import {
   Loader2,
   Music,
   Play,
+  Share2,
   UserCheck,
   UserRoundPlus,
   Users,
 } from 'lucide-react'
 import Footer from '../components/Footer'
-import { artists, compactCount, displayGenre, findArtist, type Artist } from '@musimaps/shared'
+import { artistUrl, artists, compactCount, displayGenre, findArtist, type Artist } from '@musimaps/shared'
 import { fetchMapArtists, toArtist } from '@musimaps/shared'
 import { appleMusicSearchUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import {
@@ -35,7 +36,7 @@ import { AnimatedAvatar } from '../components/AnimatedAvatar'
 
 export default function ArtistProfile() {
   const { id } = useParams()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const localize = useLocalizedPath()
   // Artiste du catalogue éditorial, sinon chargé depuis la carte (découvert).
   const [artist, setArtist] = useState<Artist | null>(null)
@@ -57,6 +58,8 @@ export default function ArtistProfile() {
           description: artist.bio || `${artist.name} — ${artist.genre ?? 'Artiste'} ${artist.city ? 'à ' + artist.city : ''} sur Musimaps. Découvrez sa musique et ses concerts.`,
           ogTitle: `${artist.name} | Musimaps`,
           ogDescription: artist.bio || `Découvrez ${artist.name} sur Musimaps — ${artist.genre ?? 'Artiste'} ${artist.city ? 'à ' + artist.city : ''}.`,
+          ogImage: artist.image,
+          twitterImage: artist.image,
         }
       : {},
   )
@@ -148,16 +151,8 @@ export default function ArtistProfile() {
     <div className="flex min-h-screen flex-col bg-warm-white">
       <main className="flex-1">
         {/* Banniere */}
-        <section className="relative flex h-[60vh] min-h-[420px] flex-col items-stretch overflow-hidden bg-gradient-to-br from-brand-deep via-black to-black px-6 pb-12 pt-28 md:px-12">
+        <section className="relative flex min-h-[340px] flex-col items-stretch overflow-hidden bg-gradient-to-br from-brand-deep via-black to-black px-6 pb-10 pt-28 md:px-12">
           <div className="map-bg absolute inset-0 opacity-10" />
-          {/* Cover posée par l'artiste revendiqué, comme sur le mobile ; le
-              dégradé de marque reste la bannière par défaut. */}
-          {artist.cover && (
-            <>
-              <img src={artist.cover} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/10" />
-            </>
-          )}
           {/* Le retour à la carte se fait via la navbar (logo) ou le bouton
               « Voir sur la carte » de la colonne latérale. */}
           <div className="relative z-10 mt-auto flex-1 items-end justify-center sm:flex">
@@ -314,6 +309,27 @@ export default function ArtistProfile() {
               >
                 <Globe2 className="h-5 w-5" /> {t('profile.seeOnMap')}
               </Link>
+              <button
+                type="button"
+                aria-label={t('artistShare.aria', { name: artist.name })}
+                onClick={() => {
+                  const url = artistUrl(artist.slug || artist.id, lang)
+                  const title = t('artistShare.title', { name: artist.name })
+                  const text = t('artistShare.message', {
+                    name: artist.name,
+                    genre: displayGenre(artist.genre, t('common.unknown')),
+                    location: [artist.city, artist.country].filter(Boolean).join(', '),
+                  })
+                  if (navigator.share) {
+                    void navigator.share({ title, text, url }).catch(() => undefined)
+                  } else {
+                    void navigator.clipboard.writeText(url).then(() => toast.success(t('artistLink.copied')))
+                  }
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-hairline-strong py-3.5 font-bold transition-colors hover:bg-secondary-bg"
+              >
+                <Share2 className="h-5 w-5" /> {t('artistShare.action')}
+              </button>
               {user && (
                 <div className="flex gap-3">
                   <button

@@ -11,7 +11,7 @@
  *     `AuthError | null`. Unifié sur `{ error }` (même forme que les autres).
  *  3. `updateProfile` / `syncProfileToSupabase` — même fonction sous deux
  *     noms. Fusionnées, en gardant le repli « colonne bio absente » du mobile
- *     et les champs `avatarUrl` / `coverUrl` du web.
+ *     et les champs `avatarUrl` du web.
  */
 import { getResetPasswordUrl, getSignUpConfirmationUrl, getSupabase } from '../runtime';
 import { normalizeArtistImageUrl } from './media';
@@ -41,8 +41,6 @@ export interface UserProfile {
   favoriteGenres?: string[];
   /** Photo du compte (avatar) — synchro depuis la demande de référencement. */
   avatarUrl: string | null;
-  /** Image de couverture du compte, distincte de la cover artiste sur la carte. */
-  coverUrl: string | null;
 }
 
 export interface AuthError {
@@ -128,7 +126,6 @@ export async function signUp(params: {
       role: params.role,
       accountType: 'personal',
       avatarUrl: metadataAvatarUrl(data.user),
-      coverUrl: null,
     },
     error: null,
     needsConfirmation: false,
@@ -186,7 +183,6 @@ function sessionShell(user: AuthUserLike): UserProfile {
     accountType: 'personal',
     favoriteGenres: [],
     avatarUrl: metadataAvatarUrl(user),
-    coverUrl: null,
   };
 }
 
@@ -269,11 +265,11 @@ export async function updateEmail(newEmail: string): Promise<{ error: AuthError 
 
 /**
  * Met à jour le profil de l'utilisateur connecté (nom, ville, genres, bio,
- * avatar et cover). Seul le propriétaire peut modifier sa propre ligne (RLS).
+ * avatar). Seul le propriétaire peut modifier sa propre ligne (RLS).
  *
  * Fusion de `updateProfile` (web) et `syncProfileToSupabase` (mobile) : on
- * garde les champs `avatarUrl` / `coverUrl` du web et le repli « colonne
- * récente absente » du mobile, qui protège les bases antérieures à leur ajout.
+ * garde le champ `avatarUrl` du web et le repli « colonne récente absente »
+ * du mobile, qui protège les bases antérieures à leur ajout.
  */
 export async function updateProfile(params: {
   displayName?: string;
@@ -283,7 +279,6 @@ export async function updateProfile(params: {
   bio?: string;
   favoriteGenres?: string[];
   avatarUrl?: string | null;
-  coverUrl?: string | null;
 }): Promise<{ error: AuthError | null }> {
   const supabase = getSupabase();
   if (!supabase) return { error: { message: 'Supabase non configuré' } };
@@ -299,7 +294,6 @@ export async function updateProfile(params: {
     patch.favorite_genres = params.favoriteGenres.map((g) => g.trim()).filter(Boolean);
   }
   if (params.avatarUrl !== undefined) patch.avatar_url = params.avatarUrl;
-  if (params.coverUrl !== undefined) patch.cover_url = params.coverUrl;
   // Bio incluse uniquement si non vide : évite une écriture permanente sur
   // les bases où la colonne n'existe pas.
   if (params.bio !== undefined && params.bio.trim()) patch.bio = params.bio.trim();
@@ -312,17 +306,15 @@ export async function updateProfile(params: {
       bio: /bio/i.test(error.message),
       district: /district/i.test(error.message),
       avatar: /avatar/i.test(error.message),
-      cover: /cover/i.test(error.message),
     };
     const retry: Record<string, string | string[] | null> = {};
     for (const [key, value] of Object.entries(patch)) {
       if (key === 'bio' && missing.bio) continue;
       if (key === 'district' && missing.district) continue;
       if (key === 'avatar_url' && missing.avatar) continue;
-      if (key === 'cover_url' && missing.cover) continue;
       // Les anciennes API peuvent renvoyer une erreur générique sans le nom
       // de la colonne : on garde alors le repli historique.
-      if (!missing.bio && !missing.district && !missing.avatar && !missing.cover && /bio|district|avatar|cover/i.test(key)) continue;
+      if (!missing.bio && !missing.district && !missing.avatar && /bio|district|avatar/i.test(key)) continue;
       retry[key] = value;
     }
     if (Object.keys(retry).length === 0) return { error: { message: error.message } };
@@ -363,7 +355,6 @@ interface ProfileRow {
   account_type?: string | null;
   favorite_genres?: string[] | null;
   avatar_url?: string | null;
-  cover_url?: string | null;
 }
 
 /**
@@ -385,11 +376,11 @@ export async function fetchProfile(
 
     const full = await supabase
       .from('profiles')
-      .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url, cover_url')
+      .select('id, display_name, city, district, country, role, account_type, favorite_genres, avatar_url')
       .eq('id', userId)
       .maybeSingle();
-    if (full.error && /account_type|favorite_genres|district|country|avatar_url|cover_url|column .* does not exist|schema cache/i.test(full.error.message)) {
-      // Déploiement progressif : si seule la nouvelle cover manque, garder
+    if (full.error && /account_type|favorite_genres|district|country|avatar_url|column .* does not exist|schema cache/i.test(full.error.message)) {
+      // Déploiement progressif : si seule une colonne récente manque, garder
       // les autres colonnes du profil (pays, genres et avatar compris).
       const compatible = await supabase
         .from('profiles')
@@ -442,7 +433,6 @@ export async function fetchProfile(
         accountType: toAccountType(data.account_type),
         favoriteGenres: data.favorite_genres ?? [],
         avatarUrl,
-        coverUrl: data.cover_url ? normalizeArtistImageUrl(data.cover_url) : null,
       };
     }
     await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));

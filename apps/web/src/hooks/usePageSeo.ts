@@ -12,6 +12,8 @@ interface PageSeo {
   description?: string
   ogTitle?: string
   ogDescription?: string
+  ogImage?: string
+  twitterImage?: string
 }
 
 /**
@@ -33,8 +35,10 @@ export function usePageSeo(overrides: PageSeo) {
       ...(overrides.description ? { description: overrides.description } : {}),
       ...(overrides.ogTitle ? { ogTitle: overrides.ogTitle } : {}),
       ...(overrides.ogDescription ? { ogDescription: overrides.ogDescription } : {}),
+      ...(overrides.ogImage ? { ogImage: overrides.ogImage } : {}),
+      ...(overrides.twitterImage ? { twitterImage: overrides.twitterImage } : {}),
     }
     // Dynamically import to avoid circular deps
     import('@/lib/seo').then(({ applySeo }) => applySeo(merged, lang, cacheVersion))
-  }, [content.seo, lang, cacheVersion, overrides.title, overrides.description, overrides.ogTitle, overrides.ogDescription])
+  }, [content.seo, lang, cacheVersion, overrides.title, overrides.description, overrides.ogTitle, overrides.ogDescription, overrides.ogImage, overrides.twitterImage])
 }

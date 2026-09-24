@@ -11,7 +11,7 @@ try {
 // Expo Web is opt-in because its development server is not part of web CI.
 for (const surface of ['web', 'expo'] as const) {
   for (const theme of ['light', 'dark'] as const) {
-    test(`${surface}: account media are consistent in ${theme} mode`, async ({ page }, testInfo) => {
+    test(`${surface}: the only profile media is the avatar in ${theme} mode`, async ({ page }, testInfo) => {
       test.skip(!supabaseUrl || (surface === 'expo' && !process.env.EXPO_QA_URL))
       const english = theme === 'dark'
       const email = 'profile-qa@example.invalid'
@@ -24,7 +24,7 @@ for (const surface of ['web', 'expo'] as const) {
       const profile = {
         id: user.id, email, display_name: 'Compte Test', role: 'melomane', account_type: 'personal',
         city: 'Cotonou', country: 'Bénin', favorite_genres: [],
-        avatar_url: `${origin}/qa-media/avatar.png`, cover_url: `${origin}/qa-media/cover.jpg`,
+        avatar_url: `${origin}/qa-media/avatar.png`,
       }
       await page.addInitScript(({ storageKey, session, theme, english }) => {
         localStorage.setItem(storageKey, JSON.stringify(session))
@@ -58,40 +58,26 @@ for (const surface of ['web', 'expo'] as const) {
       await openProfile()
       // Native-stack retains the profile behind the editor modal.
       const avatar = page.getByTestId('account-avatar').last()
-      const cover = page.getByTestId('account-cover').last()
-      await expect(cover).toBeVisible()
       await expect(avatar).toBeVisible()
+      await expect(page.getByTestId('account-cover')).toHaveCount(0)
       const avatarBox = (await avatar.boundingBox())!
-      const coverBox = (await cover.boundingBox())!
       expect(avatarBox.width).toBe(PROFILE_MEDIA.avatarSize.profile)
       expect(avatarBox.height).toBe(PROFILE_MEDIA.avatarSize.profile)
-      expect(coverBox.height).toBeGreaterThanOrEqual(PROFILE_MEDIA.coverMinHeight)
-      expect(coverBox.height).toBeLessThanOrEqual(PROFILE_MEDIA.coverMaxHeight)
-      const parentWidth = await cover.evaluate(element => element.parentElement!.clientWidth)
-      expect(coverBox.width).toBeCloseTo(parentWidth, 0)
-      expect(avatarBox.y).toBeCloseTo(coverBox.y + coverBox.height - PROFILE_MEDIA.profileOverlap, 0)
       await expect(avatar.locator('img')).toHaveCount(1)
       if (process.env.PROFILE_QA_SCREENSHOTS) await page.screenshot({ path: testInfo.outputPath('profile.png'), animations: 'disabled', timeout: 10_000 })
       await page.getByRole(surface === 'expo' ? 'button' : 'link', { name: editLabel, exact: true }).first().click()
       await expect(avatar).toHaveCSS('width', `${PROFILE_MEDIA.avatarSize.edit}px`)
       const editAvatar = (await avatar.boundingBox())!
-      const editCover = (await cover.boundingBox())!
-      expect(editAvatar.y).toBeGreaterThanOrEqual(editCover.y + editCover.height)
       expect(editAvatar.width).toBe(PROFILE_MEDIA.avatarSize.edit)
       expect(editAvatar.height).toBe(PROFILE_MEDIA.avatarSize.edit)
-      const editParentWidth = await cover.evaluate(element => element.parentElement!.clientWidth)
-      expect(editCover.width).toBeCloseTo(editParentWidth, 0)
       if (process.env.PROFILE_QA_SCREENSHOTS) await page.screenshot({ path: testInfo.outputPath('edit.png'), animations: 'disabled', timeout: 10_000 })
       // A failing image must produce a deterministic fallback, never a broken icon.
       broken = true
       profile.avatar_url = `${origin}/qa-media/avatar-broken.png`
-      profile.cover_url = `${origin}/qa-media/cover-broken.jpg`
       await openProfile()
       await expect(avatar).toContainText('CT')
-      await expect(cover.locator('img')).toHaveCount(0)
       await page.getByRole(surface === 'expo' ? 'button' : 'link', { name: editLabel, exact: true }).first().click()
       await expect(avatar).toContainText('CT')
-      await expect(cover.locator('img')).toHaveCount(0)
     })
   }
 }

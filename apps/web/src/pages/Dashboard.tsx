@@ -17,9 +17,7 @@ import {
   Flame,
   Globe2,
   Heart,
-  ImagePlus,
   Link2,
-  Loader2,
   Lock,
   Mail,
   MapPin,
@@ -35,15 +33,14 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
-import { PROFILE_MEDIA, SITE_URL, fetchBookings, type BookingRecord } from '@musimaps/shared'
-import { AccountAvatar, AccountCover } from '../components/AccountMedia'
+import { SITE_URL, fetchBookings, type BookingRecord } from '@musimaps/shared'
+import { AccountAvatar } from '../components/AccountMedia'
 import { setAccountType } from '@musimaps/shared'
 import {
   fetchMyArtistProfile,
   updateArtistBooking,
   updateMyArtistProfile,
   uploadArtistImage,
-  slugify,
   type ClaimedArtistProfile,
 } from '@musimaps/shared'
 import {
@@ -195,7 +192,7 @@ export default function Dashboard() {
   const [switching, setSwitching] = useState(false)
   /** Guide d'utilisation replie par defaut : utile au debut, encombrant ensuite. */
   const [guideOpen, setGuideOpen] = useState(false)
-  // Profil revendiqué (carte) — l'artiste gère photo, cover, bio, liens.
+  // Profil revendiqué (carte) — l'artiste gère photo, bio, liens.
   const [claimed, setClaimed] = useState<ClaimedArtistProfile | null>(null)
   const [claimedFollowers, setClaimedFollowers] = useState(0)
   // Réservations (forfaits) du profil revendiqué.
@@ -203,10 +200,7 @@ export default function Dashboard() {
   const [savingBooking, setSavingBooking] = useState(false)
   const [myReferral, setMyReferral] = useState<MyReferralRequest | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
-  const [slugDraft, setSlugDraft] = useState('')
-  const [slugSaving, setSlugSaving] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
-  const coverInput = useRef<HTMLInputElement>(null)
   // Mélomane : artistes enregistrés / suivis, avec onglets.
   const [favorites, setFavorites] = useState<ArtistSummary[]>([])
   const [following, setFollowing] = useState<ArtistSummary[]>([])
@@ -228,6 +222,7 @@ export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [openBadgeId, setOpenBadgeId] = useState<string | null>(null)
   const rewardsRef = useRef<HTMLDivElement>(null)
+  const artistProfileRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const badgeId = searchParams.get(BADGE_PARAM)
     if ((!badgeId && !searchParams.has(REWARDS_PARAM)) || !rewards) return
@@ -239,6 +234,13 @@ export default function Dashboard() {
     setSearchParams(next, { replace: true })
     requestAnimationFrame(() => rewardsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
   }, [rewards, searchParams, setSearchParams])
+  useEffect(() => {
+    if (!claimed || searchParams.get('artist') !== 'edit') return
+    requestAnimationFrame(() => artistProfileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    const next = new URLSearchParams(searchParams)
+    next.delete('artist')
+    setSearchParams(next, { replace: true })
+  }, [claimed, searchParams, setSearchParams])
   const openBadge = rewards?.find((badge) => badge.id === openBadgeId) ?? null
   const OpenBadgeIcon = openBadge ? badgeIcon(openBadge.icon) : null
 
@@ -331,7 +333,6 @@ export default function Dashboard() {
         if (profile && !cancelled) {
           claimedProfile = profile
           setClaimed(profile)
-          setSlugDraft(profile?.slug ?? '')
           void fetchArtistFollowers(profile.id).then((n) => {
             if (!cancelled) setClaimedFollowers(n)
           })
@@ -406,44 +407,38 @@ export default function Dashboard() {
     toast.success(t('dash.markAllRead'))
   }
 
-  // Upload photo de profil ou cover, puis sauvegarde sur le profil revendiqué.
-  const handleProfileImage = async (file: File, kind: 'image' | 'cover') => {
+  // Upload de la photo de profil, puis sauvegarde sur le profil revendiqué.
+  const handleProfileImage = async (file: File) => {
     if (!claimed) return
     setSavingProfile(true)
-    const result = await uploadArtistImage(file, kind === 'cover' ? 'covers' : 'artists')
+    const result = await uploadArtistImage(file)
     if (result.error) {
       setSavingProfile(false)
       toast.error(result.error)
       return
     }
-    const update =
-      kind === 'cover'
-        ? await updateMyArtistProfile({ cover: result.url })
-        : await updateMyArtistProfile({ image: result.url })
+    const update = await updateMyArtistProfile({ image: result.url })
     setSavingProfile(false)
     if (!update.ok) {
       toast.error(t('dash.saveFailed'), { description: update.error })
       return
     }
-    setClaimed((c) => (c ? { ...c, [kind]: result.url } : c))
-    toast.success(kind === 'cover' ? t('dash.coverUpdated') : t('dash.photoUpdated'))
+    setClaimed((c) => (c ? { ...c, image: result.url } : c))
+    toast.success(t('dash.photoUpdated'))
   }
 
-  // Retire la photo ou la cover (le RPC traite '' comme « vider »).
-  const clearProfileImage = async (kind: 'image' | 'cover') => {
+  // Retire la photo de profil (le RPC traite '' comme « vider »).
+  const clearProfileImage = async () => {
     if (!claimed) return
     setSavingProfile(true)
-    const update =
-      kind === 'cover'
-        ? await updateMyArtistProfile({ cover: '' })
-        : await updateMyArtistProfile({ image: '' })
+    const update = await updateMyArtistProfile({ image: '' })
     setSavingProfile(false)
     if (!update.ok) {
       toast.error(t('dash.saveFailed'), { description: update.error })
       return
     }
-    setClaimed((c) => (c ? { ...c, [kind]: '' } : c))
-    toast.success(kind === 'cover' ? t('dash.coverRemoved') : t('dash.photoRemoved'))
+    setClaimed((c) => (c ? { ...c, image: '' } : c))
+    toast.success(t('dash.photoRemoved'))
   }
 
   // Réservations (forfaits) — art. revendiqué : réservable + catalogue.
@@ -550,37 +545,41 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-warm-white px-5 pt-36 pb-24 sm:px-6 md:px-12 md:pt-44">
       <div className="mx-auto w-full max-w-5xl">
-        <div className="mb-6 overflow-hidden rounded-3xl border border-hairline bg-surface">
-          <AccountCover image={user.coverUrl} />
-          <div className="relative flex items-end justify-between gap-4 px-5 pb-5" style={{ marginTop: -PROFILE_MEDIA.profileOverlap }}>
-            <AccountAvatar name={user.displayName || user.email} image={user.avatarUrl} />
-            <Link to={localize('/profil')} className="flex items-center gap-2 rounded-full bg-brand-deep px-4 py-3 text-sm font-semibold text-brand-deep-foreground">
-              <PenLine className="h-4 w-4" aria-hidden="true" /><span className="sr-only sm:not-sr-only">{t('profile.editProfile')}</span>
-            </Link>
-          </div>
-        </div>
-        {/* En-tête */}
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="display-font text-3xl font-bold sm:text-4xl md:text-5xl">
-              {t('dash.welcome', { name: user.displayName ?? user.email })}
-            </h1>
-            <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-1.5 text-sm font-bold text-black">
-              {isArtist ? <Mic2 className="h-4 w-4" /> : <CalendarHeart className="h-4 w-4" />}
-              {isArtist ? t('dash.roleArtist') : t('dash.roleMelomane')}
-              {isBusiness && (
-                <span className="ml-1 rounded-full bg-black px-2 py-0.5 text-[10px] font-bold text-brand">
-                  {t('dash.business')}
+<div className="mb-8 rounded-[2rem] border border-hairline bg-surface p-6 shadow-sm sm:p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
+            <div className="relative shrink-0 self-start">
+              <AccountAvatar name={user.displayName || user.email} image={user.avatarUrl} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="display-font truncate text-2xl font-bold sm:text-3xl">
+                  {user.displayName ?? user.email}
+                </h1>
+                <span className="inline-flex items-center gap-2 rounded-full bg-brand px-3 py-1 text-xs font-bold text-black">
+                  {isArtist ? <Mic2 className="h-4 w-4" /> : <CalendarHeart className="h-4 w-4" />}
+                  {isArtist ? t('dash.roleArtist') : t('dash.roleMelomane')}
+                  {isBusiness && (
+                    <span className="ml-1 rounded-full bg-black px-2 py-0.5 text-[10px] font-bold text-brand">
+                      {t('dash.business')}
+                    </span>
+                  )}
                 </span>
+              </div>
+              {user.city && (
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-secondary-text">
+                  <MapPin className="h-4 w-4 shrink-0" /> {user.city}
+                </p>
               )}
-            </span>
+            </div>
+            <div className="flex flex-wrap gap-2 sm:shrink-0">
+              <Link to={localize('/profil')} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-hairline-strong px-5 py-3 text-sm font-semibold hover:bg-secondary-bg sm:flex-none">
+                <PenLine className="h-4 w-4" aria-hidden="true" /> {t('profile.editProfile')}
+              </Link>
+              <Link to={localize('/globe')} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-semibold text-brand-deep-foreground transition-transform hover:scale-[1.02] sm:flex-none">
+                <Globe2 className="h-4 w-4" /> {t('dash.explore')}
+              </Link>
+            </div>
           </div>
-          <Link
-            to={localize('/globe')}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-brand-deep px-6 py-3 text-sm font-medium text-brand-deep-foreground transition-transform hover:scale-105 sm:w-auto"
-          >
-            <Globe2 className="h-4 w-4" /> {t('dash.explore')}
-          </Link>
         </div>
 
         {/* Guide d'utilisation — le contenu dépend du rôle et du type de
@@ -754,20 +753,16 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Profil artiste revendiqué : photo, cover, bio, liens */}
+        {/* Profil artiste revendiqué : photo, infos, liens */}
         {claimed && (
-          <div className="mb-8 overflow-hidden rounded-3xl border border-hairline bg-surface">
-            <input
-              ref={coverInput}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) void handleProfileImage(file, 'cover')
-                e.target.value = ''
-              }}
-            />
+          <div ref={artistProfileRef} className="mb-8 scroll-mt-28 overflow-hidden rounded-3xl border border-hairline bg-surface">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline px-5 py-5 sm:px-6">
+              <div>
+                <h2 className="display-font text-xl font-bold">{t('artistProfile.publicTitle')}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-secondary-text">{t('artistProfile.publicHint')}</p>
+              </div>
+              <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand-deep">{t('dash.claimedProfile')}</span>
+            </div>
             <input
               ref={photoInput}
               type="file"
@@ -775,55 +770,28 @@ export default function Dashboard() {
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0]
-                if (file) void handleProfileImage(file, 'image')
+                if (file) void handleProfileImage(file)
                 e.target.value = ''
               }}
             />
-            {/* Cover */}
-            <div
-              className="relative h-40 w-full bg-gradient-to-br from-brand-deep via-black to-black sm:h-52"
-              style={claimed.cover ? { backgroundImage: `url(${claimed.cover})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
-            >
-              <button
-                type="button"
-                onClick={() => coverInput.current?.click()}
-                disabled={savingProfile}
-                className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-xs font-bold text-white backdrop-blur transition-colors hover:bg-black/80 disabled:opacity-60"
-              >
-                <ImagePlus className="h-4 w-4" /> {t('dash.changeCover')}
-              </button>
-              {claimed.cover && (
+            <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center sm:gap-8">
+              <div className="relative h-28 w-28 shrink-0">
+                <AnimatedAvatar
+                  name={claimed.name}
+                  image={claimed.image}
+                  alt={claimed.name}
+                  className="h-28 w-28 rounded-full ring-4 ring-surface"
+                  initialsClassName="bg-gradient-to-br from-brand-deep to-brand text-4xl font-extrabold text-black"
+                />
                 <button
                   type="button"
-                  onClick={() => void clearProfileImage('cover')}
+                  onClick={() => photoInput.current?.click()}
                   disabled={savingProfile}
-                  className="absolute bottom-3 right-40 flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-xs font-bold text-white backdrop-blur transition-colors hover:bg-red-600/80 disabled:opacity-60"
+                  aria-label={t('dash.changePhoto')}
+                  className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:opacity-100 disabled:opacity-0"
                 >
-                  <Trash2 className="h-4 w-4" /> {t('dash.removeCover')}
+                  <Camera className="h-6 w-6" />
                 </button>
-              )}
-            </div>
-            {/* Photo de profil */}
-            <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-end sm:gap-6">
-              <div className="-mt-16 sm:-mt-14">
-                <div className="relative h-28 w-28">
-                  <AnimatedAvatar
-                    name={claimed.name}
-                    image={claimed.image}
-                    alt={claimed.name}
-                    className="h-28 w-28 rounded-full ring-4 ring-surface"
-                    initialsClassName="bg-gradient-to-br from-brand-deep to-brand text-4xl font-extrabold text-black"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => photoInput.current?.click()}
-                    disabled={savingProfile}
-                    aria-label={t('dash.changePhoto')}
-                    className="absolute inset-0 flex items-center justify-center rounded-3xl bg-black/40 text-white opacity-0 transition-opacity hover:opacity-100 disabled:opacity-0"
-                  >
-                    <Camera className="h-6 w-6" />
-                  </button>
-                </div>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3">
@@ -831,9 +799,6 @@ export default function Dashboard() {
                     {claimed.name}
                     {claimed.verified && <BadgeCheck className="h-5 w-5 text-brand-deep" />}
                   </h2>
-                  <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-bold text-brand-deep">
-                    {t('dash.claimedProfile')}
-                  </span>
                 </div>
                 <p className="mt-1 text-sm text-secondary-text">
                   {claimed.flag} {claimed.city}, {claimed.country} · {claimed.genre} ·{' '}
@@ -855,18 +820,16 @@ export default function Dashboard() {
                   >
                     <Camera className="h-4 w-4" /> {t('dash.changePhoto')}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => coverInput.current?.click()}
-                    disabled={savingProfile}
-                    className="flex items-center gap-2 rounded-full border border-hairline-strong px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary-bg disabled:opacity-60"
+                  <Link
+                    to={`${localize('/profil')}#artist-link`}
+                    className="flex items-center gap-2 rounded-full border border-hairline-strong px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary-bg"
                   >
-                    <ImagePlus className="h-4 w-4" /> {t('dash.changeCover')}
-                  </button>
+                    <Link2 className="h-4 w-4" /> {t('artistLink.edit')}
+                  </Link>
                   {claimed.image && (
                     <button
                       type="button"
-                      onClick={() => void clearProfileImage('image')}
+                      onClick={() => void clearProfileImage()}
                       disabled={savingProfile}
                       className="flex items-center gap-2 rounded-full border border-hairline-strong px-5 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60"
                     >
@@ -876,54 +839,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Lien perso (slug) */}
-        {claimed && (
-          <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
-            <h3 className="display-font flex items-center gap-2 text-lg font-bold">
-              <Link2 className="h-5 w-5 text-brand-deep" /> {t('mapAdmin.slug')}
-            </h3>
-            <p className="mt-1 mb-3 text-sm text-secondary-text">
-              {t('mapAdmin.slugHint')}
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                value={slugDraft}
-                onChange={(e) => setSlugDraft(e.target.value)}
-                placeholder={claimed.id}
-                className="w-full rounded-xl border border-hairline-strong bg-warm-white px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  const s = slugify(slugDraft)
-                  if (!s) return
-                  setSlugSaving(true)
-                  const result = await updateMyArtistProfile({ slug: s })
-                  setSlugSaving(false)
-                  if (!result.ok) {
-                    toast.error(result.error ?? t('dash.saveFailed'))
-                    return
-                  }
-                  setSlugDraft(s)
-                  setClaimed((prev) => prev ? { ...prev, slug: s } : prev)
-                  toast.success(t('dash.saved'))
-                }}
-                disabled={slugSaving || !slugDraft.trim()}
-                className="shrink-0 rounded-full bg-brand-deep px-5 py-2.5 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-              >
-                {slugSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('dash.bookingSave')}
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-secondary-text">
-              {slugDraft.trim() ? (
-                <>musimaps.com/artist/<span className="font-mono text-primary-text">{slugify(slugDraft)}</span></>
-              ) : (
-                <>{window.location.origin}/artist/<span className="font-mono text-primary-text">{claimed.slug || claimed.id}</span></>
-              )}
-            </p>
           </div>
         )}
 

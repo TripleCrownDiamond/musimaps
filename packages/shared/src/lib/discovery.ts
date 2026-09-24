@@ -49,8 +49,6 @@ export interface DiscoveredArtist {
   lng: number
   bio: string
   image?: string
-  /** Image de couverture (bannière du profil public), migration 00031. */
-  cover?: string
   source: string
   platforms: ArtistPlatforms
   socials: ArtistSocials
@@ -1538,7 +1536,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
-    'id, name, genre, city, district, country, flag, lat, lng, bio, image, cover, source, platforms, socials, verified, claimed_by, events, followers, slug'
+    'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers, slug'
   const BASE_SELECT = 'id, name, genre, city, district, country, flag, lat, lng, bio, image, source'
   let { data, error } = await supabase
     .from('map_artists')
@@ -1570,7 +1568,6 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     flag: row.flag ?? '🌍',
     lat: row.lat,
     lng: row.lng,
-    cover: ('cover' in row ? row.cover : null) ?? undefined,
     bio: row.bio ?? '',
     image: row.image ?? undefined,
     source: row.source ?? 'musicbrainz',
@@ -1719,7 +1716,6 @@ export async function updateMapArtist(
     lng: number
     bio: string
     image: string
-    cover: string
     platforms: ArtistPlatforms
     socials: ArtistSocials
     verified: boolean
@@ -1736,9 +1732,9 @@ export async function updateMapArtist(
   // par Mistral (skipGenreClean) — on ne doit pas les ré-écraser.
   if (patch.genre !== undefined && !opts?.skipGenreClean) patch.genre = cleanGenre(patch.genre)
   let { error } = await supabase.from('map_artists').update(patch).eq('id', id)
-  // Repli : colonnes enrichies absentes tant que les migrations 00016/00019/00031 ne sont pas appliquées.
-  if (error && /platforms|socials|verified|claimed_by|image|cover/i.test(error.message)) {
-    const { platforms: _p, socials: _s, image: _i, cover: _c, ...base } = patch
+  // Repli : colonnes enrichies absentes tant que les migrations 00016/00019 ne sont pas appliquées.
+  if (error && /platforms|socials|verified|claimed_by|image/i.test(error.message)) {
+    const { platforms: _p, socials: _s, image: _i, ...base } = patch
     const retry = await supabase.from('map_artists').update(base).eq('id', id)
     error = retry.error
   }
@@ -1766,7 +1762,6 @@ export function toArtist(d: DiscoveredArtist): MapArtistView {
     coordinates: [d.lng, d.lat],
     bio: d.bio,
     image: d.image,
-    cover: d.cover,
     followers: d.followers ?? '',
     color: DEFAULT_COLOR,
     tracks: [],

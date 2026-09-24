@@ -101,7 +101,7 @@ export default function Notifications() {
 
   return (
     <main className="min-h-screen bg-warm-white px-6 pb-24 pt-36 md:px-12">
-      <div className="mx-auto max-w-4xl">
+      <div className="mx-auto w-full max-w-5xl">
         <SecondaryPageHeader
           onBack={() => window.history.length > 1 ? navigate(-1) : navigate(localize('/dashboard'))}
           backLabel={t('common.back')}

@@ -160,7 +160,6 @@ export function ArtistJoinScreen({ navigation, route }: Props) {
     setUploading(true);
     const uploadResult = await uploadArtistImage(
       { uri: asset.uri, name: asset.fileName ?? `photo-${Date.now()}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
-      'artists',
     );
     setUploading(false);
     if (uploadResult.error) setError(uploadResult.error);

@@ -42,7 +42,6 @@ interface AuthContextValue {
     country?: string
     favoriteGenres?: string[]
     avatarUrl?: string | null
-    coverUrl?: string | null
   }) => Promise<{ error: AuthError | null }>
 }
 

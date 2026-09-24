@@ -1,6 +1,6 @@
 /**
  * Profil revendiqué de l'artiste connecté — la carte qu'il possède
- * (claimed_by). Permet de gérer photo, cover, bio et liens depuis le
+ * (claimed_by). Permet de gérer photo, bio et liens depuis le
  * compte (migration 00031). Partagé web + mobile.
  */
 import { getSupabase } from '../runtime';
@@ -17,7 +17,6 @@ export interface ClaimedArtistProfile {
   lng: number;
   bio: string;
   image: string;
-  cover: string;
   source: string;
   platforms: Record<string, string>;
   socials: Record<string, string>;
@@ -34,10 +33,28 @@ export async function fetchMyArtistProfile(): Promise<ClaimedArtistProfile | nul
   return data as ClaimedArtistProfile | null;
 }
 
-/** Met à jour son profil revendiqué (photo, cover, bio, genre, liens). */
+/**
+ * Vérifie qu'une adresse publique artiste est encore libre. La base reste la
+ * source de vérité : une vérification uniquement côté écran laisserait deux
+ * artistes choisir le même lien en parallèle.
+ */
+export async function checkArtistSlugAvailability(
+  slug: string,
+  excludeArtistId?: string,
+): Promise<{ available: boolean; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { available: false, error: 'Supabase non configuré' };
+  const { data, error } = await supabase.rpc('check_slug_unique', {
+    p_slug: slug,
+    p_exclude_id: excludeArtistId ?? null,
+  });
+  if (error) return { available: false, error: error.message };
+  return { available: data === true };
+}
+
+/** Met à jour son profil revendiqué (photo, bio, genre, liens). */
 export async function updateMyArtistProfile(input: {
   image?: string;
-  cover?: string;
   bio?: string;
   genre?: string;
   platforms?: Record<string, string>;
@@ -50,7 +67,6 @@ export async function updateMyArtistProfile(input: {
   if (!supabase) return { ok: false, error: 'Supabase non configuré' };
   const { data, error } = await supabase.rpc('update_claimed_profile', {
     p_image: input.image ?? null,
-    p_cover: input.cover ?? null,
     p_bio: input.bio ?? null,
     p_genre: input.genre ?? null,
     p_platforms: input.platforms ?? null,
@@ -65,23 +81,21 @@ export async function updateMyArtistProfile(input: {
 }
 
 /**
- * Upload une image (photo ou cover) dans le bucket artist-images et renvoie
+ * Upload une image (photo de profil) dans le bucket artist-images et renvoie
  * son URL publique. Accepte un fichier web (File) ou un URI local (mobile)
  * via `uploadFile`.
  */
 export async function uploadArtistImage(
   file: File | { uri: string; name: string; type: string },
-  folder: 'artists' | 'covers',
 ): Promise<{ url: string; error?: string }> {
-  return uploadImageToBucket(file, folder);
+  return uploadImageToBucket(file, 'artists');
 }
 
-/** Upload d'un visuel du profil de compte (avatar ou couverture). */
+/** Upload d'un visuel du profil de compte (avatar). */
 export async function uploadProfileImage(
   file: File | { uri: string; name: string; type: string },
-  kind: 'avatar' | 'cover',
 ): Promise<{ url: string; error?: string }> {
-  return uploadImageToBucket(file, kind === 'cover' ? 'profile-covers' : 'profiles');
+  return uploadImageToBucket(file, 'profiles');
 }
 
 type UploadImageFile = File | { uri: string; name: string; type: string };
@@ -92,7 +106,7 @@ function isWebUploadFile(file: UploadImageFile): file is File {
 
 async function uploadImageToBucket(
   file: UploadImageFile,
-  folder: 'artists' | 'covers' | 'profiles' | 'profile-covers',
+  folder: 'artists' | 'profiles',
 ): Promise<{ url: string; error?: string }> {
   const supabase = getSupabase();
   if (!supabase) return { url: '', error: 'Supabase non configuré' };

@@ -17,7 +17,7 @@ import {
   UserRoundPlus,
   X,
 } from 'lucide-react'
-import { compactCount, displayGenre, slugify, type Artist } from '@musimaps/shared'
+import { artistUrl, compactCount, displayGenre, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { requestClaim } from '@musimaps/shared'
@@ -34,7 +34,6 @@ import {
 import { loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
-import { saveMapArtist } from '../lib/mapAdmin'
 import BookingModal from './BookingModal'
 
 const tabs = ['About', 'Musics', 'Events', 'Nearby'] as const
@@ -90,11 +89,6 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
   const [likes, setLikes] = useState(0)
   // Réservations : artiste réservable + forfaits (migration 00048).
   const [booking, setBooking] = useState<ArtistBooking | null>(null)
-  // Édition du slug personnalisé (propriétaire du profil).
-  const [slugEdit, setSlugEdit] = useState(artist.slug ?? '')
-  const [slugSaving, setSlugSaving] = useState(false)
-  const [slugSaved, setSlugSaved] = useState(false)
-  const [slugError, setSlugError] = useState<string | null>(null)
 
   // Like persistant + compteur de vue profil. Le garde utilise le dernier id
   // d'artiste affiché (la fiche reste montée quand on change d'artiste via Nearby).
@@ -108,9 +102,6 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
     setFollowers(0)
     setLikes(0)
     setBooking(null)
-    setSlugEdit(artist.slug ?? '')
-    setSlugSaved(false)
-    setSlugError(null)
     void fetchFavorites().then((ids) => setSaved(ids.includes(artist.id)))
     void fetchFollowing().then((ids) => setFollowing(ids.includes(artist.id)))
     void fetchArtistFollowers(artist.id).then((n) => setFollowers(n))
@@ -495,10 +486,16 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
           </button>
           <button
             type="button"
-            aria-label={t('sheet.share')}
+            aria-label={t('artistShare.aria', { name: artist.name })}
             onClick={() => {
-              const url = `${window.location.origin}${localize(`/artist/${artist.slug || artist.id}`)}`
-              if (navigator.share) navigator.share({ title: artist.name, url }).catch(() => {})
+              const url = artistUrl(artist.slug || artist.id, lang)
+              const title = t('artistShare.title', { name: artist.name })
+              const text = t('artistShare.message', {
+                name: artist.name,
+                genre: displayGenre(artist.genre, t('common.unknown')),
+                location: [artist.city, artist.country].filter(Boolean).join(', '),
+              })
+              if (navigator.share) navigator.share({ title, text, url }).catch(() => {})
               else navigator.clipboard?.writeText(url)
             }}
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-hairline-strong transition-colors hover:bg-secondary-bg"
@@ -529,58 +526,11 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
         {/* Le propriétaire du profil peut le modifier directement depuis la carte */}
         {isOwner && (
           <Link
-            to={localize('/profil')}
+            to={`${localize('/dashboard')}?artist=edit`}
             className="mt-3 flex items-center justify-center gap-2 rounded-full border border-hairline-strong py-3 text-sm font-medium transition-colors hover:bg-secondary-bg"
           >
             <Pencil className="h-4 w-4" /> {t('sheet.editProfile')}
           </Link>
-        )}
-
-        {/* Édition du slug personnalisé (propriétaire du profil) */}
-        {isOwner && (
-          <div className="mt-3 rounded-2xl border border-hairline bg-secondary-bg p-3">
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-secondary-text">
-              {t('mapAdmin.slug')}
-            </label>
-            <div className="flex gap-2">
-              <input
-                value={slugEdit}
-                onChange={(e) => { setSlugEdit(e.target.value); setSlugSaved(false); setSlugError(null) }}
-                placeholder={artist.id}
-                className="flex-1 rounded-xl border border-hairline-strong bg-surface px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const s = slugify(slugEdit)
-                  if (!s) return
-                  setSlugSaving(true)
-                  void saveMapArtist(artist.id, { slug: s }).then((res) => {
-                    setSlugSaving(false)
-                    if (!res.ok) {
-                      setSlugError(res.error === 'slug_taken' ? t('sheet.slugTaken') : t('mapAdmin.error', { message: res.error ?? '' }))
-                      return
-                    }
-                    setSlugSaved(true)
-                    setSlugEdit(s)
-                  })
-                }}
-                disabled={slugSaving || !slugEdit.trim()}
-                className="shrink-0 rounded-full bg-brand-deep px-3 py-2 text-xs font-bold text-brand-deep-foreground disabled:opacity-60"
-              >
-                {slugSaving ? '…' : '✓'}
-              </button>
-            </div>
-            <p className="mt-1.5 text-[11px] text-secondary-text">
-              {slugSaved ? (
-                <span className="text-success font-medium">✓ /artist/{slugEdit}</span>
-              ) : slugError ? (
-                <span className="text-danger font-medium">{slugError}</span>
-              ) : (
-                <>{window.location.origin}/artist/<span className="font-mono">{slugEdit || artist.id}</span></>
-              )}
-            </p>
-          </div>
         )}
 
         <Link

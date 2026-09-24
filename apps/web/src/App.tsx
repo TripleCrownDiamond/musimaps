@@ -63,7 +63,14 @@ function enPath(path: string): string {
 }
 
 export default function App() {
-  const { pathname } = useLocation()
+  const { pathname, hash } = useLocation()
+  // React Router conserve nativement la position de la page précédente.
+  // Pour des écrans longs (dashboard → profil artiste), cela ouvrait la
+  // destination directement près du footer. Les ancres explicites gardent
+  // leur propre comportement, toutes les autres navigations repartent en haut.
+  useEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname, hash])
   // Le globe occupe tout l'ecran et porte sa propre barre de recherche.
   // Le dashboard admin possede son propre layout (pas de navbar publique).
   // L'apercu brouillon rend ses propres pages avec bandeau.

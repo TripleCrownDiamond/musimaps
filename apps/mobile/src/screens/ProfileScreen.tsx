@@ -4,7 +4,6 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
@@ -12,8 +11,8 @@ import { ProfileHeader } from '../components/ProfileHeader';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { PROFILE_GUTTER, PROFILE_MEDIA, PROFILE_HEADER_HEIGHT, LEGAL_LINKS, SITE_URL, getLevelInfo, radii, siteUrl, spacing } from '@musimaps/shared';
-import { AccountAvatar, AccountCover } from '../components/AccountMedia';
+import { PROFILE_GUTTER, LEGAL_LINKS, SITE_URL, getLevelInfo, radii, siteUrl, spacing } from '@musimaps/shared';
+import { AccountAvatar } from '../components/AccountMedia';
 import { LANGS, languageName, useI18n } from '../i18n';
 import { checkin, type StreakInfo } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
@@ -82,48 +81,40 @@ export function ProfileScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <ProfileHeader
-        headerHeight={PROFILE_HEADER_HEIGHT}
         background={colors.background}
-        topBarBackground="transparent"
         contentStyle={styles.content}
         topBar={<AppBar navigation={navigation} elevatedBrand />}
-        cover={
-          <View style={styles.accountMedia}>
-            <AccountCover image={user?.coverUrl} height={PROFILE_HEADER_HEIGHT} />
-            <Pressable accessibilityRole="button" accessibilityLabel={user ? t('profile.editProfile') : t('profile.createProfile')}
-              onPress={openAccountAction}
-              style={[styles.profileAvatar, { position: 'absolute', left: PROFILE_GUTTER, bottom: -PROFILE_MEDIA.profileOverlap }]}>
+        header={
+          <View style={styles.profileHeader}>
+            <Pressable accessibilityRole="button" accessibilityLabel={user ? t('profile.editProfile') : t('profile.createProfile')} onPress={openAccountAction}>
               <AccountAvatar name={name} image={user?.avatarUrl} />
             </Pressable>
+            <View style={styles.headerIdentity}>
+              <View style={styles.identityTitle}>
+                <Text style={styles.name}>{name}</Text>
+                <Pressable style={styles.editMini} onPress={openAccountAction}>
+                  <Ionicons name={user ? 'pencil' : 'person-add-outline'} size={17} color={colors.ink} />
+                </Pressable>
+              </View>
+              <Text style={styles.email}>{city}</Text>
+              {user && (
+                <View style={styles.roleRow}>
+                  <View style={styles.roleChip}>
+                    <Ionicons name={isArtist ? 'mic-outline' : 'headset-outline'} size={14} color={colors.brandDeep} />
+                    <Text style={styles.roleChipText}>{isArtist ? t('dash.roleArtist') : t('dash.roleMelomane')}</Text>
+                  </View>
+                  {isBusiness && (
+                    <View style={styles.businessChip}>
+                      <Text style={styles.businessChipText}>{t('dash.business')}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+            </View>
           </View>
         }
       >
-      <View style={styles.identity}>
-        <View style={styles.identityTitle}>
-          <Text style={styles.name}>{name}</Text>
-          <Pressable style={styles.editMini} onPress={openAccountAction}>
-            <Ionicons name={user ? 'pencil' : 'person-add-outline'} size={17} color={colors.ink} />
-          </Pressable>
-        </View>
-        <Text style={styles.email}>{city}</Text>
-        {user && (
-          <View style={styles.roleRow}>
-            <View style={styles.roleChip}>
-              <Ionicons name={isArtist ? 'mic-outline' : 'headset-outline'} size={14} color={colors.brandDeep} />
-              <Text style={styles.roleChipText}>{isArtist ? t('dash.roleArtist') : t('dash.roleMelomane')}</Text>
-            </View>
-            {isBusiness && (
-              <View style={styles.businessChip}>
-                <Text style={styles.businessChipText}>{t('dash.business')}</Text>
-              </View>
-            )}
-          </View>
-        )}
-        {profile?.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
-      </View>
-
-      {/* Même hiérarchie d'actions que le Dashboard web : explorer d'abord,
-          puis modifier le compte. */}
       <View style={styles.actionRow}>
         <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Explore')}>
           <Ionicons name="globe-outline" size={19} color={colors.white} />
@@ -375,12 +366,9 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   /** Dégagement pour le dock flottant. */
   content: { paddingBottom: 120 },
-  /** Cover pleine largeur sous la barre du haut — le contenant suit la
-      hauteur repliable du header ; l'image est recadrée par overflow. */
-  accountMedia: { flex: 1, backgroundColor: colors.surface },
-  // Photo : ancrée au bas du header (bottom: 0), elle suit le bord inférieur
-  // du header pendant le repli (position absolute posée en ligne au-dessus).
-  profileAvatar: {},
+  /** En-tête sans cover : avatar à gauche, infos à droite sur le fond uniforme. */
+  profileHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingHorizontal: PROFILE_GUTTER, marginTop: spacing.lg },
+  headerIdentity: { flex: 1, minWidth: 0 },
   langRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
   langChip: {
     borderRadius: radii.full,
@@ -391,7 +379,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   langChipActive: { backgroundColor: colors.brandPrimary },
   langChipText: { color: colors.inkSoft, fontFamily: fonts.bold, fontSize: 12 },
   langChipTextActive: { color: colors.white, fontFamily: fonts.bold, fontSize: 12 },
-  identity: { paddingHorizontal: PROFILE_GUTTER, marginTop: spacing.lg + PROFILE_MEDIA.profileOverlap },
   identityTitle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
   name: { color: colors.ink, fontFamily: fonts.displayBlack, fontSize: 29, letterSpacing: -1.1 },
   editMini: {

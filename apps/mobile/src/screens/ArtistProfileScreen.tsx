@@ -15,9 +15,7 @@ import {
   loadArtistTracks,
   fetchMapArtists,
   ARTIST_AVATAR_SIZE,
-  ARTIST_AVATAR_OVERLAP,
   PROFILE_GUTTER,
-  PROFILE_HEADER_HEIGHT,
   radii,
   recordProfileView,
   spacing,
@@ -40,7 +38,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AccountCover } from '../components/AccountMedia';
 import { APP_BAR_ACTION_SIZE } from '../components/AppBar';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { BookingModal } from '../components/BookingModal';
@@ -65,7 +62,6 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
   const { user } = useAuth();
   const { favorites, toggleFavorite, deviceId, showToast } = useApp();
   const insets = useSafeAreaInsets();
-  const headerHeight = PROFILE_HEADER_HEIGHT;
   const [artist, setArtist] = useState<Artist | null>(null);
   const [allArtists, setAllArtists] = useState<Artist[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,9 +228,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ProfileHeader
-        headerHeight={headerHeight}
         background={colors.background}
-        topBarBackground="transparent"
         topBar={
           <View style={styles.heroActionsBand}>
             <Pressable
@@ -248,14 +242,8 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
             <NotificationButton onPress={() => navigation.navigate('Notifications')} />
           </View>
         }
-        cover={
-        <View style={[styles.hero, { backgroundColor: colors.surface }]}>
-          {/* Même cover que le profil utilisateur : l'image de couverture de
-              l'artiste, sinon la cover par défaut. L'ancien aplat bleu se
-              confondait avec le bandeau bleu épinglé au défilement. */}
-          <AccountCover image={artist.cover} height={headerHeight} />
-          {/* Photo de profil : moitié sur la cover, moitié en dehors. */}
-          <View style={styles.avatarOverlap}>
+        header={
+          <View style={styles.artistHeader}>
             <ArtistAvatar
               artist={artist}
               size={ARTIST_AVATAR_SIZE}
@@ -263,31 +251,29 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
               initialsColor={colors.black}
               borderless
             />
+            <View style={styles.headerIdentity}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.name, { color: colors.ink }]}>{artist.name}</Text>
+                {artist.verified ? (
+                  <Ionicons name="checkmark-circle" size={25} color={colors.brandPrimary} />
+                ) : null}
+              </View>
+              <View style={[styles.locationBadge, { backgroundColor: colors.brandSoft }]}>
+                <Text style={[styles.locationText, { color: colors.brandPrimary }]}>
+                  {artist.flag} {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
+                </Text>
+              </View>
+              {artist.trending ? (
+                <View style={[styles.trending, { backgroundColor: colors.danger }]}>
+                  <Ionicons name="flame" size={15} color={colors.white} />
+                  <Text style={[styles.trendingText, { color: colors.white }]}>{t('profile.trending')}</Text>
+                </View>
+              ) : null}
+            </View>
           </View>
-        </View>
         }
       >
         <View style={styles.content}>
-          <View style={styles.identity}>
-            <View style={styles.nameRow}>
-              <Text style={[styles.name, { color: colors.ink }]}>{artist.name}</Text>
-              {artist.verified ? (
-                <Ionicons name="checkmark-circle" size={25} color={colors.brandPrimary} />
-              ) : null}
-            </View>
-            <View style={[styles.locationBadge, { backgroundColor: colors.brandSoft }]}>
-              <Text style={[styles.locationText, { color: colors.brandPrimary }]}>
-                {artist.flag} {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
-              </Text>
-            </View>
-            {artist.trending ? (
-              <View style={[styles.trending, { backgroundColor: colors.danger }]}>
-                <Ionicons name="flame" size={15} color={colors.white} />
-                <Text style={[styles.trendingText, { color: colors.white }]}>{t('profile.trending')}</Text>
-              </View>
-            ) : null}
-          </View>
-
           <View style={styles.actions}>
             <Button
               style={styles.followButton}
@@ -307,12 +293,16 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
             <Button
               size="icon"
               variant="outline"
-              accessibilityLabel={t('sheet.shareAria')}
+              accessibilityLabel={t('artistShare.aria', { name: artist.name })}
               onPress={() => {
-                const url = artistUrl(artist.slug || artist.id);
+                const url = artistUrl(artist.slug || artist.id, lang);
                 void Share.share({
-                  title: artist.name,
-                  message: `${t('sheet.shareMessage', { name: artist.name, genre: artist.genre, city: artist.city })} ${url}`,
+                  title: t('artistShare.title', { name: artist.name }),
+                  message: `${t('artistShare.message', {
+                    name: artist.name,
+                    genre: displayGenre(artist.genre, t('common.unknown')),
+                    location: [artist.city, artist.country].filter(Boolean).join(', '),
+                  })} ${url}`,
                   url,
                 }).catch(() => undefined);
               }}
@@ -449,17 +439,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  hero: { flex: 1 },
-  avatarOverlap: { position: 'absolute', left: PROFILE_GUTTER, bottom: -ARTIST_AVATAR_OVERLAP },
+  /** En-tête sans cover : photo à gauche, identité à droite sur le fond uniforme. */
+  artistHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.lg, paddingHorizontal: PROFILE_GUTTER, marginTop: spacing.lg },
+  headerIdentity: { flex: 1, minWidth: 0 },
   back: { width: APP_BAR_ACTION_SIZE, height: APP_BAR_ACTION_SIZE, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
   heroActionsBand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   locationBadge: { alignSelf: 'flex-start', borderRadius: radii.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   locationText: { fontFamily: fonts.medium, fontSize: 13 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { flexShrink: 1, fontFamily: fonts.displayBlack, fontSize: 42, letterSpacing: -1.5 },
+  name: { flexShrink: 1, fontFamily: fonts.displayBlack, fontSize: 30, letterSpacing: -1.2 },
   trending: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: spacing.xs, borderRadius: radii.full, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
   trendingText: { fontFamily: fonts.bold, fontSize: 12 },
-  identity: { gap: spacing.md, marginTop: spacing.lg + ARTIST_AVATAR_OVERLAP },
   content: { padding: PROFILE_GUTTER, paddingBottom: spacing['4xl'], gap: spacing.xl },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   followButton: { flex: 1 },

@@ -112,10 +112,10 @@ export async function saveSignup(
 }
 
 /** Upload une image dans le bucket public artist-images et renvoie son URL.
- *  `folder` permet de distinguer photos / covers sans dupliquer la logique. */
+ *  `folder` permet d'organiser les photos de profil sans dupliquer la logique. */
 export async function uploadArtistPhoto(
   file: File,
-  folder: 'artists' | 'covers' = 'artists',
+  folder: 'artists' = 'artists',
 ): Promise<{ url: string; error?: string }> {
   if (!hasSupabase()) return { url: '', error: 'Supabase non configuré' }
   if (file.size > 5 * 1024 * 1024) return { url: '', error: 'Photo trop lourde (max 5 Mo).' }
