@@ -26,6 +26,7 @@ import {
   Send,
   Share2,
   Sparkles,
+  Music2,
   Trash2,
   Trophy,
   Users,
@@ -45,7 +46,10 @@ import {
 } from '@musimaps/shared'
 import {
   fetchArtistBooking,
+  fetchMyArtistTracks,
+  saveMyArtistTracks,
   type ArtistBooking,
+  type ArtistTrackInput,
   type BookingPlan,
 } from '@musimaps/shared'
 import {
@@ -198,6 +202,10 @@ export default function Dashboard() {
   // Réservations (forfaits) du profil revendiqué.
   const [booking, setBooking] = useState<ArtistBooking | null>(null)
   const [savingBooking, setSavingBooking] = useState(false)
+  // Liens + sons personnalisés (migration 00076) — édition par l'artiste.
+  const [savingLinks, setSavingLinks] = useState(false)
+  const [tracks, setTracks] = useState<ArtistTrackInput[]>([])
+  const [savingTracks, setSavingTracks] = useState(false)
   const [myReferral, setMyReferral] = useState<MyReferralRequest | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
   const photoInput = useRef<HTMLInputElement>(null)
@@ -341,6 +349,10 @@ export default function Dashboard() {
           })
           void fetchArtistBooking(profile.id).then((b) => {
             if (!cancelled) setBooking(b)
+          })
+          // Sons personnalisés existants (sinon la fiche replie sur iTunes).
+          void fetchMyArtistTracks(profile.id).then((list) => {
+            if (!cancelled) setTracks(list)
           })
         }
       }
@@ -838,6 +850,121 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Liens + sons — l'artiste contrôle ce que montre sa fiche (00076) */}
+        {claimed && (
+          <div className="mb-8 rounded-3xl border border-hairline bg-surface p-6">
+            <h3 className="display-font flex items-center gap-2 text-lg font-bold">
+              <Link2 className="h-5 w-5 text-brand-deep" /> {t('dash.linksTitle')}
+            </h3>
+            <p className="mt-1 text-sm text-secondary-text">{t('dash.linksDesc')}</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {(['spotify', 'apple_music', 'deezer', 'youtube'] as const).map((k) => (
+                <label key={k} className="grid gap-1">
+                  <span className="text-xs font-bold text-secondary-text">{t(`dash.linksLabel${k === 'spotify' ? 'Spotify' : k === 'apple_music' ? 'Apple' : k === 'deezer' ? 'Deezer' : 'Youtube'}`)}</span>
+                  <input
+                    value={claimed.platforms?.[k] ?? ''}
+                    onChange={(e) => setClaimed((c) => (c ? { ...c, platforms: { ...c.platforms, [k]: e.target.value } } : c))}
+                    placeholder={t('dash.trackUrl')}
+                    className="w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                  />
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              disabled={savingLinks}
+              onClick={async () => {
+                setSavingLinks(true)
+                const clean = Object.fromEntries(
+                  Object.entries(claimed.platforms ?? {}).filter(([, v]) => v && v.trim()),
+                ) as Record<string, string>
+                const result = await updateMyArtistProfile({ platforms: clean })
+                setSavingLinks(false)
+                if (!result.ok) return toast.error(result.error ?? 'Erreur')
+                toast.success(t('dash.linksSaved'))
+              }}
+              className="mt-4 rounded-full bg-brand-deep px-6 py-2.5 text-sm font-medium text-brand-deep-foreground disabled:opacity-60"
+            >
+              {savingLinks ? t('common.loading') : t('pedit.saveEdit')}
+            </button>
+
+            <h3 className="display-font mt-8 flex items-center gap-2 text-lg font-bold">
+              <Music2 className="h-5 w-5 text-brand-deep" /> {t('dash.tracksTitle')}
+            </h3>
+            <p className="mt-1 text-sm text-secondary-text">{t('dash.tracksDesc')}</p>
+            <div className="mt-4 grid gap-3">
+              {tracks.map((tr, i) => (
+                <div key={i} className="grid gap-2 rounded-2xl border border-hairline p-4 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
+                  <input
+                    value={tr.title}
+                    onChange={(e) => setTracks((list) => list.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
+                    placeholder={t('dash.trackTitle')}
+                    className="w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                  />
+                  <input
+                    value={tr.album ?? ''}
+                    onChange={(e) => setTracks((list) => list.map((x, j) => (j === i ? { ...x, album: e.target.value } : x)))}
+                    placeholder={t('dash.trackAlbum')}
+                    className="w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                  />
+                  <input
+                    value={tr.url ?? ''}
+                    onChange={(e) => setTracks((list) => list.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
+                    placeholder={t('dash.trackUrl')}
+                    className="w-full rounded-xl border border-hairline-strong bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand-deep"
+                  />
+                  <button
+                    type="button"
+                    aria-label="remove"
+                    onClick={() => setTracks((list) => list.filter((_, j) => j !== i))}
+                    className="rounded-xl border border-hairline-strong px-3 text-sm text-red-500 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTracks((list) => [...list, { title: '' }])}
+                  className="rounded-full border border-hairline-strong px-4 py-2 text-sm font-medium hover:bg-secondary-bg"
+                >
+                  + {t('dash.trackAdd')}
+                </button>
+                {tracks.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTracks([])
+                      const result = await saveMyArtistTracks(claimed.id, [])
+                      if (result.ok) toast.success(t('dash.tracksCleared'))
+                    }}
+                    className="rounded-full border border-hairline-strong px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
+                  >
+                    <Trash2 className="inline h-4 w-4" /> {t('common.cancel')}
+                  </button>
+                )}
+              </div>
+              {tracks.length > 0 && (
+                <button
+                  type="button"
+                  disabled={savingTracks || tracks.some((tr) => !tr.title.trim())}
+                  onClick={async () => {
+                    setSavingTracks(true)
+                    const result = await saveMyArtistTracks(claimed.id, tracks)
+                    setSavingTracks(false)
+                    if (!result.ok) return toast.error(result.error ?? 'Erreur')
+                    toast.success(t('dash.tracksSaved'))
+                  }}
+                  className="w-fit rounded-full bg-brand-deep px-6 py-2.5 text-sm font-medium text-brand-deep-foreground disabled:opacity-60"
+                >
+                  {savingTracks ? t('common.loading') : t('pedit.saveEdit')}
+                </button>
+              )}
             </div>
           </div>
         )}

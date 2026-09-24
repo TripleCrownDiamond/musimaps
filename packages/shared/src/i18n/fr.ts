@@ -1022,6 +1022,21 @@ export const fr = {
   'legal.openFailed': "Impossible d’ouvrir cette page. Réessayez avec une connexion Internet.",
   'artist.bornIn': "Né·e à {city}",
   'artist.bornAndBased': "Né·e à {birth} · actif·ve à {city}",
+  'dash.linksTitle': "Liens d'écoute",
+  'dash.linksDesc': 'Ajoute tes liens Spotify, Apple Music, Deezer ou YouTube — ils apparaissent sur ta fiche publique.',
+  'dash.linksLabelSpotify': 'Spotify',
+  'dash.linksLabelApple': 'Apple Music',
+  'dash.linksLabelDeezer': 'Deezer',
+  'dash.linksLabelYoutube': 'YouTube',
+  'dash.linksSaved': 'Liens enregistrés.',
+  'dash.tracksTitle': 'Mes sons',
+  'dash.tracksDesc': 'Choisis les titres affichés sur ta fiche. Sans son personnalisé, la fiche reprend automatiquement ton catalogue Apple Music.',
+  'dash.trackTitle': 'Titre',
+  'dash.trackAlbum': 'Album (optionnel)',
+  'dash.trackUrl': "Lien d'écoute (optionnel)",
+  'dash.trackAdd': 'Ajouter un son',
+  'dash.tracksSaved': 'Sons enregistrés.',
+  'dash.tracksCleared': 'Sons personnalisés retirés — le catalogue Apple Music reprend la main.',
 } as const;
 
 export type MessageKey = keyof typeof fr;

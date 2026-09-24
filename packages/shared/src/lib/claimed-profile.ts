@@ -4,6 +4,7 @@
  * compte (migration 00031). Partagé web + mobile.
  */
 import { getSupabase } from '../runtime';
+import { slugify } from '../index';
 
 export interface ClaimedArtistProfile {
   id: string;
@@ -135,6 +136,67 @@ async function uploadImageToBucket(
 
   const { data: urlData } = supabase.storage.from('artist-images').getPublicUrl(path);
   return { url: urlData.publicUrl };
+}
+
+/**
+ * Sons personnalisés de l'artiste connecté (migration 00076). Écrits via
+ * RLS dans artist_tracks : seul le propriétaire du pin peut les modifier.
+ * La fiche les affiche à la place du catalogue iTunes quand ils existent.
+ */
+export interface ArtistTrackInput {
+  id?: string;
+  title: string;
+  album?: string;
+  duration?: string;
+  artwork?: string;
+  url?: string;
+  previewUrl?: string;
+}
+
+export async function fetchMyArtistTracks(artistId: string): Promise<ArtistTrackInput[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from('artist_tracks')
+    .select('id, title, album, duration, artwork, url, preview_url')
+    .eq('artist_id', artistId)
+    .order('position', { ascending: true });
+  return (data ?? []).map((t) => ({
+    id: t.id,
+    title: t.title ?? '',
+    album: t.album ?? '',
+    duration: t.duration ?? '',
+    artwork: t.artwork ?? '',
+    url: t.url ?? '',
+    previewUrl: t.preview_url ?? '',
+  }));
+}
+
+/** Remplace la liste des sons du pin (le propriétaire est imposé par la RLS). */
+export async function saveMyArtistTracks(
+  artistId: string,
+  tracks: ArtistTrackInput[],
+): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' };
+  // Remplacement complet : l'éditeur envoie la liste finale (ordre compris).
+  const del = await supabase.from('artist_tracks').delete().eq('artist_id', artistId);
+  if (del.error) return { ok: false, error: del.error.message };
+  const rows = tracks.map((t, index) => ({
+    artist_id: artistId,
+    id: t.id || slugify(t.title) || `son-${index + 1}`,
+    title: t.title.trim(),
+    album: t.album?.trim() || null,
+    duration: t.duration?.trim() || null,
+    artwork: t.artwork?.trim() || null,
+    url: t.url?.trim() || null,
+    preview_url: t.previewUrl?.trim() || null,
+    position: index,
+  }));
+  if (rows.length === 0) return { ok: true };
+  const ins = await supabase.from('artist_tracks').insert(rows);
+  if (ins.error) return { ok: false, error: ins.error.message };
+  return { ok: true };
 }
 
 /** Réservations — forfaits de l'artiste revendiqué (migration 00048). */
