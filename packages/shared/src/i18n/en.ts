@@ -1017,4 +1017,6 @@ export const en: Record<MessageKey, string> = {
   'legal.deleteEmail': "Cannot sign in anymore? Contact the publisher to request deletion of your account and associated data. Never send your password.",
   'legal.deleteSubject': "Musimaps — account deletion request",
   'legal.openFailed': "Unable to open this page. Please try again with an Internet connection.",
+  'artist.bornIn': "Born in {city}",
+  'artist.bornAndBased': "Born in {birth} · based in {city}",
 };

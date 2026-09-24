@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { compactCount, displayGenre, spacing, type Artist } from '@musimaps/shared';
+import { compactCount, distinctBirthplace, displayGenre, spacing, type Artist } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
 import { useAppTheme } from '../context/ThemeContext';
@@ -291,6 +291,11 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
                 <Text style={styles.location}>
                   {artist.flag}  {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
                 </Text>
+                {distinctBirthplace(artist) ? (
+                  <Text style={styles.meta}>
+                    {t('artist.bornIn', { city: distinctBirthplace(artist) as string })}
+                  </Text>
+                ) : null}
                 <Text style={styles.meta}>
                   {displayGenre(artist.genre, t('common.unknown'))} · {t('sheet.followers', { count: compactCount(followersCount) })} ·{' '}
                   {t('sheet.likes', { count: likesCount })}

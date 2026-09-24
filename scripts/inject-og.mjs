@@ -62,6 +62,13 @@ function countryName(code, lang) {
 function artistCardDescription(artist, lang, followers) {
   const isEn = lang === 'en'
   const location = [artist.city, countryName(artist.country, lang)].filter(Boolean).join(', ')
+  // Ville de naissance ≠ ville du pin (Blaaz : né à Kano, rappe à Cotonou) :
+  // on l'annonce seulement quand elle est documentée ET différente.
+  const birth = String(artist.birthplace || '').trim()
+  const birthNote =
+    birth && birth.toLocaleLowerCase('fr') !== String(artist.city || '').trim().toLocaleLowerCase('fr')
+      ? ` · ${isEn ? `Born in ${birth}` : `Né·e à ${birth}`}`
+      : ''
   const audience = isEn
     ? followers === 0
       ? `Find ${artist.name} on Musimaps`
@@ -69,7 +76,7 @@ function artistCardDescription(artist, lang, followers) {
     : followers === 0
       ? `Retrouvez ${artist.name} sur Musimaps`
       : `${followers} ${followers === 1 ? 'abonné' : 'abonnés'} sur Musimaps`
-  return `${location ? `📍 ${location} · ` : ''}${audience}`
+  return `${location ? `📍 ${location} · ` : ''}${audience}${birthNote}`
 }
 
 function loadEnv(file) {
@@ -274,7 +281,7 @@ async function main() {
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
       ),
       fetch(
-        `${url.replace(/\/$/, '')}/rest/v1/map_artists?select=id,name,genre,city,country,image,slug&limit=500`,
+        `${url.replace(/\/$/, '')}/rest/v1/map_artists?select=id,name,genre,city,birthplace,country,image,slug&limit=500`,
         { headers: { apikey: key, Authorization: `Bearer ${key}` } },
       ),
     ])

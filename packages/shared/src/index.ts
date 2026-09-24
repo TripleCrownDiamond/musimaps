@@ -58,6 +58,10 @@ export interface Artist {
   /** Quartier / district de l'artiste (ex. « Yopougon », « Bastille ») —
    *  disperse les pins d'une même ville et ancre la localisation réelle. */
   district?: string;
+  /** Ville de naissance documentée, quand elle diffère de la ville du pin
+   *  (Blaaz : né à Kano, rappe à Cotonou). Absente = non documentée : on
+   *  n'invente jamais une naissance. */
+  birthplace?: string;
   verified?: boolean;
   /** Plateformes d'écoute publiques (YouTube, Spotify, Apple Music…). */
   platforms?: Partial<Record<string, string>>;
@@ -254,4 +258,22 @@ export function slugify(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
+}
+
+/**
+ * Ville de naissance à afficher : renseignée seulement si elle diffère
+ * (hors casse et accents — « Cove » = « Covè ») de la ville du pin —
+ * sinon la ligne « Né·e à » répéterait la localisation déjà affichée.
+ */
+export function distinctBirthplace(artist: {
+  birthplace?: string | null;
+  city?: string | null;
+}): string | null {
+  const fold = (value: string) =>
+    value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const birth = artist.birthplace?.trim() ?? '';
+  if (!birth) return null;
+  const city = artist.city?.trim() ?? '';
+  if (city && fold(birth) === fold(city)) return null;
+  return birth;
 }

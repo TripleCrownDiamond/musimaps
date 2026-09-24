@@ -43,6 +43,8 @@ export interface DiscoveredArtist {
   /** Quartier / district (ex. « Yopougon », « Bastille ») — ancre le pin
    *  dans le vrai quartier et disperse les artistes d'une même ville. */
   district?: string
+  /** Ville de naissance documentée, si elle diffère de la ville du pin. */
+  birthplace?: string
   country: string
   flag: string
   lat: number
@@ -1536,7 +1538,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
-    'id, name, genre, city, district, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers, slug'
+    'id, name, genre, city, district, birthplace, country, flag, lat, lng, bio, image, source, platforms, socials, verified, claimed_by, events, followers, slug'
   const BASE_SELECT = 'id, name, genre, city, district, country, flag, lat, lng, bio, image, source'
   let { data, error } = await supabase
     .from('map_artists')
@@ -1564,6 +1566,7 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     genre: row.genre ?? '',
     city: row.city ?? '',
     district: row.district ?? undefined,
+    birthplace: row.birthplace ?? undefined,
     country: row.country ?? '',
     flag: row.flag ?? '🌍',
     lat: row.lat,
@@ -1757,6 +1760,7 @@ export function toArtist(d: DiscoveredArtist): MapArtistView {
     genre: cleanGenre(d.genre),
     city: d.city,
     district: d.district ?? undefined,
+    birthplace: d.birthplace ?? undefined,
     country: d.country,
     flag: d.flag,
     coordinates: [d.lng, d.lat],

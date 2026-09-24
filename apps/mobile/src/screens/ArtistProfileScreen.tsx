@@ -19,6 +19,7 @@ import {
   radii,
   recordProfileView,
   spacing,
+  distinctBirthplace,
   viewerCountryFromCity,
   toArtist,
   toggleFollow,
@@ -263,6 +264,11 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
                   {artist.flag} {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
                 </Text>
               </View>
+              {distinctBirthplace(artist) ? (
+                <Text style={[styles.sectionMeta, { color: colors.textSecondary }]}>
+                  {t('artist.bornIn', { city: distinctBirthplace(artist) as string })}
+                </Text>
+              ) : null}
               {artist.trending ? (
                 <View style={[styles.trending, { backgroundColor: colors.danger }]}>
                   <Ionicons name="flame" size={15} color={colors.white} />

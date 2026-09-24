@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import Footer from '../components/Footer'
 import { artistUrl, artists, compactCount, displayGenre, findArtist, type Artist } from '@musimaps/shared'
-import { fetchMapArtists, toArtist } from '@musimaps/shared'
+import { fetchMapArtists, toArtist, distinctBirthplace } from '@musimaps/shared'
 import { appleMusicSearchUrl, loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/shared'
 import {
   fetchArtistFollowers,
@@ -171,6 +171,11 @@ export default function ArtistProfile() {
                     <span aria-hidden="true">{artist.flag}</span>{' '}
                     {[artist.district, artist.city, artist.country].filter(Boolean).join(', ')}
                   </span>
+                  {distinctBirthplace(artist) && (
+                    <span className="inline-flex items-center rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white/85 backdrop-blur-md">
+                      {t('artist.bornIn', { city: distinctBirthplace(artist) as string })}
+                    </span>
+                  )}
                   {artist.trending && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/90 px-4 py-1.5 text-sm font-medium text-white">
                       <Flame className="h-4 w-4" /> {t('profile.trending')}

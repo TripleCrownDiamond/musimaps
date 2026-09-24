@@ -17,7 +17,7 @@ import {
   UserRoundPlus,
   X,
 } from 'lucide-react'
-import { artistUrl, compactCount, displayGenre, type Artist } from '@musimaps/shared'
+import { artistUrl, compactCount, distinctBirthplace, displayGenre, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { requestClaim } from '@musimaps/shared'
@@ -235,6 +235,11 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
                   {displayGenre(artist.genre, t('common.unknown'))} · {t('sheet.followers', { count: compactCount(followers) })} ·{' '}
                   {t('sheet.likes', { count: likes })}
                 </p>
+                {distinctBirthplace(artist) && (
+                  <p className="text-sm text-secondary-text">
+                    {t('artist.bornIn', { city: distinctBirthplace(artist) as string })}
+                  </p>
+)}
 
                 {/* Liens plateformes + réseaux */}
                 {Object.keys(links).length > 0 && (

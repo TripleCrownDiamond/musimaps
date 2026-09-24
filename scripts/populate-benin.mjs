@@ -430,6 +430,8 @@ async function main() {
       genre: a.genre,
       city: place.city,
       district: a.district ?? '',
+      // Ville de naissance documentée ≠ ville du pin (Blaaz : né à Kano…).
+      birthplace: a.birthplace ?? '',
       country: 'BJ',
       flag: flagFor('BJ'),
       lat: place.lat,

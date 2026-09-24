@@ -1020,6 +1020,8 @@ export const fr = {
   'legal.deleteEmail': "Vous ne pouvez plus vous connecter ? Contactez l’éditeur pour demander la suppression de votre compte et des données associées. N’envoyez jamais votre mot de passe.",
   'legal.deleteSubject': "Musimaps — demande de suppression de compte",
   'legal.openFailed': "Impossible d’ouvrir cette page. Réessayez avec une connexion Internet.",
+  'artist.bornIn': "Né·e à {city}",
+  'artist.bornAndBased': "Né·e à {birth} · actif·ve à {city}",
 } as const;
 
 export type MessageKey = keyof typeof fr;
