@@ -38,6 +38,40 @@ const SITE = 'https://musimaps.com'
 const OG_IMAGE_WIDTH = '1200'
 const OG_IMAGE_HEIGHT = '630'
 
+/** Noms de pays localisés depuis le code ISO (SN → Sénégal), sans table à maintenir. */
+const COUNTRY_NAMES = {
+  fr: new Intl.DisplayNames(['fr'], { type: 'region' }),
+  en: new Intl.DisplayNames(['en'], { type: 'region' }),
+}
+
+function countryName(code, lang) {
+  const value = String(code || '').trim()
+  if (!/^[A-Za-z]{2}$/.test(value)) return value
+  try {
+    return COUNTRY_NAMES[lang].of(value.toUpperCase()) || value
+  } catch {
+    return value
+  }
+}
+
+/**
+ * Texte de la carte de partage : « 📍 Dakar, Sénégal · 12 abonnés sur
+ * Musimaps ». Pas de bio — l'aperçu social vise à faire cliquer, la
+ * localisation et l'audience suffisent. Sans abonné, on invite à découvrir.
+ */
+function artistCardDescription(artist, lang, followers) {
+  const isEn = lang === 'en'
+  const location = [artist.city, countryName(artist.country, lang)].filter(Boolean).join(', ')
+  const audience = isEn
+    ? followers === 0
+      ? `Find ${artist.name} on Musimaps`
+      : `${followers} ${followers === 1 ? 'follower' : 'followers'} on Musimaps`
+    : followers === 0
+      ? `Retrouvez ${artist.name} sur Musimaps`
+      : `${followers} ${followers === 1 ? 'abonné' : 'abonnés'} sur Musimaps`
+  return `${location ? `📍 ${location} · ` : ''}${audience}`
+}
+
 function loadEnv(file) {
   const out = {}
   if (!existsSync(file)) return out
@@ -140,24 +174,18 @@ function applySeo(html, seo, lang) {
  * TOUJOURS la forme slugée — depuis 00069 chaque artiste possède un slug,
  * et l'id comme le slug renvoient la même page : donner aux robots les deux
  * adresses ferait doubler l'indexation d'un même contenu.
+ *
+ * La carte (og:description) n'embarque pas la bio : elle annonce la
+ * localisation (ville, pays) et l'audience Musimaps de l'artiste.
  */
-function applyArtistSeo(html, artist, lang, identifier) {
+function applyArtistSeo(html, artist, lang, identifier, followers) {
   const isEn = lang === 'en'
   const prefix = isEn ? '/en' : ''
   const canonical = safeArtistIdentifier(artist.slug) || identifier
   const pageUrl = `${SITE}${prefix}/artist/${encodeURIComponent(canonical)}`
-  const location = [artist.city, artist.country].filter(Boolean).join(', ')
+  const location = [artist.city, countryName(artist.country, lang)].filter(Boolean).join(', ')
   const genre = artist.genre || (isEn ? 'Artist' : 'Artiste')
-  const rawDescription = artist.bio || (isEn
-    ? `Discover ${artist.name}, ${genre}${location ? ` from ${location}` : ''}, on Musimaps.`
-    : `Découvrez ${artist.name}, ${genre}${location ? ` à ${location}` : ''}, sur Musimaps.`)
-  // Une bio peut être très longue et contenir des citations. Les aperçus
-  // sociaux ont besoin d'un résumé compact ; les guillemets typographiques
-  // évitent aussi toute ambiguïté dans l'attribut HTML brut.
-  const compactDescription = rawDescription.replace(/\s+/g, ' ').trim().replace(/"/g, '”')
-  const description = compactDescription.length > 220
-    ? `${compactDescription.slice(0, 217).trimEnd()}…`
-    : compactDescription
+  const description = artistCardDescription(artist, lang, followers)
   const title = `${artist.name} — ${location || genre} | Musimaps`
   const image = absolute(artist.image || (isEn ? '/og-en.jpg' : '/og-fr.jpg'))
 
@@ -188,7 +216,7 @@ function safeArtistIdentifier(value) {
   return /^[a-zA-Z0-9_-]{1,120}$/.test(text) ? text : ''
 }
 
-function writeArtistDocuments(source, artists) {
+function writeArtistDocuments(source, artists, followersById) {
   let written = 0
   for (const artist of artists) {
     const identifiers = new Set([
@@ -203,7 +231,7 @@ function writeArtistDocuments(source, artists) {
         mkdirSync(folder, { recursive: true })
         writeFileSync(
           path.join(folder, `${identifier}.html`),
-          applyArtistSeo(source, artist, lang, identifier),
+          applyArtistSeo(source, artist, lang, identifier, followersById.get(artist.id) ?? 0),
           'utf8',
         )
         written++
@@ -246,7 +274,7 @@ async function main() {
       { headers: { apikey: key, Authorization: `Bearer ${key}` } },
       ),
       fetch(
-        `${url.replace(/\/$/, '')}/rest/v1/map_artists?select=id,name,genre,city,country,bio,image,slug&limit=500`,
+        `${url.replace(/\/$/, '')}/rest/v1/map_artists?select=id,name,genre,city,country,image,slug&limit=500`,
         { headers: { apikey: key, Authorization: `Bearer ${key}` } },
       ),
     ])
@@ -271,11 +299,34 @@ async function main() {
   mkdirSync(path.join(dist, 'en'), { recursive: true })
   writeFileSync(path.join(dist, 'en', 'index.html'), applySeo(source, en, 'en'), 'utf8')
 
-  const artistDocuments = writeArtistDocuments(source, artistRows)
+  // Comptage des abonnés en un seul appel RPC (00072) : la carte annonce
+  // « ville, pays · N abonnés sur Musimaps ». Un artiste absent du résultat
+  // n'a aucun favori — la carte passe alors en invitation à découvrir.
+  const followersById = new Map()
+  if (artistRows.length > 0) {
+    try {
+      const rpcRes = await fetch(`${url.replace(/\/$/, '')}/rest/v1/rpc/count_artist_followers_bulk`, {
+        method: 'POST',
+        headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_artist_ids: artistRows.map((a) => a.id) }),
+      })
+      if (rpcRes.ok) {
+        for (const entry of await rpcRes.json()) {
+          followersById.set(entry.artist_id, Number(entry.followers))
+        }
+      } else {
+        console.warn(`inject-og : abonnés illisibles (HTTP ${rpcRes.status}) — cartes sans compte.`)
+      }
+    } catch (err) {
+      console.warn(`inject-og : abonnés illisibles (${err.message}) — cartes sans compte.`)
+    }
+  }
+
+  const artistDocuments = writeArtistDocuments(source, artistRows, followersById)
 
   const shown = (s) => s.ogImage || s.twitterImage || '(image de repli)'
   console.log(
-    `inject-og : SEO du CMS grave — fr og:image=${shown(fr)} · en og:image=${shown(en)} · ${artistDocuments} pages artiste`,
+    `inject-og : SEO du CMS grave — fr og:image=${shown(fr)} · en og:image=${shown(en)} · ${artistDocuments} pages artiste · ${followersById.size} artistes avec abonnés`,
   )
 }
 
