@@ -68,6 +68,11 @@ const CITIES = {
   OUI: { city: 'Ouidah', lat: 6.3611, lng: 2.0858 },
   ABO: { city: 'Abomey', lat: 7.1829, lng: 1.9919 },
   PAR: { city: 'Parakou', lat: 9.3372, lng: 2.6303 },
+  POB: { city: 'Pobè', lat: 8.7833, lng: 3.5 },
+  BOH: { city: 'Bohicon', lat: 7.1667, lng: 2.0833 },
+  APL: { city: 'Aplahoué', lat: 7.1833, lng: 1.6833 },
+  DJG: { city: 'Djougou', lat: 9.4667, lng: 1.6667 },
+  COU: { city: 'Dogbo', lat: 6.9333, lng: 1.8167 },
 }
 
 const ARTISTS = [
@@ -172,6 +177,42 @@ const ARTISTS = [
   // Déjà en base → enrichissement de la ligne existante (id mb-* conservé).
   { name: 'Angélique Kidjo', key: 'COT', genre: 'World / Afro-pop', enrichOnly: true },
   { name: 'Zeynab', key: 'COT', genre: 'Afro-pop / Traditionnel', enrichOnly: true },
+  // ----------------------------------------------------------------
+  // Lot 102–132 : pôles hors Cotonou (Pobè, Bohicon, Aplahoué, Djougou,
+  // Dogbo/Couffo). URL Spotify = uniquement des liens ARTISTE (les liens
+  // album/track sont ignorés) ; Apple = id d'artiste vérifié par lookup.
+  // ----------------------------------------------------------------
+  { name: 'Shirazee', key: 'COT', genre: 'Afropop / Afro-fusion', spotifyUrl: 'https://open.spotify.com/artist/4SbV2TW0KQrpTgx50WicHh' },
+  { name: 'Benin International Musical', key: 'COT', genre: 'Vodoun Rock / Rap / Afro-fusion', spotifyUrl: 'https://open.spotify.com/artist/5R1SZbG0GTBNp6p7NX62X9', aliases: ['Benin International Musical (BIM)', 'BIM'] },
+  { name: "Eyo'Nlé Brass Band", key: 'PN', genre: 'Brass Band / Afro-groove / Jazz', appleId: 901030115, aliases: ['Eyonle Brass Band', 'Eyo Nle Brass Band'] },
+  { name: 'Le Super Borgou de Parakou', key: 'PAR', genre: 'Afrobeat / Funk / Musique du Nord', spotifyUrl: 'https://open.spotify.com/artist/2SC77sECVqarBu8rG76Xgv', appleId: 510203883, aliases: ['Orchestre Super Borgou de Parakou'] },
+  { name: "Picoby Band d'Abomey", key: 'ABO', genre: 'Afrobeat / Afro-funk', appleId: 420251424, aliases: ['Picoby Band'] },
+  { name: 'Les Sympathics de Porto-Novo', key: 'PN', genre: 'Psychedelic Funk / Afrobeat', appleId: 1620207720 },
+  { name: 'Ogassa', key: 'PN', genre: 'Afro-funk / Psychedelic Funk' },
+  { name: 'Sêminvo Xlixè', key: 'COT', genre: 'Slam / Spoken Word', aliases: ['Seminvo Xlixe'] },
+  { name: 'Ferry Djimmy', key: 'COT', genre: 'Afrobeat / Afro-funk / Funk Rock', appleId: 1609477247 },
+  { name: 'Orchestre Les Volcans de Porto-Novo', key: 'PN', genre: 'Soukous / Salsa / Afrobeat', aliases: ['Les Volcans de Porto-Novo', 'Orchestre Les Volcans'] },
+  { name: 'Black Dragons de Porto-Novo Dahomey', key: 'PN', genre: 'Afrobeat / Funk / Highlife', appleId: 280659188, aliases: ['Orchestre Black Dragons de Porto-Novo Dahomey'] },
+  { name: "Renova-Band d'Abomey", key: 'ABO', genre: 'Rumba / Salsa / Cha-cha / Jerk', aliases: ['Renova Band', 'Renova-Band'] },
+  { name: 'Super Star de Ouidah', key: 'OUI', genre: 'Afro-cubain / Boléro / Biguine', aliases: ['Super Star de Ouidah', 'Superstar de Ouidah'] },
+  { name: 'Jah Baba', key: 'POB', genre: 'Afro-jazz / Afrobeat / Gospel / Juju', aliases: ['Jah Baba Benin'] },
+  { name: 'Michel Pinheiro', key: 'POB', genre: 'Salsa / Afro-cubain / Jazz', aliases: ['Michel Pinheiro African Salsa Orchestra', 'Michel Pinheiro et son African Salsa Orchestra'] },
+  { name: 'Ramou', key: 'BOH', genre: 'World / Afrobeat / R&B / Jazz-Blues', aliases: ['Ramou Benin'] },
+  { name: 'Johnny Sourou', key: 'PN', genre: 'Gospel' },
+  { name: 'Miss Espoir', key: 'PN', genre: 'Afro-pop / Traditionnel', aliases: ['Miss Espoir Benin'] },
+  { name: 'Yves Sèdjro', key: 'PN', genre: 'R&B / Zouk / Afro-pop', aliases: ['Yves Sedjro'] },
+  { name: 'Ya Salam', key: 'DJG', genre: 'Afro / Reggae / Traditionnel', appleId: 1537556253, aliases: ['Ya Salam Benin'] },
+  { name: 'Cyano-Gêne', key: 'COT', genre: 'Rap / Hip-hop', aliases: ['Cyano-Gene', 'Cyano Gene'] },
+  { name: 'Shamir MG', key: 'COT', genre: 'Hip-hop / Rap' },
+  { name: 'Sèna Noble', key: 'COU', genre: 'Gogohoun / Tradi-moderne', aliases: ['Sena Noble'] },
+  { name: 'Edia Sophie', key: 'ABO', genre: "Musique moderne d'inspiration traditionnelle", aliases: ['Sophie Edia'] },
+  { name: 'Amy-Mako', key: 'PAR', genre: 'Traditionnel / Dendi / Griotte', aliases: ['Amy Mako'] },
+  { name: 'Rabylad', key: 'PAR', genre: 'Afro-pop / Chanson' },
+  { name: 'Kinay', key: 'PAR', genre: 'Rap / Afro-urbain', aliases: ['Kinay Benin'] },
+  { name: 'Mama Franco', key: 'PAR', genre: 'Traditionnel / Rumba / Orchestre', aliases: ['Mama Franco Benin'] },
+  { name: 'Dahouè Doto', key: 'APL', genre: 'Gogohoun / Traditionnel Adja', aliases: ['Dahoue Doto'] },
+  { name: 'Joseph De Lapoche', key: 'PAR', genre: 'Tradi-moderne / Drill / Adjapiano' },
+  { name: 'R-Bekir', key: 'BOH', genre: 'Rap / Hip-hop', aliases: ['R Bekir'] },
 ]
 
 /* ---------------------------------------------------------------- */
