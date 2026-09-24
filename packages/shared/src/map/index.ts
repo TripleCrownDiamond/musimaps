@@ -134,8 +134,10 @@ function pixelsPerDegree(zoom: number): number {
   return (512 * 2 ** zoom) / 360;
 }
 
-/** Séparation visée entre deux pins voisins, en pixels écran. */
-const TARGET_SEPARATION_PX = 46;
+/** Séparation visée entre deux pins voisins, en pixels écran.
+ *  60 px : deux avatars de 36 px gardent une marge d'air visible —
+ *  la valeur 46 px collait les ronds (retour utilisateur « trop serrés »). */
+const TARGET_SEPARATION_PX = 60;
 
 /**
  * Décalage géographique maximal admis, en kilomètres.
@@ -143,7 +145,7 @@ const TARGET_SEPARATION_PX = 46;
  * C'est une borne de **véracité** : au-delà, on n'écarte plus des pins,
  * on invente une localisation. Voir docs/DECISIONS-PRODUIT.md.
  */
-const MAX_OFFSET_KM = 1.5;
+const MAX_OFFSET_KM = 3;
 export const MAX_OFFSET_DEG = (MAX_OFFSET_KM * 1000) / 111_320;
 
 export interface RegionBounds {
@@ -158,7 +160,7 @@ export interface RegionBounds {
  * artistes visibles.
  *
  * Le filtre travaille sur les coordonnées BRUTES, alors que le pin est
- * dessiné à sa position dés-empilée — jusqu'à 1,5 km plus loin. Sans cette
+ * dessiné à sa position dés-empilée — jusqu'à 3 km plus loin. Sans cette
  * marge, un artiste au bord du cadrage se retrouve affiché HORS de la zone,
  * et un artiste juste dehors n'apparaît jamais alors que son pin serait
  * visible. C'est la cause des « artistes de la zone qui atterrissent
@@ -225,8 +227,8 @@ export function isScopeArmed(zoom: number): boolean {
  *
  * On part désormais de la séparation ÉCRAN voulue et on en déduit le rayon
  * géographique — donc l'inverse. La séparation reste constante et lisible à
- * tous les zooms, et le décalage réel DIMINUE quand on s'approche : 1,5 km à
- * z11, 291 m à z15. Plus lisible et plus honnête à la fois.
+ * tous les zooms, et le décalage réel DIMINUE quand on s'approche : ~2,3 km
+ * à z11, ~570 m à z13, ~140 m à z15. Plus lisible et plus honnête à la fois.
  */
 function spiralRadius(index: number, zoom: number, separationPx: number = TARGET_SEPARATION_PX): number {
   const wanted = (separationPx * (1 + 0.55 * Math.sqrt(index))) / pixelsPerDegree(zoom);
@@ -237,13 +239,14 @@ function spiralRadius(index: number, zoom: number, separationPx: number = TARGET
  * Séparation de secours pour les gros amas.
  *
  * Une scène entière peut partager la coordonnée de SA ville (Cotonou, Lagos…) :
- * au-delà d'une vingtaine de pins sur le même point, la spirale à 46 px
- * demanderait un rayon qui ment sur la position (plafond `MAX_OFFSET_DEG`
- * atteint → pins à nouveau empilés au bord). On resserre alors la séparation
- * plutôt que d'empiler : moins aéré, mais chaque pin reste distinct.
+ * au-delà de 30 pins sur le même point, la spirale à 60 px demanderait un
+ * rayon qui ment sur la position (plafond `MAX_OFFSET_DEG` atteint → pins à
+ * nouveau empilés au bord). On resserre alors à 40 px plutôt que d'empiler :
+ * moins aéré que la séparation standard, mais chaque pin reste distinct ET
+ * détaché de ses voisins.
  */
-const DENSE_SEPARATION_PX = 28;
-const DENSE_GROUP_SIZE = 20;
+const DENSE_SEPARATION_PX = 40;
+const DENSE_GROUP_SIZE = 30;
 
 /**
  * Écarte les pins empilés (même point géocodé) en spirale déterministe.
@@ -259,7 +262,7 @@ const DENSE_GROUP_SIZE = 20;
  *
  * Le rayon grandit AVEC le zoom : serré à z9 (vue d'ensemble), ouvert à
  * z14+ pour des pins nettement séparés, sans jamais inventer de position
- * au-delà de ~1-2 km.
+ * au-delà de ~3 km.
  */
 export function declump(artists: Artist[], zoom: number): Map<string, [number, number]> {
   const groups = new Map<string, Artist[]>();
@@ -280,7 +283,7 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
     const cLng = group.reduce((s, a) => s + a.coordinates[0], 0) / group.length;
     const cLat = group.reduce((s, a) => s + a.coordinates[1], 0) / group.length;
     // La longitude se resserre avec la latitude : sans cette correction,
-    // deux pins séparés de 46 px à l'équateur n'en font plus que 20 à
+    // deux pins séparés de 60 px à l'équateur n'en font plus que 27 à
     // Oslo. On divise par cos(lat) pour garder la séparation à l'écran.
     const lngScale = Math.max(0.25, Math.cos((cLat * Math.PI) / 180));
     const separation = group.length > DENSE_GROUP_SIZE ? DENSE_SEPARATION_PX : TARGET_SEPARATION_PX;
