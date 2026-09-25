@@ -135,7 +135,7 @@ function pixelsPerDegree(zoom: number): number {
 }
 
 /** Séparation visée entre deux pins voisins, en pixels écran.
- *  60 px : deux avatars de 36 px gardent une marge d'air visible —
+ *  60 px : deux avatars de 36 px gardent une large marge d'air —
  *  la valeur 46 px collait les ronds (retour utilisateur « trop serrés »). */
 const TARGET_SEPARATION_PX = 60;
 
@@ -143,9 +143,16 @@ const TARGET_SEPARATION_PX = 60;
  * Décalage géographique maximal admis, en kilomètres.
  *
  * C'est une borne de **véracité** : au-delà, on n'écarte plus des pins,
- * on invente une localisation. Voir docs/DECISIONS-PRODUIT.md.
+ * on invente une localisation. À l'échelle d'une agglomération (~15 km),
+ * un pin reste fidèle : la coordonnée d'un artiste n'a jamais été plus
+ * précise que « cette ville ». Et la spirale étant à séparation d'écran
+ * constante, le décalage réel rétrécit en zoomant (~1,1 km à z13) : le
+ * plafond ne mord qu'en vue ville (z11), où 82 pins sur le même point
+ * demandaient ~23 km — 6 km les écrasait à ~17 px d'écart, SOUS la taille
+ * d'un pin (retour utilisateur « encore serrés », trois fois).
+ * Voir docs/DECISIONS-PRODUIT.md.
  */
-const MAX_OFFSET_KM = 3;
+const MAX_OFFSET_KM = 15;
 export const MAX_OFFSET_DEG = (MAX_OFFSET_KM * 1000) / 111_320;
 
 export interface RegionBounds {
@@ -160,7 +167,7 @@ export interface RegionBounds {
  * artistes visibles.
  *
  * Le filtre travaille sur les coordonnées BRUTES, alors que le pin est
- * dessiné à sa position dés-empilée — jusqu'à 3 km plus loin. Sans cette
+ * dessiné à sa position dés-empilée — jusqu'à 15 km plus loin. Sans cette
  * marge, un artiste au bord du cadrage se retrouve affiché HORS de la zone,
  * et un artiste juste dehors n'apparaît jamais alors que son pin serait
  * visible. C'est la cause des « artistes de la zone qui atterrissent
@@ -225,28 +232,36 @@ export function isScopeArmed(zoom: number): boolean {
  * Résultat mesuré : 9 px de séparation à z9 (pins empilés) et 995 px à z15
  * (pins hors écran, posés à 2,4 km de la vraie position).
  *
- * On part désormais de la séparation ÉCRAN voulue et on en déduit le rayon
- * géographique — donc l'inverse. La séparation reste constante et lisible à
- * tous les zooms, et le décalage réel DIMINUE quand on s'approche : ~2,3 km
- * à z11, ~570 m à z13, ~140 m à z15. Plus lisible et plus honnête à la fois.
+ * On part de la séparation ÉCRAN voulue et on en déduit le rayon géographique
+ * — donc l'inverse : la séparation reste constante et lisible à tous les
+ * zooms, et le décalage réel DIMINUE quand on s'approche : ~4,5 km à z11,
+ * ~1,1 km à z13, ~285 m à z15. Plus lisible et plus honnête à la fois.
+ *
+ * Croissance `0,56·√(1+i)` : c'est le paquetage hexagonal minimal pour la
+ * spirale de Vogel (angle d'or) — l'aire par point garantit un écart de
+ * voisinage ≥ la séparation demandée, sans dépenser de rayon inutile
+ * (l'ancienne formule `(1 + 0,55·√i)` gonflait le rayon de 15 % pour les
+ * grands groupes, ce qui déclenchait la compression du plafond plus tôt).
  */
 function spiralRadius(index: number, zoom: number, separationPx: number = TARGET_SEPARATION_PX): number {
-  const wanted = (separationPx * (1 + 0.55 * Math.sqrt(index))) / pixelsPerDegree(zoom);
-  return Math.min(MAX_OFFSET_DEG, wanted);
+  return (0.56 * separationPx * Math.sqrt(1 + index)) / pixelsPerDegree(zoom);
 }
 
 /**
- * Séparation de secours pour les gros amas.
+ * Facteur d'échelle d'un groupe pour tenir dans le plafond de véracité.
  *
- * Une scène entière peut partager la coordonnée de SA ville (Cotonou, Lagos…) :
- * au-delà de 30 pins sur le même point, la spirale à 60 px demanderait un
- * rayon qui ment sur la position (plafond `MAX_OFFSET_DEG` atteint → pins à
- * nouveau empilés au bord). On resserre alors à 40 px plutôt que d'empiler :
- * moins aéré que la séparation standard, mais chaque pin reste distinct ET
- * détaché de ses voisins.
+ * Une scène entière partage la coordonnée de SA ville (Cotonou 58 pins,
+ * Abidjan 82…) : au lieu d'écraser la spirale au plafond — ce qui rabattait
+ * tous les pins au-delà d'un certain rang sur le MÊME anneau et les
+ * recollait — on compresse TOUT le groupe proportionnellement. Les
+ * proportions de la spirale sont préservées : les positions restent
+ * distinctes et ordonnées, simplement un peu plus resserrées quand le
+ * groupe est énorme. Groupe petit → facteur 1, séparation complète.
  */
-const DENSE_SEPARATION_PX = 40;
-const DENSE_GROUP_SIZE = 30;
+function groupScale(count: number, zoom: number): number {
+  const wantedMax = spiralRadius(Math.max(0, count - 1), zoom);
+  return Math.min(1, MAX_OFFSET_DEG / wantedMax);
+}
 
 /**
  * Écarte les pins empilés (même point géocodé) en spirale déterministe.
@@ -260,9 +275,9 @@ const DENSE_GROUP_SIZE = 30;
  * entre elles en spirale. Les pins de quartiers différents ne s'empilent
  * donc plus jamais, et le reste du groupe tourne autour de son ancre.
  *
- * Le rayon grandit AVEC le zoom : serré à z9 (vue d'ensemble), ouvert à
- * z14+ pour des pins nettement séparés, sans jamais inventer de position
- * au-delà de ~3 km.
+ * Le décalage géographique est borné par le plafond de véracité (~15 km) :
+ * au-delà, tout le groupe est compressé proportionnellement (voir
+ * `groupScale`) — les positions restent distinctes, juste plus resserrées.
  */
 export function declump(artists: Artist[], zoom: number): Map<string, [number, number]> {
   const groups = new Map<string, Artist[]>();
@@ -286,7 +301,9 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
     // deux pins séparés de 60 px à l'équateur n'en font plus que 27 à
     // Oslo. On divise par cos(lat) pour garder la séparation à l'écran.
     const lngScale = Math.max(0.25, Math.cos((cLat * Math.PI) / 180));
-    const separation = group.length > DENSE_GROUP_SIZE ? DENSE_SEPARATION_PX : TARGET_SEPARATION_PX;
+    // Compression proportionnelle du groupe entier si le plafond de
+    // véracité est atteint (voir `groupScale`) — jamais d'écrasement brutal.
+    const separation = TARGET_SEPARATION_PX * groupScale(group.length, zoom);
 
     // Sous-groupes par quartier (absence de district = quartier unique).
     const quarters = new Map<string, Artist[]>();
