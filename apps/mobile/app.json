@@ -41,7 +41,14 @@
           }
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Musimaps utilise vos photos pour que vous puissiez choisir une photo de profil et une image de couverture.",
+          "cameraPermission": "Musimaps utilise l’appareil photo pour que vous puissiez prendre une photo de profil."
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
