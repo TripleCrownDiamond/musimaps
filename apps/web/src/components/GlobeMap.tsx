@@ -5,6 +5,9 @@ import { useLanguage } from '../i18n/LanguageContext'
 import type { Artist } from '@musimaps/shared'
 import {
   bucketKey,
+  burstClusterFrame,
+  burstFrame,
+  burstOrigins,
   CAMERA,
   clusterCameraTarget,
   nearestMapTarget,
@@ -21,14 +24,17 @@ import {
   geoCountryOf,
   hexToRgba,
   isValidCoordinate,
+  lerpCoordinate,
   levelFor,
   MAX_ZOOM,
   movedCoordinates,
   pinGlowFor,
   pinOpacityFor,
   pinZoomScale,
+  PIN_BURST_TOTAL_MS,
   POPULARITY_RING_COLORS,
   renderedPosition,
+  shouldHoldSpread,
   spinDeltaFor,
   planStyleActions,
   DETAIL_LINES_ZOOM,
@@ -256,6 +262,10 @@ export default function GlobeMap({
   // reconstruire les markers ; les variables visuelles des pins sont mises à
   // jour directement sur le DOM par `applyZoomClass`.
   const clusterLevelRef = useRef<ClusterLevel>('country')
+  /** Le passage aux pins vient d'avoir lieu à l'arrêt de la caméra : le
+   *  prochain rendu des markers fait éclater les groupes (une seule fois). */
+  const burstPendingRef = useRef(false)
+  const burstFrameRef = useRef(0)
 
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN) return
@@ -475,6 +485,8 @@ export default function GlobeMap({
       onZoomChangeRef.current?.(z)
       const next = levelFor(z)
       if (next === clusterLevelRef.current) return
+      // Caméra arrêtée sur une zone : les pins sortent maintenant du groupe.
+      if (shouldHoldSpread(clusterLevelRef.current, next)) burstPendingRef.current = true
       clusterLevelRef.current = next
       setClusterLevel(next)
     }
@@ -490,6 +502,9 @@ export default function GlobeMap({
       }
       const next = levelFor(z)
       if (next === clusterLevelRef.current) return
+      // Les pins individuels attendent l'arrêt de la caméra (`onLevelChange`) :
+      // pendant le vol, on garde la pastille « N artistes » à l'écran.
+      if (shouldHoldSpread(clusterLevelRef.current, next)) return
       onZoomChangeRef.current?.(z)
       clusterLevelRef.current = next
       setClusterLevel(next)
@@ -559,6 +574,7 @@ export default function GlobeMap({
     const map = mapRef.current
     if (!styleReady || !mapLoaded || !map) return
 
+    cancelAnimationFrame(burstFrameRef.current)
     markersRef.current.forEach((m) => m.remove())
     markersRef.current = []
 
@@ -692,7 +708,7 @@ export default function GlobeMap({
     }
 
     // Un « pin » d'artiste individuel (initiales ou photo, cliquable).
-    const addArtistPin = (artist: Artist, coords: [number, number]) => {
+    const addArtistPin = (artist: Artist, coords: [number, number]): { marker: mapboxgl.Marker; el: HTMLElement; tier: PopularityTier } => {
       const wrapper = pinWrapper()
       const el = document.createElement('button')
       el.type = 'button'
@@ -779,6 +795,7 @@ export default function GlobeMap({
         })
       }
       markersRef.current.push(marker)
+      return { marker, el, tier }
     }
 
     // Clustering (Monde → pays → villes → artistes) : appliqué à l'ensemble
@@ -930,6 +947,27 @@ export default function GlobeMap({
     // visible au lieu d'être écrasé sous les autres. La position reste fixe
     // pendant le zoom : seule la caméra et la taille visuelle évoluent.
     const spread = declump(allArtists, PIN_LAYOUT_ZOOM)
+    // Éclatement : on arrive d'un groupe (caméra posée sur la pastille) — les
+    // pins sortent de la pastille vers leur place, puis elle s'efface.
+    const burst =
+      burstPendingRef.current &&
+      cluster &&
+      interactive &&
+      !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    burstPendingRef.current = false
+    const { origins, clusters: burstClusters } = burst
+      ? burstOrigins(allArtists)
+      : { origins: new Map(), clusters: [] }
+    const zoomNow = map.getZoom()
+    const flying: Array<{
+      marker: mapboxgl.Marker
+      el: HTMLElement
+      from: [number, number]
+      to: [number, number]
+      index: number
+      scale: number
+      opacity: number
+    }> = []
     const seenIds = new Set<string>()
     for (const artist of allArtists) {
       if (seenIds.has(artist.id)) continue
@@ -937,8 +975,88 @@ export default function GlobeMap({
       // Aucun marker si les coordonnées sont invalides (bug « pin en haut à
       // gauche ») : on ne crée pas de marker sans position géographique sûre.
       if (!isValidCoordinate(artist.coordinates)) continue
-      addArtistPin(artist, spread.get(artist.id) ?? artist.coordinates)
+      const to = spread.get(artist.id) ?? artist.coordinates
+      const pin = addArtistPin(artist, to)
+      const origin = origins.get(artist.id)
+      if (!origin) continue
+      const selected = artist.id === highlightedRef.current
+      flying.push({
+        ...pin,
+        from: origin.from,
+        to,
+        index: origin.index,
+        scale: pinZoomScale(zoomNow) * TIER_SIZE_FACTOR[pin.tier] * (selected ? 1.28 : 1),
+        opacity: selected ? 1 : pinOpacityFor(zoomNow),
+      })
     }
+    if (flying.length === 0) return
+
+    // Pastilles « N » au-dessus des pins : ils en sortent, elle se résorbe.
+    const fading = burstClusters.map((group) => {
+      const wrapper = pinWrapper('cluster')
+      const el = document.createElement('span')
+      el.className = 'artist-pin artist-pin--cluster artist-pin--sub'
+      el.setAttribute('aria-hidden', 'true')
+      el.style.pointerEvents = 'none'
+      const tier = Math.max(...group.members.map((a) => tierOf(a, popularityRef.current))) as PopularityTier
+      const tierVars = pinTierVars(tier, zoomNow)
+      el.style.setProperty('--pin-tier-color', tierVars.bg)
+      el.style.setProperty('--pin-tier-glow', tierVars.glow)
+      el.style.setProperty('--pin-ink', tierVars.ink)
+      el.style.setProperty('--pin-tier-ring-width', `${tierVars.ringWidth}px`)
+      const content = document.createElement('span')
+      content.className = 'artist-pin__cluster-content'
+      const main = document.createElement('span')
+      main.className = 'artist-pin__cluster-main'
+      main.textContent = `${group.count}`
+      content.appendChild(main)
+      el.appendChild(content)
+      wrapper.appendChild(el)
+      const marker = new mapboxgl.Marker({ element: wrapper }).setLngLat(group.coordinates).addTo(map)
+      markersRef.current.push(marker)
+      return { marker, el, scale: Math.max(pinZoomScale(zoomNow), 0.24) }
+    })
+
+    // Le CSS anime `scale`/`opacity` en transition : on la coupe pendant
+    // l'éclatement, chaque frame est posée directement.
+    const paint = (elapsed: number) => {
+      for (const pin of flying) {
+        const frame = burstFrame(elapsed, pin.index)
+        pin.marker.setLngLat(lerpCoordinate(pin.from, pin.to, frame.travel))
+        pin.el.style.transition = 'none'
+        pin.el.style.scale = String(pin.scale * frame.scale)
+        pin.el.style.opacity = String(pin.opacity * frame.opacity)
+      }
+      const fade = burstClusterFrame(elapsed)
+      for (const group of fading) {
+        group.el.style.transition = 'none'
+        group.el.style.scale = String(group.scale * fade.scale)
+        group.el.style.opacity = String(fade.opacity)
+      }
+    }
+    const settle = () => {
+      for (const pin of flying) {
+        pin.marker.setLngLat(pin.to)
+        pin.el.style.removeProperty('transition')
+        pin.el.style.removeProperty('scale')
+        pin.el.style.removeProperty('opacity')
+      }
+      for (const group of fading) group.marker.remove()
+      markersRef.current = markersRef.current.filter((m) => !fading.some((group) => group.marker === m))
+    }
+    const start = performance.now()
+    paint(0)
+    const tick = (now: number) => {
+      const elapsed = now - start
+      if (elapsed >= PIN_BURST_TOTAL_MS) {
+        settle()
+        return
+      }
+      paint(elapsed)
+      burstFrameRef.current = requestAnimationFrame(tick)
+    }
+    burstFrameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(burstFrameRef.current)
     // `editable` est dans les dépendances : basculer le mode admin doit
     // redessiner les markers pour qu'ils deviennent (ou cessent d'être)
     // déplaçables — `draggable` se fixe à la construction du marker.

@@ -265,7 +265,7 @@ export function ArtistProfileScreen({ navigation, route }: Props) {
                 </Text>
               </View>
               {distinctBirthplace(artist) ? (
-                <Text style={[styles.sectionMeta, { color: colors.textSecondary }]}>
+                <Text style={[styles.locationText, { color: colors.inkSoft }]}>
                   {t('artist.bornIn', { city: distinctBirthplace(artist) as string })}
                 </Text>
               ) : null}

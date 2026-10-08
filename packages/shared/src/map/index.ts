@@ -494,6 +494,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 // telle quelle plutôt qu'en réécrire une copie.
 export * from './geo-consistency';
 export * from './admin-move';
+export * from './burst';
 
 export interface Cluster {
   key: string;

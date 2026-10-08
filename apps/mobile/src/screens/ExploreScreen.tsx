@@ -103,11 +103,15 @@ import {
   type MapPlace,
   radii,
   spacing,
+  burstOrigins,
+  PIN_BURST,
+  shouldHoldSpread,
 } from '@musimaps/shared';
 import { Pause, Play } from 'lucide-react-native';
 import { AppBar } from '../components/AppBar';
 import { ArtistAvatar } from '../components/ArtistAvatar';
 import { ArtistSheet } from '../components/ArtistSheet';
+import { BurstClusterGhost, BurstMarkerView, pinBurst, usePinBurstCleanup } from '../components/PinBurst';
 import { PlacePanel, type PlacePanelData } from '../components/PlacePanel';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -358,6 +362,12 @@ export function ExploreScreen({ navigation, route }: Props) {
   // dans cette ref : l'effet d'intervalle ne doit pas conserver le zoom du
   // premier rendu et ralentir après un zoom utilisateur.
   const rotationZoomRef = useRef(GLOBE_ZOOM);
+  /** Zoom AFFICHÉ (celui qui fixe le niveau de cluster rendu). Il peut rester
+   *  sous `SPREAD_ZOOM` pendant un vol : la pastille « N artistes » est gardée
+   *  jusqu'à l'arrêt de la caméra, puis les pins en sortent. */
+  const shownZoomRef = useRef(GLOBE_ZOOM);
+  const spreadSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  usePinBurstCleanup();
   const [visiblePins, setVisiblePins] = useState<Artist[]>([]);
   /**
    * Le cadrage ne devient relâchable qu'une fois la caméra arrivée au niveau
@@ -1333,11 +1343,43 @@ export function ExploreScreen({ navigation, route }: Props) {
     if (!Number.isFinite(zoom)) return;
     rotationZoomRef.current = zoom;
     if (!isGlobeView(zoom) && spinEnabledRef.current) setRotation(false);
-    setMapZoom((previous) => {
-      if (!exact && levelFor(previous) === levelFor(zoom)) return previous;
-      return Math.abs(previous - zoom) < 0.02 ? previous : zoom;
-    });
+    if (spreadSettleTimerRef.current) {
+      clearTimeout(spreadSettleTimerRef.current);
+      spreadSettleTimerRef.current = null;
+    }
+    const shown = shownZoomRef.current;
+    const holding = shouldHoldSpread(levelFor(shown), levelFor(zoom));
+    if (holding && !exact) {
+      // Caméra encore en mouvement : on garde la pastille. Sans nouvel
+      // événement caméra pendant ce délai, le zoom est arrêté — Android
+      // n'émet pas toujours `onMapIdle` après l'inertie.
+      spreadSettleTimerRef.current = setTimeout(() => {
+        spreadSettleTimerRef.current = null;
+        syncMapZoom(rotationZoomRef.current, true);
+      }, PIN_BURST.settleQuietMs);
+      return;
+    }
+    // Caméra arrêtée sur une zone : les pins sortent maintenant du groupe.
+    if (holding) pinBurst.arm();
+    if (!exact && levelFor(shown) === levelFor(zoom)) return;
+    if (Math.abs(shown - zoom) < 0.02) return;
+    shownZoomRef.current = zoom;
+    setMapZoom(zoom);
   }, [setRotation]);
+  useEffect(() => () => {
+    if (spreadSettleTimerRef.current) clearTimeout(spreadSettleTimerRef.current);
+  }, []);
+
+  // Éclatement : d'où sort chaque pin (la pastille de son groupe au niveau
+  // `sub`) et quelles pastilles s'effacent. Calculé seulement au niveau pins.
+  const burstPlan = useMemo(() => {
+    if (levelFor(mapZoom) !== 'spread') return null;
+    return burstOrigins(pins.flatMap((pin) => (pin.kind === 'artist' ? [pin.artist] : [])));
+  }, [pins, mapZoom]);
+  useEffect(() => {
+    if (!burstPlan) pinBurst.reset();
+    else if (pinBurst.isArmed()) pinBurst.run();
+  }, [burstPlan]);
 
   const loadRegion = ({ properties }: VisibleRegion) => {
     const z = properties.zoom;
@@ -2078,7 +2120,12 @@ export function ExploreScreen({ navigation, route }: Props) {
             const ringSize = displayedPinSize + ringOutset * 2;
             const haloSize = displayedPinSize + 18;
             return (
-            <Mapbox.MarkerView key={pin.key} id={`pin-${pin.key}`} coordinate={pin.coords} allowOverlap>
+            <BurstMarkerView
+              key={pin.key}
+              id={`pin-${pin.key}`}
+              coordinate={pin.coords}
+              origin={burstPlan?.origins.get(pin.artist.id)}
+            >
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('explore.seeArtist', { name: pin.artist.name })}
@@ -2171,10 +2218,24 @@ export function ExploreScreen({ navigation, route }: Props) {
                   </Text>
                 )}
               </Pressable>
-            </Mapbox.MarkerView>
+            </BurstMarkerView>
             );
           })(),
         )}
+        {/* Pastilles « N » qui se résorbent pendant que les pins en sortent. */}
+        {burstPlan?.clusters.map((group) => {
+          const tier = Math.max(0, ...group.members.map((a) => tierOf(a, popularityById))) as PopularityTier;
+          return (
+            <BurstClusterGhost key={`burst-${group.key}`} id={`burst-${group.key}`} coordinate={group.coordinates}>
+              <View style={styles.clusterTouchTarget}>
+                <View style={[styles.clusterPin, styles.clusterPinSub, { transform: [{ scale: clusterScale }] }]}>
+                  <View pointerEvents="none" style={[styles.popRing, { borderColor: POPULARITY_RING_COLORS[tier] }]} />
+                  <Text style={styles.clusterPinMain}>{group.count}</Text>
+                </View>
+              </View>
+            </BurstClusterGhost>
+          );
+        })}
       </Mapbox.MapView>
         </View>
       )}
