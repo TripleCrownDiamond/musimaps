@@ -120,6 +120,7 @@ import {
   addMapArtist,
   addOrUpdateMapArtist,
   discoverCityArtists,
+  cityMatchesQuery,
   suggestCities,
   type CitySuggestion,
   displayGenre,
@@ -601,7 +602,8 @@ export function ExploreScreen({ navigation, route }: Props) {
   }, [allArtists, query]);
 
   const placeResults = useMemo(() => {
-    const q = norm(query);
+    // « Cotonou, Benin » (historique, saisie complète) : la ville est avant la virgule.
+    const q = norm(query.split(',')[0]);
     if (!q) return [];
     const map = new Map<string, PlaceResult>();
     for (const a of allArtists) {
@@ -746,15 +748,17 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, [query]);
   const worldCityResults = useMemo(() => {
-    const known = new Set(placeResults.map((p) => norm(p.city)));
+    // Une ville qui a déjà des artistes n'est jamais « pas encore sur la carte »,
+    // même si la saisie (« Cotonou, Benin ») ne la fait pas remonter dans Lieux.
+    const known = new Set([...placeResults.map((p) => norm(p.city)), ...allArtists.map((a) => norm(a.city))]);
     const seen = new Set<string>();
     return cityCandidates.filter((c) => {
       const key = norm(c.city);
-      if (known.has(key) || seen.has(key)) return false;
+      if (known.has(key) || seen.has(key) || !cityMatchesQuery(c.city, query)) return false;
       seen.add(key);
       return true;
     }).slice(0, 3);
-  }, [cityCandidates, placeResults]);
+  }, [cityCandidates, placeResults, query, allArtists]);
 
   // Quartiers / localités pendant la saisie (comme le web).
   useEffect(() => {
@@ -2202,9 +2206,13 @@ export function ExploreScreen({ navigation, route }: Props) {
             const ringSize = displayedPinSize + ringOutset * 2;
             const haloSize = displayedPinSize + 18;
             return (
+            // Android empile les markers dans l'ordre où ils sont AJOUTÉS à la
+            // carte, pas dans l'ordre du tableau : un pin sélectionné resté à
+            // sa place d'origine voyait son nom caché sous le pin voisin. Une
+            // clé propre à l'état sélectionné le ré-ajoute en dernier, au-dessus.
             <BurstMarkerView
-              key={pin.key}
-              id={`pin-${pin.key}`}
+              key={selectedPin ? `${pin.key}-selected` : pin.key}
+              id={selectedPin ? `pin-${pin.key}-selected` : `pin-${pin.key}`}
               coordinate={pin.coords}
               origin={burstPlan?.origins.get(pin.artist.id)}
             >

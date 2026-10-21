@@ -47,6 +47,7 @@ import iconWhite from '../assets/brand/icon-white.png'
 import {
   addMapArtist,
   discoverCityArtists,
+  cityMatchesQuery,
   suggestCities,
   type CitySuggestion,
   addOrUpdateMapArtist,
@@ -459,7 +460,8 @@ export default function GlobeExplore() {
 
   /** Lieux (ville + pays) contenant la requête, regroupés et comptés. */
   const placeResults = useMemo(() => {
-    const q = norm(query)
+    // « Cotonou, Benin » (historique, saisie complète) : la ville est avant la virgule.
+    const q = norm(query.split(',')[0])
     if (!q) return []
     const map = new Map<string, { city: string; country: string; flag: string; coordinates: [number, number]; count: number }>()
     for (const a of allArtists) {
@@ -632,17 +634,19 @@ export default function GlobeExplore() {
   }
 
   const worldCityResults = useMemo(() => {
-    const known = new Set(placeResults.map((p) => norm(p.city)))
+    // Une ville qui a déjà des artistes n'est jamais « pas encore sur la carte »,
+    // même si la saisie (« Cotonou, Benin ») ne la fait pas remonter dans Lieux.
+    const known = new Set([...placeResults.map((p) => norm(p.city)), ...allArtists.map((a) => norm(a.city))])
     const seen = new Set<string>()
     return cityCandidates
       .filter((c) => {
         const key = norm(c.city)
-        if (known.has(key) || seen.has(key)) return false
+        if (known.has(key) || seen.has(key) || !cityMatchesQuery(c.city, query)) return false
         seen.add(key)
         return true
       })
       .slice(0, 3)
-  }, [cityCandidates, placeResults])
+  }, [cityCandidates, placeResults, query, allArtists])
 
   const goToCity = useCallback(
     (c: { city: string; country: string; coordinates: [number, number] }) => {

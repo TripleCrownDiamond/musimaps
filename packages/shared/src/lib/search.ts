@@ -257,3 +257,17 @@ export function rankArtistResults<T extends RankableArtist>(
       return a.artist.name.localeCompare(b.artist.name);
     });
 }
+
+/**
+ * Une ville proposée par le géocodeur correspond-elle vraiment à la saisie ?
+ * Mapbox rapproche les orthographes (« Cotonou » → « Botonou ») : on ne
+ * propose une ville du monde que si son nom commence par la saisie (ou
+ * l'inverse), accents et casse ignorés.
+ */
+export function cityMatchesQuery(city: string, query: string): boolean {
+  const fold = (value: string) =>
+    value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const c = fold(city)
+  const q = fold(query)
+  return Boolean(c && q) && (c.startsWith(q) || q.startsWith(c))
+}

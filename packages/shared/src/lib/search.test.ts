@@ -195,3 +195,13 @@ describe('rankSearchResults', () => {
     expect(ranked[0].country).toBe('France');
   });
 });
+
+describe('villes du monde proposées dans la recherche', () => {
+  it('ne garde que les villes dont le nom correspond à la saisie', async () => {
+    const { cityMatchesQuery } = await import('./search')
+    expect(cityMatchesQuery('Los Angeles', 'los ang')).toBe(true)
+    expect(cityMatchesQuery('Los Angeles', 'Los Angeles, CA')).toBe(true)
+    expect(cityMatchesQuery('Botonou', 'Cotonou')).toBe(false)
+    expect(cityMatchesQuery('Bogotá', 'bogota')).toBe(true)
+  })
+})

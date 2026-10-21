@@ -747,8 +747,13 @@ export function searchSheetHeight({
   return Math.min(resting, compact, available);
 }
 
-/** Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile). */
-export const PIN_LABEL_ZOOM = 12.5;
+/**
+ * Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile).
+ * 14 : les pins sont posés à 60 px d'écart à z13, trop serré pour des
+ * étiquettes de 80-100 px — elles se chevauchaient. À z14 l'écart double.
+ * Le pin sélectionné garde son nom à tous les zooms.
+ */
+export const PIN_LABEL_ZOOM = 14;
 
 /** Rayon de recherche autour d'un quartier/localité, en degrés. */
 export const NEIGHBORHOOD_RADIUS_DEG = 0.04;
