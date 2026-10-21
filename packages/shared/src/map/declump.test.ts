@@ -196,3 +196,36 @@ describe('cohérence rendu ↔ caméra', () => {
     expect(firstRenderedPosition(broken, PIN_LAYOUT_ZOOM)).toBeUndefined();
   });
 });
+
+describe('écart minimal entre pins, quelle que soit la densité', () => {
+  const pxDistance = (a: [number, number], b: [number, number]) => {
+    const ppd = (512 * 2 ** PIN_LAYOUT_ZOOM) / 360;
+    const k = Math.cos((((a[1] + b[1]) / 2) * Math.PI) / 180);
+    return Math.hypot((a[0] - b[0]) * ppd * k, (a[1] - b[1]) * ppd);
+  };
+  const minGap = (positions: Map<string, [number, number]>) => {
+    const list = [...positions.values()];
+    let min = Infinity;
+    for (let i = 0; i < list.length; i += 1)
+      for (let j = i + 1; j < list.length; j += 1) min = Math.min(min, pxDistance(list[i], list[j]));
+    return min;
+  };
+
+  it('écarte une scène de 80 artistes sur un seul point (Abidjan)', () => {
+    const crowd = Array.from({ length: 80 }, (_, i) => at(`a${i}`, `Artiste ${String(i).padStart(2, '0')}`, [-4.0083, 5.36]))
+    expect(minGap(declump(crowd, PIN_LAYOUT_ZOOM))).toBeGreaterThan(58)
+  })
+
+  it('n’empile plus deux groupes voisins ni deux quartiers d’une même ville', () => {
+    const near: Artist[] = []
+    for (let i = 0; i < 40; i += 1) near.push({ ...at(`c${i}`, `Cotonou ${i}`, [2.4401, 6.3734]), district: i % 3 === 0 ? 'Ganhi' : i % 3 === 1 ? 'Vèdoko' : '' })
+    // Un second groupe à ~2,5 km, dans la case voisine.
+    for (let i = 0; i < 25; i += 1) near.push(at(`d${i}`, `Akpakpa ${i}`, [2.4630, 6.3740]))
+    expect(minGap(declump(near, PIN_LAYOUT_ZOOM))).toBeGreaterThan(58)
+  })
+
+  it('reste stable d’un appel à l’autre', () => {
+    const crowd = Array.from({ length: 30 }, (_, i) => at(`s${i}`, `S${i}`, [3.39, 6.45]))
+    expect([...declump(crowd, PIN_LAYOUT_ZOOM).entries()]).toEqual([...declump(crowd, PIN_LAYOUT_ZOOM).entries()])
+  })
+})

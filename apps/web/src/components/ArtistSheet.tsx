@@ -12,6 +12,7 @@ import {
   Pencil,
   Play,
   Share2,
+  Flag,
   ShieldCheck,
   UserCheck,
   UserRoundPlus,
@@ -35,6 +36,7 @@ import { loadArtistTracks, trackListenUrl, type StreamedTrack } from '@musimaps/
 import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import BookingModal from './BookingModal'
+import ReportDialog from './ReportDialog'
 
 const tabs = ['About', 'Musics', 'Events', 'Nearby'] as const
 type Tab = (typeof tabs)[number]
@@ -123,6 +125,8 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
       setTracksLoading(false)
     })
   }, [artist.id, artist.name, artist.tracks.length])
+
+  const [reportOpen, setReportOpen] = useState(false)
 
   const toggleSave = async () => {
     const result = await toggleFavorite(artist.id)
@@ -544,7 +548,18 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
         >
           {t('sheet.fullProfile')} <ExternalLink className="h-4 w-4" />
         </Link>
+
+        {/* Modération : signaler la fiche ou masquer l'artiste (connexion requise). */}
+        <button
+          type="button"
+          onClick={() => (user ? setReportOpen(true) : navigate(localize('/login')))}
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-secondary-text transition-colors hover:bg-secondary-bg"
+        >
+          <Flag className="h-3.5 w-3.5" /> {t('report.open')}
+        </button>
       </div>
+
+      <ReportDialog artist={artist} open={reportOpen} onOpenChange={setReportOpen} onBlocked={onClose} />
 
       {bookingOpen && <BookingModal artist={artist} onClose={() => setBookingOpen(false)} />}
     </div>

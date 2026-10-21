@@ -1,4 +1,5 @@
 import { getMapboxToken, getSupabase } from '../runtime'
+import { fetchBlockedArtists } from './moderation'
 import { triggerDiscoveryNotification } from './notifications'
 import type { Artist, ArtistEvent } from '../index'
 import { countryByName } from '../geo'
@@ -162,7 +163,7 @@ interface MbArtist {
   area?: { id?: string; name?: string }
   /** Zone d'origine (ville de naissance / formation du groupe). */
   'begin-area'?: { id?: string; name?: string }
-  tags?: Array<{ name: string }>
+  tags?: Array<{ name: string; count?: number }>
   'life-span'?: { begin?: string; end?: string }
   disambiguation?: string
   relations?: Array<{ type?: string; url?: { resource?: string } }>
@@ -282,7 +283,9 @@ async function enrichArtist(
 }> {
   try {
     const res = await fetch(
-      `https://musicbrainz.org/ws/2/artist/${mbid}?inc=url-rels+area&fmt=json`,
+      // `area` n'est pas un `inc` valide (MusicBrainz répond 400) : zones et
+      // pays sont déjà renvoyés par défaut par la fiche artiste.
+      `https://musicbrainz.org/ws/2/artist/${mbid}?inc=url-rels&fmt=json`,
       { headers: { Accept: 'application/json', 'User-Agent': MUSICBRAINZ_USER_AGENT }, signal },
     )
     if (!res.ok) return {}
@@ -684,10 +687,23 @@ async function searchMusicBrainz(query: string, signal?: AbortSignal): Promise<D
     }
   }
 
+  return enrichMbArtists(ordered, signal)
+}
+
+/**
+ * Enrichit des fiches MusicBrainz (liens, Wikidata, bio et photo Wikipedia),
+ * en écartant les non-musiciens. Commun à la recherche par nom et à la
+ * découverte d'une ville.
+ */
+async function enrichMbArtists(
+  ordered: MbArtist[],
+  signal?: AbortSignal,
+  gapMs = 600,
+): Promise<DiscoveredArtist[]> {
   const out: DiscoveredArtist[] = []
   for (let i = 0; i < ordered.length; i += 1) {
     const item = ordered[i]
-    await sleep(i === 0 ? 1200 : 600, signal)
+    await sleep(i === 0 ? 1200 : gapMs, signal)
     if (signal?.aborted) break
     const enriched = await enrichArtist(item.id, signal)
     const relations = enriched.relations ?? item.relations
@@ -747,7 +763,11 @@ async function searchMusicBrainz(query: string, signal?: AbortSignal): Promise<D
     out.push({
       id: `mb-${item.id}`,
       name: item.name,
-      genre: cleanGenre(item.tags?.[0]?.name ?? item.disambiguation ?? ''),
+      // Genre le plus voté : le premier tag n'est pas forcément un genre
+      // (« political » pour Metallica).
+      genre: cleanGenre(
+        [...(item.tags ?? [])].sort((a, b) => (b.count ?? 0) - (a.count ?? 0))[0]?.name ?? item.disambiguation ?? '',
+      ),
       city,
       country,
       flag: flagFor(country.length === 2 ? country : item.country ?? null),
@@ -856,6 +876,81 @@ async function searchWikipediaFallback(
     })
   }
   return out
+}
+
+/** Nombre d'artistes ajoutés au plus quand on explore une ville encore vide. */
+export const CITY_DISCOVERY_LIMIT = 10
+/** Candidats examinés (≈ 1 s chacun, limite de MusicBrainz). */
+const CITY_DISCOVERY_CANDIDATES = 12
+
+/**
+ * Artistes d'une ville qui n'en a pas encore sur la carte (ex. Los Angeles).
+ *
+ * MusicBrainz est interrogé sur la zone ACTUELLE et la zone d'ORIGINE de
+ * l'artiste, puis on ne garde que ceux dont la ville correspond vraiment et
+ * qui ont une page Wikipedia/Wikidata — les artistes connus, pas n'importe
+ * quel groupe local. Mêmes garde-fous que la recherche en ligne (vérification
+ * IA si active, sinon deux sources indépendantes). Les pins sont posés sur la
+ * ville : la spirale de la carte les écarte ensuite.
+ */
+export async function discoverCityArtists(
+  place: { city: string; countryCode: string | null; lng: number; lat: number },
+  signal?: AbortSignal,
+): Promise<DiscoveredArtist[]> {
+  const city = place.city.trim()
+  if (!city || !Number.isFinite(place.lng) || !Number.isFinite(place.lat)) return []
+  const phrase = `"${city.replace(/"/g, '')}"`
+  const country = place.countryCode && /^[A-Za-z]{2}$/.test(place.countryCode) ? ` AND country:${place.countryCode.toUpperCase()}` : ''
+  const url =
+    `https://musicbrainz.org/ws/2/artist/?query=${encodeURIComponent(`(area:${phrase} OR beginarea:${phrase})${country}`)}` +
+    '&fmt=json&limit=40'
+  let items: MbArtist[] = []
+  // MusicBrainz limite à ~1 requête/s et répond 503 au-delà : on réessaie.
+  for (let attempt = 0; attempt < 4 && items.length === 0 && !signal?.aborted; attempt += 1) {
+    if (attempt > 0) await sleep(1500 * attempt, signal)
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json', 'User-Agent': MUSICBRAINZ_USER_AGENT },
+        signal,
+      })
+      if (res.ok) items = ((await res.json()) as { artists?: MbArtist[] }).artists ?? []
+      else if (res.status !== 503) break
+    } catch {
+      return []
+    }
+  }
+  const key = normalizeArtistSearchQuery(city).toLowerCase()
+  const fromCity = items.filter((item) => {
+    if (!item.id || JUNK_MB_NAME.test(item.name)) return false
+    const names = [item.area?.name, item['begin-area']?.name].map((n) => normalizeArtistSearchQuery(n ?? '').toLowerCase())
+    return names.includes(key)
+  })
+  // Les fiches les plus renseignées (genres) sont en général les plus connues.
+  fromCity.sort((a, b) => (b.tags?.length ?? 0) - (a.tags?.length ?? 0))
+  const llmPromise = fetchLlmConfig()
+  // Une fiche par seconde : au-delà, MusicBrainz répond 503 et les liens
+  // Wikipedia manquent — on perdrait justement les artistes connus.
+  const enriched = await enrichMbArtists(fromCity.slice(0, CITY_DISCOVERY_CANDIDATES), signal, 1100)
+  const known = enriched.filter((artist) => artist.evidence?.wikipedia || artist.evidence?.wikidata)
+  if (signal?.aborted || known.length === 0) return []
+  let kept = known.filter(hasCrossSourceEvidence)
+  const llm = await llmPromise
+  if (isLlmEnabled(llm)) {
+    try {
+      const verified = await aiVerifyCandidates(known, llm)
+      if (verified !== null) kept = verified
+    } catch {
+      /* repli : deux sources indépendantes */
+    }
+  }
+  return kept.slice(0, CITY_DISCOVERY_LIMIT).map((artist) => ({
+    ...artist,
+    city,
+    country: place.countryCode?.toUpperCase() || artist.country,
+    flag: flagFor(place.countryCode?.toUpperCase() || artist.country),
+    lng: place.lng,
+    lat: place.lat,
+  }))
 }
 
 /**
@@ -1555,11 +1650,14 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     data = (fallback.data ?? null) as unknown as typeof data
   }
   if (!data) return []
+  // Artistes bloqués par l'utilisateur : absents de sa carte, de ses listes
+  // et de ses fiches, sur les deux plateformes (un seul point d'entrée).
+  const blocked = new Set(await fetchBlockedArtists())
   // Filtre repris du mobile : une ligne sans coordonnées numériques valides
   // ne doit jamais devenir un pin. Le web ne filtrait pas ici et s'en
   // remettait entièrement à la garde de GlobeMap.
   return data
-    .filter((row) => typeof row.lat === 'number' && typeof row.lng === 'number')
+    .filter((row) => typeof row.lat === 'number' && typeof row.lng === 'number' && !blocked.has(row.id))
     .map((row) => ({
     id: row.id,
     name: row.name,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Check, ChevronLeft, CircleHelp, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, X } from 'lucide-react'
+import { Check, ChevronLeft, CircleHelp, Globe2, History, Loader2, MapPin, Mic2, Music2, Pencil, Search, Send, Shuffle, Sparkles, X } from 'lucide-react'
 import GlobeMap, { type GlobeMapHandle } from '../components/GlobeMap'
 import ArtistSheet from '../components/ArtistSheet'
 import PlacePanel, { type PlacePanelData } from '../components/PlacePanel'
@@ -46,9 +46,13 @@ import iconBlue from '../assets/brand/icon.png'
 import iconWhite from '../assets/brand/icon-white.png'
 import {
   addMapArtist,
+  discoverCityArtists,
+  suggestCities,
+  type CitySuggestion,
   addOrUpdateMapArtist,
   displayGenre,
   fetchMapArtists,
+  onArtistBlocked,
   hasCrossSourceEvidence,
   locateArtist,
   mergeRediscoveredArtist,
@@ -225,6 +229,12 @@ export default function GlobeExplore() {
     void getSearchHistory().then(setHistory)
   }, [])
 
+  // Artiste bloqué depuis sa fiche : il quitte la carte sans rechargement.
+  useEffect(
+    () => onArtistBlocked((id) => setMapArtists((previous) => previous.filter((artist) => artist.id !== id))),
+    [],
+  )
+
   useEffect(() => {
     let cancelled = false
     void fetchMapArtists().then((rows) => {
@@ -264,6 +274,27 @@ export default function GlobeExplore() {
         setSearchingWeb(false)
       })
     }, 450)
+    return () => {
+      clearTimeout(delay)
+      controller.abort()
+    }
+  }, [query])
+
+  // Villes du monde (Mapbox) : une ville sans artiste sur la carte (Los
+  // Angeles…) apparaît quand même dans Lieux, avec la découverte de ses artistes.
+  const [cityCandidates, setCityCandidates] = useState<CitySuggestion[]>([])
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 3) {
+      setCityCandidates([])
+      return
+    }
+    const controller = new AbortController()
+    const delay = setTimeout(() => {
+      void suggestCities(q, null, controller.signal).then((found) => {
+        if (!controller.signal.aborted) setCityCandidates(found)
+      })
+    }, 350)
     return () => {
       clearTimeout(delay)
       controller.abort()
@@ -600,6 +631,19 @@ export default function GlobeExplore() {
     setSelected(null)
   }
 
+  const worldCityResults = useMemo(() => {
+    const known = new Set(placeResults.map((p) => norm(p.city)))
+    const seen = new Set<string>()
+    return cityCandidates
+      .filter((c) => {
+        const key = norm(c.city)
+        if (known.has(key) || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, 3)
+  }, [cityCandidates, placeResults])
+
   const goToCity = useCallback(
     (c: { city: string; country: string; coordinates: [number, number] }) => {
       setExplorationLocation({ coordinates: c.coordinates, city: c.city, country: c.country })
@@ -643,6 +687,42 @@ export default function GlobeExplore() {
       mapRef.current?.flyTo(c.coordinates, CAMERA.city.zoom, CAMERA.city.duration)
     },
     [allArtists, rememberQuery],
+  )
+
+  /** Ville encore vide : on y vole et on va chercher ses artistes connus. */
+  const exploreCity = useCallback(
+    async (c: CitySuggestion) => {
+      rememberQuery(c.city)
+      setSearchOpen(false)
+      setQuery('')
+      setSelected(null)
+      setHighlightedId(null)
+      setVisiblePins([])
+      setExplorationLocation({ coordinates: [c.lng, c.lat], city: c.city, country: c.label.split(',').at(-1)?.trim() ?? '' })
+      mapRef.current?.flyTo([c.lng, c.lat], CAMERA.genre.zoom, CAMERA.city.duration)
+      const pending = toast.loading(t('search.cityDiscovering', { city: c.city }))
+      const found = await discoverCityArtists({ city: c.city, countryCode: c.countryCode, lng: c.lng, lat: c.lat })
+      const added: Artist[] = []
+      for (const fresh of found) {
+        const result = await addOrUpdateMapArtist(fresh)
+        if (!result.ok && !(await addMapArtist(fresh)).ok) continue
+        added.push(toArtist({ ...fresh, id: result.id ?? fresh.id }))
+      }
+      toast.dismiss(pending)
+      if (added.length === 0) {
+        toast.info(t('search.cityNone', { city: c.city }))
+        return
+      }
+      setMapArtists((prev) => [...prev.filter((a) => !added.some((n) => n.id === a.id)), ...added])
+      setVisiblePins(added)
+      const code = (c.countryCode ?? '').toUpperCase()
+      setSelectedPlace({ kind: 'city', name: c.city, code, flag: flagFor(code), artists: added })
+      setPlaceIndex(0)
+      setHighlightedId(added[0].id)
+      toast.success(t('search.cityDiscovered', { count: added.length, city: c.city }))
+      mapRef.current?.focusFirst(added, CAMERA.city.zoom)
+    },
+    [rememberQuery, t],
   )
 
   const goToNeighborhood = useCallback(
@@ -1440,6 +1520,7 @@ export default function GlobeExplore() {
                 {query &&
                   countryResults.length === 0 &&
                   placeResults.length === 0 &&
+                  worldCityResults.length === 0 &&
                   neighborhoodResults.length === 0 &&
                   artistResults.length === 0 &&
                   genreResults.length === 0 &&
@@ -1528,7 +1609,7 @@ export default function GlobeExplore() {
                   </section>
                 )}
 
-                {placeResults.length > 0 && (
+                {(placeResults.length > 0 || worldCityResults.length > 0) && (
                   <section>
                     <h3 className="px-2 pb-2 pt-3 text-xs uppercase tracking-widest text-secondary-text">
                       <MapPin className="mr-1 inline h-3 w-3" /> {t('globe.places')}
@@ -1555,6 +1636,28 @@ export default function GlobeExplore() {
                                   s: c.count > 1 ? 's' : '',
                                 })}
                               </span>
+                            </span>
+                            <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
+                              {t('globe.typePlace')}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                      {worldCityResults.map((c) => (
+                        <li key={`world·${c.label}`}>
+                          <button
+                            type="button"
+                            onClick={() => void exploreCity(c)}
+                            className="flex w-full items-center gap-4 rounded-2xl p-3 text-left transition-colors hover:bg-secondary-bg"
+                          >
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-deep">
+                              <Sparkles className="h-5 w-5" />
+                            </span>
+                            <span className="flex-1">
+                              <span className="block font-medium">
+                                {flagFor((c.countryCode ?? '').toUpperCase())} {c.city}
+                              </span>
+                              <span className="block text-sm text-secondary-text">{t('search.cityExplore')}</span>
                             </span>
                             <span className="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-deep">
                               {t('globe.typePlace')}

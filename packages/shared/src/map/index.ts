@@ -46,8 +46,13 @@ export type ClusterLevel = 'country' | 'city' | 'sub' | 'spread';
  * dés-empilement. Le décalage géographique étant plafonné (voir
  * `MAX_OFFSET_KM`), il faut atteindre z11 pour que deux pins tiennent côte
  * à côte sans mentir sur la position.
+ *
+ * Puis 11 → 12,5 : la mise en page est calculée à `PIN_LAYOUT_ZOOM` (13) avec
+ * 60 px entre voisins. À z11 ces 60 px n'en font plus que 15, pour des pins
+ * de 30 à 40 px : ils s'agglutinaient dans les villes denses. À z12,5 l'écart
+ * vaut encore 42 px ; en dessous on montre les pastilles « N artistes ».
  */
-export const SPREAD_ZOOM = 11;
+export const SPREAD_ZOOM = 12.5;
 
 /** Seuils de zoom : monde → pays → ville → sous-groupe → pins individuels. */
 export function levelFor(zoom: number): ClusterLevel {
@@ -373,7 +378,78 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
       });
     }
   }
+  separatePins(out, zoom);
   return out;
+}
+
+/** Passes de relaxation maximales (s'arrête plus tôt dès qu'aucun pin ne se chevauche). */
+const SEPARATION_PASSES = 60;
+
+/**
+ * Garantit l'écart minimal entre TOUS les pins, quelle que soit la densité.
+ *
+ * Les spirales sont calculées groupe par groupe (case de ~2 km) et quartier
+ * par quartier : deux groupes voisins, ou deux quartiers d'une même ville,
+ * pouvaient donc se recouvrir. Cette passe travaille en pixels au zoom de
+ * mise en page et repousse chaque paire trop proche jusqu'à
+ * `TARGET_SEPARATION_PX`, en déplaçant les deux pins à parts égales — le
+ * minimum nécessaire, la spirale reste la forme de départ. Déterministe
+ * (ordre fixe des identifiants) : les pins ne bougent pas d'un rendu à l'autre.
+ */
+function separatePins(positions: Map<string, [number, number]>, zoom: number): void {
+  if (positions.size < 2) return;
+  const ppd = pixelsPerDegree(zoom);
+  const ids = [...positions.keys()].sort();
+  // Projection locale : x corrigé par cos(lat), comme les spirales.
+  const pts = ids.map((id) => {
+    const [lng, lat] = positions.get(id)!;
+    const k = Math.max(0.25, Math.cos((lat * Math.PI) / 180));
+    return { id, x: lng * ppd * k, y: lat * ppd, k };
+  });
+  const min = TARGET_SEPARATION_PX;
+  for (let pass = 0; pass < SEPARATION_PASSES; pass += 1) {
+    const grid = new Map<string, number[]>();
+    pts.forEach((p, i) => {
+      const key = `${Math.floor(p.x / min)}|${Math.floor(p.y / min)}`;
+      const cell = grid.get(key);
+      if (cell) cell.push(i);
+      else grid.set(key, [i]);
+    });
+    let moved = false;
+    pts.forEach((p, i) => {
+      const cx = Math.floor(p.x / min);
+      const cy = Math.floor(p.y / min);
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (const j of grid.get(`${cx + dx}|${cy + dy}`) ?? []) {
+            if (j <= i) continue;
+            const q = pts[j];
+            let vx = q.x - p.x;
+            let vy = q.y - p.y;
+            let d = Math.hypot(vx, vy);
+            if (d >= min - 0.01) continue;
+            if (d < 1e-6) {
+              // Points confondus : direction déterministe (angle d'or).
+              const angle = (i + j) * GOLDEN_ANGLE;
+              vx = Math.cos(angle);
+              vy = Math.sin(angle);
+              d = 1;
+            }
+            const push = (min - Math.min(d, min)) / 2 / Math.max(d, 1e-6);
+            p.x -= vx * push;
+            p.y -= vy * push;
+            q.x += vx * push;
+            q.y += vy * push;
+            moved = true;
+          }
+        }
+      }
+    });
+    if (!moved) break;
+  }
+  for (const p of pts) {
+    positions.set(p.id, [p.x / (ppd * p.k), Math.min(85, Math.max(-85, p.y / ppd))]);
+  }
 }
 
 /**

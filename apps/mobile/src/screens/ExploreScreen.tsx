@@ -119,8 +119,12 @@ import { useI18n } from '../i18n';
 import {
   addMapArtist,
   addOrUpdateMapArtist,
+  discoverCityArtists,
+  suggestCities,
+  type CitySuggestion,
   displayGenre,
   fetchMapArtists,
+  onArtistBlocked,
   hasCrossSourceEvidence,
   locateArtist,
   mergeRediscoveredArtist,
@@ -390,6 +394,8 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [searchingWeb, setSearchingWeb] = useState(false);
   // Quartiers / localités (Mapbox) pendant la saisie — comme le web.
   const [neighborhoodResults, setNeighborhoodResults] = useState<NeighborhoodSuggestion[]>([]);
+  /** Villes du monde (Mapbox) qui n'ont encore aucun artiste sur la carte. */
+  const [cityCandidates, setCityCandidates] = useState<CitySuggestion[]>([]);
   const [searchingNeighborhoods, setSearchingNeighborhoods] = useState(false);
   const [addingId, setAddingId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
@@ -437,6 +443,16 @@ export function ExploreScreen({ navigation, route }: Props) {
   useEffect(() => {
     setDockHidden(selected !== null || searchOpen);
   }, [selected, searchOpen, setDockHidden]);
+
+  // Artiste bloqué depuis sa fiche : il quitte la carte sans rechargement.
+  useEffect(
+    () =>
+      onArtistBlocked((id) => {
+        setMapArtists((previous) => previous.filter((artist) => artist.id !== id));
+        setVisiblePins((previous) => previous.filter((artist) => artist.id !== id));
+      }),
+    [],
+  );
 
   // Charge les artistes de la carte (table partagée web + mobile) à chaque focus.
   useFocusEffect(
@@ -710,6 +726,36 @@ export function ExploreScreen({ navigation, route }: Props) {
     };
   }, [query, knownNames]);
 
+  // Villes du monde pendant la saisie : « Los Angeles » doit apparaître dans
+  // Lieux même si aucun artiste n'y est encore placé.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) {
+      setCityCandidates([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void suggestCities(q, null, controller.signal).then((found) => {
+        if (!controller.signal.aborted) setCityCandidates(found);
+      });
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+  const worldCityResults = useMemo(() => {
+    const known = new Set(placeResults.map((p) => norm(p.city)));
+    const seen = new Set<string>();
+    return cityCandidates.filter((c) => {
+      const key = norm(c.city);
+      if (known.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 3);
+  }, [cityCandidates, placeResults]);
+
   // Quartiers / localités pendant la saisie (comme le web).
   useEffect(() => {
     const q = query.trim();
@@ -953,6 +999,42 @@ export function ExploreScreen({ navigation, route }: Props) {
       flyTo(c.coordinates, CAMERA.city.zoom, CAMERA.city.duration);
     },
     [allArtists, rememberQuery, recordCityVisit],
+  );
+
+  /** Ville encore vide : on y vole et on va chercher ses artistes connus. */
+  const exploreCity = useCallback(
+    async (c: CitySuggestion) => {
+      rememberQuery(c.city);
+      setSearchOpen(false);
+      setQuery('');
+      setSelected(null);
+      setHighlightedId(null);
+      setVisiblePins([]);
+      setExplorationLocation({ coordinates: [c.lng, c.lat], city: c.city, country: c.label.split(',').at(-1)?.trim() ?? '' });
+      flyTo([c.lng, c.lat], CAMERA.genre.zoom, CAMERA.city.duration);
+      showToast(t('search.cityDiscovering', { city: c.city }), 'search');
+      const found = await discoverCityArtists({ city: c.city, countryCode: c.countryCode, lng: c.lng, lat: c.lat });
+      const added: Artist[] = [];
+      for (const fresh of found) {
+        const result = await addOrUpdateMapArtist(fresh);
+        if (!result.ok && !(await addMapArtist(fresh)).ok) continue;
+        added.push(toArtist({ ...fresh, id: result.id ?? fresh.id }));
+      }
+      if (added.length === 0) {
+        showToast(t('search.cityNone', { city: c.city }), 'search');
+        return;
+      }
+      setMapArtists((prev) => [...prev.filter((a) => !added.some((n) => n.id === a.id)), ...added]);
+      setVisiblePins(added);
+      const code = (c.countryCode ?? '').toUpperCase();
+      setSelectedPlace({ kind: 'city', name: c.city, code, flag: flagFor(code), artists: added });
+      setPlaceIndex(0);
+      setHighlightedId(added[0].id);
+      showToast(t('search.cityDiscovered', { count: added.length, city: c.city }), 'musical-notes');
+      const rendered = renderedPosition(added, added[0].id, PIN_LAYOUT_ZOOM);
+      flyTo(rendered ?? added[0].coordinates, CAMERA.city.zoom, CAMERA.city.duration);
+    },
+    [rememberQuery, showToast, t],
   );
 
   const goToNeighborhood = useCallback(
@@ -2493,7 +2575,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                 </>
               )}
 
-              {query && countryResults.length === 0 && placeResults.length === 0 && neighborhoodResults.length === 0 && artistResults.length === 0 && genreResults.length === 0 && onlineResults.length === 0 && !searchingWeb && !searchingNeighborhoods && (
+              {query && countryResults.length === 0 && placeResults.length === 0 && worldCityResults.length === 0 && neighborhoodResults.length === 0 && artistResults.length === 0 && genreResults.length === 0 && onlineResults.length === 0 && !searchingWeb && !searchingNeighborhoods && (
                 <Text style={styles.noResults}>{t('globe.noResults', { query })}</Text>
               )}
 
@@ -2561,7 +2643,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                 </>
               )}
 
-              {placeResults.length > 0 && (
+              {(placeResults.length > 0 || worldCityResults.length > 0) && (
                 <>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="location-outline" size={13} color={colors.inkSoft} />
@@ -2577,6 +2659,20 @@ export function ExploreScreen({ navigation, route }: Props) {
                         <Text style={styles.resultMeta}>
                           {c.country} · {t('globe.placeArtistsShort', { count: c.count, s: c.count > 1 ? 's' : '' })}
                         </Text>
+                      </View>
+                      <View style={styles.typeBadge}>
+                        <Text style={styles.typeBadgeText}>{t('globe.typePlace')}</Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                  {worldCityResults.map((c) => (
+                    <Pressable key={`world·${c.label}`} style={styles.resultRow} onPress={() => void exploreCity(c)}>
+                      <View style={styles.resultAvatar}>
+                        <Ionicons name="sparkles" size={20} color={colors.brandDeep} />
+                      </View>
+                      <View style={styles.resultCopy}>
+                        <Text style={styles.resultTitle} numberOfLines={1}>{flagFor((c.countryCode ?? '').toUpperCase())} {c.city}</Text>
+                        <Text style={styles.resultMeta} numberOfLines={1}>{t('search.cityExplore')}</Text>
                       </View>
                       <View style={styles.typeBadge}>
                         <Text style={styles.typeBadgeText}>{t('globe.typePlace')}</Text>
