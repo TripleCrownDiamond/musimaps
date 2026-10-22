@@ -20,6 +20,7 @@
     "build:mobile:ios": "npm run export:ios --workspace @musimaps/mobile",
     "deploy:web": "npm run build:web && node scripts/deploy-hostinger.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
+    "db:backup": "node scripts/db-backup.mjs",
     "populate:map": "node scripts/populate-map.mjs",
     "purge": "node scripts/purge-hostinger-cache.mjs",
     "deploy": "node scripts/deploy-hostinger.mjs",
