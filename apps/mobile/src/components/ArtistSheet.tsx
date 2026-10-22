@@ -596,7 +596,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
           style={styles.report}
           onPress={() => (user ? setReportOpen(true) : requireAuth())}
         >
-          <Ionicons name="flag-outline" size={13} color={colors.inkSoft} />
+          <Ionicons name="flag" size={13} color={colors.danger} />
           <Text style={styles.reportText}>{t('report.open')}</Text>
         </Pressable>
       </Animated.View>
@@ -730,5 +730,5 @@ const createStyles = (colors: AppColors) =>
     claim: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 12, borderRadius: 24, borderWidth: 1, borderColor: colors.brandDeep, backgroundColor: colors.brandSoft, paddingVertical: 11 },
     claimText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 13 },
     report: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 4 },
-    reportText: { color: colors.inkSoft, fontFamily: fonts.medium, fontSize: 12 },
+    reportText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 12 },
   });

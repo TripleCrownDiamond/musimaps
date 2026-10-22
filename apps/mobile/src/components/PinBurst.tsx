@@ -26,6 +26,8 @@ let startedAt = 0;
 let version = 0;
 let frame = 0;
 let reduceMotion = false;
+/** Incrémenté à chaque fin d'éclatement : le pin sélectionné se ré-ajoute alors au-dessus. */
+let settledEpoch = 0;
 const listeners = new Set<() => void>();
 const notify = () => {
   version += 1;
@@ -50,7 +52,10 @@ export const pinBurst = {
     startedAt = Date.now();
     const tick = () => {
       if (phase !== 'running') return;
-      if (Date.now() - startedAt >= PIN_BURST_TOTAL_MS) phase = 'idle';
+      if (Date.now() - startedAt >= PIN_BURST_TOTAL_MS) {
+        phase = 'idle';
+        settledEpoch += 1;
+      }
       else frame = requestAnimationFrame(tick);
       notify();
     };
@@ -78,11 +83,14 @@ export function BurstMarkerView({
   id,
   coordinate,
   origin,
+  onTop = false,
   children,
 }: {
   id: string;
   coordinate: [number, number];
   origin?: BurstOrigin;
+  /** Pin sélectionné : son nom ne doit jamais passer sous un voisin. */
+  onTop?: boolean;
   children: ReactElement;
 }) {
   useSyncExternalStore(subscribe, snapshot);
@@ -90,6 +98,10 @@ export function BurstMarkerView({
   const step = animated ? burstFrame(elapsed(), origin.index) : null;
   return (
     <Mapbox.MarkerView
+      // Android empile les markers dans l'ordre où ils sont (ré)ajoutés, et
+      // l'animation déplace les voisins par-dessus : en fin d'éclatement, le
+      // pin sélectionné est ré-ajouté une dernière fois, donc au-dessus.
+      key={onTop ? `top-${settledEpoch}` : 'pin'}
       id={id}
       coordinate={step && origin ? lerpCoordinate(origin.from, coordinate, step.travel) : coordinate}
       allowOverlap

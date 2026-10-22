@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { GUEST_NUDGE_DELAY_MS, GUEST_NUDGE_DURATION_MS } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -21,8 +22,12 @@ export function GuestExperienceNudge() {
 
   useEffect(() => {
     if (loading || user || shownRef.current) return;
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       if (shownRef.current) return;
+      // Le profil peut tarder (réseau) alors que la session existe : on ne
+      // propose jamais de créer un compte à quelqu'un de déjà connecté.
+      const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+      if (data.session || shownRef.current) return;
       shownRef.current = true;
       showToast(t('guest.nudge'), 'person-add-outline', 'success', {
         durationMs: GUEST_NUDGE_DURATION_MS,

@@ -553,9 +553,9 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
         <button
           type="button"
           onClick={() => (user ? setReportOpen(true) : navigate(localize('/login')))}
-          className="mt-1 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-medium text-secondary-text transition-colors hover:bg-secondary-bg"
+          className="mt-1 flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold text-red-500 transition-colors hover:bg-red-500/10"
         >
-          <Flag className="h-3.5 w-3.5" /> {t('report.open')}
+          <Flag className="h-3.5 w-3.5 fill-current" /> {t('report.open')}
         </button>
       </div>
 

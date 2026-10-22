@@ -2205,6 +2205,8 @@ export function ExploreScreen({ navigation, route }: Props) {
             const ringOutset = selectedPin ? 8 : 4;
             const ringSize = displayedPinSize + ringOutset * 2;
             const haloSize = displayedPinSize + 18;
+            // Largeur du marker : élargie quand il est sélectionné (voir markerWrapSelected).
+            const wrapWidth = selectedPin ? mapUi.pinLabelWidth : mapUi.markerTouchWidth;
             return (
             // Android empile les markers dans l'ordre où ils sont AJOUTÉS à la
             // carte, pas dans l'ordre du tableau : un pin sélectionné resté à
@@ -2215,6 +2217,7 @@ export function ExploreScreen({ navigation, route }: Props) {
               id={selectedPin ? `pin-${pin.key}-selected` : `pin-${pin.key}`}
               coordinate={pin.coords}
               origin={burstPlan?.origins.get(pin.artist.id)}
+              onTop={selectedPin}
             >
               <Pressable
                 accessibilityRole="button"
@@ -2247,7 +2250,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       height: haloSize,
                       borderRadius: haloSize / 2,
                       top: (mapUi.markerTouchHeight - haloSize) / 2,
-                      left: (mapUi.markerTouchWidth - haloSize) / 2,
+                      left: (wrapWidth - haloSize) / 2,
                     },
                   ]}
                 />
@@ -2265,7 +2268,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       height: ringSize + 2,
                       borderRadius: (ringSize + 2) / 2,
                       top: (mapUi.markerTouchHeight - ringSize - 2) / 2,
-                      left: (mapUi.markerTouchWidth - ringSize - 2) / 2,
+                      left: (wrapWidth - ringSize - 2) / 2,
                     },
                   ]}
                 />
@@ -2279,7 +2282,7 @@ export function ExploreScreen({ navigation, route }: Props) {
                       height: ringSize,
                       borderRadius: ringSize / 2,
                       top: (mapUi.markerTouchHeight - ringSize) / 2,
-                      left: (mapUi.markerTouchWidth - ringSize) / 2,
+                      left: (wrapWidth - ringSize) / 2,
                       borderWidth: selectedPin ? 3 : pinRingWidthFor(pin.tier),
                       borderColor:
                         selectedPin
@@ -2938,7 +2941,9 @@ const createStyles = (colors: AppColors, overlay: MapOverlay) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    markerWrapSelected: { zIndex: 1200 },
+    // Le marker sélectionné s'élargit pour que son nom tienne en entier :
+    // l'étiquette est coupée aux bords du marker sur Android (« Cyano-… »).
+    markerWrapSelected: { zIndex: 1200, width: mapUi.pinLabelWidth },
     clusterTouchTarget: {
       minWidth: mapUi.clusterHitSize,
       minHeight: mapUi.clusterHitSize,

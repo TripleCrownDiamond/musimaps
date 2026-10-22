@@ -130,6 +130,16 @@ function AppNavigator() {
         ]);
         if (cancelled) return;
         if (onboarded[1] === 'true') return setInitialRoute('Main');
+        // Session enregistrée sur le téléphone : on est connecté, l'accueil
+        // (langue, « Explorer », « Créer un compte ») n'a plus lieu d'être.
+        // Une connexion faite depuis l'accueil ne passait pas par Welcome et
+        // ne marquait jamais l'onboarding : l'accueil revenait à chaque ouverture.
+        const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+        if (cancelled) return;
+        if (data.session) {
+          await AsyncStorage.setItem(ONBOARDED_KEY, 'true').catch(() => {});
+          return setInitialRoute('Main');
+        }
         setInitialRoute(seen[1] === 'true' ? 'Welcome' : 'Start');
       } catch {
         // Stockage indisponible : on repart du parcours complet.
