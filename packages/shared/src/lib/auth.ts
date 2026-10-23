@@ -446,9 +446,9 @@ export async function updateProfile(params: {
     // Les métadonnées gardent la trace du choix : `roleConfirmed` en dépend.
     await supabase.auth.updateUser({ data: { role: params.role } });
   }
-  // Bio incluse uniquement si non vide : évite une écriture permanente sur
-  // les bases où la colonne n'existe pas.
-  if (params.bio !== undefined && params.bio.trim()) patch.bio = params.bio.trim();
+  // Colonne bio ajoutée par 00080 (bio du profil public) : on peut aussi la
+  // vider. Sur une base plus ancienne, le repli ci-dessous la retire.
+  if (params.bio !== undefined) patch.bio = params.bio.trim();
 
   const { error } = await supabase.from('profiles').update(patch).eq('id', data.user.id);
   if (error && /column|schema|does not exist/i.test(error.message)) {

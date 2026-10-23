@@ -3,7 +3,7 @@ import { PROFILE_MEDIA, profileInitials } from './profile-media';
 
 describe('account media design', () => {
   it('uses the same sizes for display and editing on both surfaces', () => {
-    expect(PROFILE_MEDIA.avatarSize).toEqual({ profile: 112, edit: 80 });
+    expect(PROFILE_MEDIA.avatarSize).toEqual({ profile: 112, edit: 80, row: 44 });
     expect(PROFILE_MEDIA.actionSize).toBeGreaterThanOrEqual(44);
   });
   it('makes consistent initials, including blank names and repeated spaces', () => {

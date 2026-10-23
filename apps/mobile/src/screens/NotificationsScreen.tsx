@@ -83,6 +83,12 @@ export function NotificationsScreen({ navigation }: Props) {
       case 'achievements':
         navigation.navigate('Badges');
         break;
+      case 'profile':
+        navigation.navigate('PublicProfile', { handle: destination.handle });
+        break;
+      case 'collection':
+        navigation.navigate('Collection', { id: destination.collectionId });
+        break;
       case 'globe':
         navigation.navigate('Main', { screen: 'Explore' });
         break;

@@ -52,6 +52,26 @@ export function artistUrl(slugOrId: string, lang: 'fr' | 'en' = 'fr'): string {
   return siteUrl(`/artist/${slugOrId}`, lang);
 }
 
+/** Chemin du profil public d'un mélomane (`/m/awa.cotonou`). */
+export function profilePath(handle: string): string {
+  return `/m/${encodeURIComponent(handle)}`;
+}
+
+/** Chemin d'une sélection d'artistes partageable. */
+export function collectionPath(id: string): string {
+  return `/selection/${encodeURIComponent(id)}`;
+}
+
+/** Profil public d'un mélomane, adresse absolue (partage). */
+export function profileUrl(handle: string, lang: 'fr' | 'en' = 'fr'): string {
+  return siteUrl(profilePath(handle), lang);
+}
+
+/** Sélection d'artistes, adresse absolue (partage). */
+export function collectionUrl(id: string, lang: 'fr' | 'en' = 'fr'): string {
+  return siteUrl(collectionPath(id), lang);
+}
+
 /** Conditions générales d'utilisation. */
 export function termsUrl(lang: 'fr' | 'en' = 'fr'): string {
   return siteUrl(LEGAL_PATHS.terms, lang);

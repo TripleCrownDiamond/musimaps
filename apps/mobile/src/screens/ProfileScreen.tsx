@@ -284,6 +284,18 @@ export function ProfileScreen({ navigation }: Props) {
           </Card>
         )}
 
+        {/* Communauté de mélomanes : ouverte aussi aux invités (recherche). */}
+        <Card style={styles.menuItem} onPress={() => navigation.navigate('Community')}>
+          <View style={styles.menuIcon}>
+            <Ionicons name="people-outline" size={22} color={colors.brandPrimary} />
+          </View>
+          <View style={styles.menuCopy}>
+            <Text style={styles.menuTitle}>{t('community.title')}</Text>
+            <Text style={styles.menuText}>{t('community.subtitle')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </Card>
+
         {/* Pas d'entrée « Badges & trophées » ici : la carte de niveau, en
             haut de l'écran, mène déjà à la même page. */}
         <Card style={styles.menuItem} onPress={() => navigation.navigate('ArtistJoin')}>

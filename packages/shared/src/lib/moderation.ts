@@ -17,8 +17,20 @@ export type ReportReason = (typeof REPORT_REASONS)[number]
 /** Longueur maximale du commentaire libre (même borne que la contrainte SQL). */
 export const REPORT_DETAILS_MAX = 1000
 
-export async function reportArtist(
-  artistId: string,
+/** Ce qu'on signale : une fiche d'artiste, un profil de mélomane ou une sélection (00080). */
+export type ReportTarget =
+  | { kind: 'artist'; id: string }
+  | { kind: 'profile'; id: string }
+  | { kind: 'collection'; id: string }
+
+const REPORT_COLUMN: Record<ReportTarget['kind'], 'artist_id' | 'profile_id' | 'collection_id'> = {
+  artist: 'artist_id',
+  profile: 'profile_id',
+  collection: 'collection_id',
+}
+
+export async function reportContent(
+  target: ReportTarget,
   reason: ReportReason,
   details = '',
 ): Promise<{ ok: boolean; error?: string }> {
@@ -28,11 +40,15 @@ export async function reportArtist(
   if (!data.user) return { ok: false, error: 'auth' }
   const { error } = await supabase.from('content_reports').insert({
     reporter_id: data.user.id,
-    artist_id: artistId,
+    [REPORT_COLUMN[target.kind]]: target.id,
     reason,
     details: details.trim().slice(0, REPORT_DETAILS_MAX),
   })
   return error ? { ok: false, error: error.message } : { ok: true }
+}
+
+export function reportArtist(artistId: string, reason: ReportReason, details = ''): Promise<{ ok: boolean; error?: string }> {
+  return reportContent({ kind: 'artist', id: artistId }, reason, details)
 }
 
 /** Artistes que l'utilisateur connecté a bloqués (vide hors connexion). */
@@ -84,4 +100,35 @@ export async function unblockArtist(artistId: string): Promise<{ ok: boolean; er
 export function withoutBlocked<T extends { id: string }>(artists: T[], blocked: Iterable<string>): T[] {
   const ids = new Set(blocked)
   return ids.size === 0 ? artists : artists.filter((artist) => !ids.has(artist.id))
+}
+
+/** Écrans à prévenir d'un blocage de compte : profil et sélections disparaissent. */
+const userBlockListeners = new Set<(userId: string) => void>()
+
+export function onUserBlocked(listener: (userId: string) => void): () => void {
+  userBlockListeners.add(listener)
+  return () => {
+    userBlockListeners.delete(listener)
+  }
+}
+
+/** Bloque un compte : suivi coupé dans les deux sens, profil et sélections masqués (00080). */
+export async function blockUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabase()
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { data } = await supabase.auth.getUser()
+  if (!data.user) return { ok: false, error: 'auth' }
+  const { error } = await supabase
+    .from('user_blocks')
+    .upsert({ blocker_id: data.user.id, blocked_id: userId }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true })
+  if (error) return { ok: false, error: error.message }
+  userBlockListeners.forEach((listener) => listener(userId))
+  return { ok: true }
+}
+
+export async function unblockUser(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const supabase = getSupabase()
+  if (!supabase) return { ok: false, error: 'Supabase non configuré' }
+  const { error } = await supabase.from('user_blocks').delete().eq('blocked_id', userId)
+  return error ? { ok: false, error: error.message } : { ok: true }
 }

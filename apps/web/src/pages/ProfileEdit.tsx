@@ -18,6 +18,7 @@ import { NeighborhoodSelect } from '../components/NeighborhoodSelect'
 import { reverseGeocodeBrowser } from '../lib/geolocate'
 import { ArtistPublicLinkEditor } from '../components/ArtistPublicLinkEditor'
 import RolePicker from '../components/RolePicker'
+import { PublicProfileSettings } from '../components/community/PublicProfileSettings'
 
 /**
  * Complétion / modification du PROFIL DE COMPTE (table profiles) :
@@ -338,6 +339,9 @@ export default function ProfileEdit() {
               {saved ? t('pedit.saved') : t('pedit.saveEdit')}
             </button>
           </form>
+
+          {/* Communauté : profil public au choix (masqué pendant la complétion). */}
+          {user && !completing && <PublicProfileSettings displayName={displayName} />}
 
           {claimedArtist && (
             <section ref={artistLinkSection} id="artist-link" className="mt-8 scroll-mt-28 overflow-hidden rounded-3xl border border-hairline bg-secondary-bg">

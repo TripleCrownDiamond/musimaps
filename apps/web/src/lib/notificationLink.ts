@@ -1,4 +1,4 @@
-import { notificationDestination, type AppNotification } from '@musimaps/shared'
+import { collectionPath, notificationDestination, profilePath, type AppNotification } from '@musimaps/shared'
 
 /** Paramètre du globe : découverte guidée autour de la position. */
 export const DISCOVER_NEARBY_PARAM = 'discover'
@@ -26,6 +26,10 @@ export function notificationHref(
       return `${localize('/dashboard')}?${BADGE_PARAM}=${encodeURIComponent(destination.badgeId)}`
     case 'achievements':
       return `${localize('/dashboard')}?${REWARDS_PARAM}=1`
+    case 'profile':
+      return localize(profilePath(destination.handle))
+    case 'collection':
+      return localize(collectionPath(destination.collectionId))
     case 'globe':
       return localize('/globe')
   }

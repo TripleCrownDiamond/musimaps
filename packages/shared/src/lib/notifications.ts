@@ -19,7 +19,9 @@ export type NotificationType =
   | 'booking'
   | 'booking_status'
   | 'streak'
-  | 'achievement';
+  | 'achievement'
+  /** Un mélomane suivi publie une sélection (00080). */
+  | 'collection';
 
 export interface AppNotification {
   id: string;
@@ -74,6 +76,7 @@ export const NOTIFICATION_ICONS: Record<NotificationType, string> = {
   booking_status: '📅',
   streak: '🔥',
   achievement: '🏆',
+  collection: '🎧',
 };
 
 /** Icône d'un type, avec repli sur la cloche pour un type inconnu. */
@@ -89,6 +92,10 @@ export type NotificationDestination =
   | { kind: 'achievement'; badgeId: string }
   /** Tous les accomplissements (niveau, badges, série). */
   | { kind: 'achievements' }
+  /** Profil public du mélomane qui vous suit. */
+  | { kind: 'profile'; handle: string }
+  /** Sélection publiée ou aimée. */
+  | { kind: 'collection'; collectionId: string }
   | { kind: 'globe' };
 
 /**
@@ -106,6 +113,11 @@ export function notificationDestination(
     return item.ref ? { kind: 'achievement', badgeId: item.ref } : { kind: 'achievements' };
   }
   if (item.type === 'streak') return { kind: 'achievements' };
+  // Alertes communautaires (00080) : `profile:<handle>`, `collection:<id>[:<auteur>]`.
+  if (item.ref?.startsWith('profile:')) return { kind: 'profile', handle: item.ref.slice('profile:'.length) };
+  if (item.ref?.startsWith('collection:')) {
+    return { kind: 'collection', collectionId: item.ref.slice('collection:'.length).split(':')[0] };
+  }
   if (item.artist_id) return { kind: 'artist', artistId: item.artist_id };
   if (item.type === 'nearby') return { kind: 'nearby' };
   return { kind: 'globe' };

@@ -1,23 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import {
-  BadgeCheck,
-  CalendarDays,
-  ExternalLink,
-  Flame,
-  Heart,
-  Loader2,
-  Music2,
-  Pencil,
-  Play,
-  Share2,
-  Flag,
-  ShieldCheck,
-  UserCheck,
-  UserRoundPlus,
-  X,
-} from 'lucide-react'
+import { BadgeCheck, CalendarDays, ExternalLink, Flag, Flame, Heart, ListPlus, Loader2, Music2, Pencil, Play, Share2, ShieldCheck, UserCheck, UserRoundPlus, X } from 'lucide-react'
 import { artistUrl, compactCount, distinctBirthplace, displayGenre, type Artist } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
@@ -37,6 +21,7 @@ import { fetchArtistBooking, type ArtistBooking } from '@musimaps/shared'
 import { AnimatedAvatar } from './AnimatedAvatar'
 import BookingModal from './BookingModal'
 import ReportDialog from './ReportDialog'
+import AddToCollectionDialog from './community/AddToCollectionDialog'
 
 const tabs = ['About', 'Musics', 'Events', 'Nearby'] as const
 type Tab = (typeof tabs)[number]
@@ -127,6 +112,7 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
   }, [artist.id, artist.name, artist.tracks.length])
 
   const [reportOpen, setReportOpen] = useState(false)
+  const [collectOpen, setCollectOpen] = useState(false)
 
   const toggleSave = async () => {
     const result = await toggleFavorite(artist.id)
@@ -542,6 +528,15 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
           </Link>
         )}
 
+        {/* Sélections de mélomanes : ranger l'artiste (connexion requise). */}
+        <button
+          type="button"
+          onClick={() => (user ? setCollectOpen(true) : navigate(localize('/login')))}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full border border-hairline-strong py-3 text-sm font-medium transition-colors hover:bg-secondary-bg"
+        >
+          <ListPlus className="h-4 w-4" /> {t('collection.addTo')}
+        </button>
+
         <Link
           to={localize(`/artist/${artist.slug || artist.id}`)}
           className="mt-3 flex items-center justify-center gap-2 rounded-full py-3 text-sm font-medium text-brand-deep transition-colors hover:bg-secondary-bg"
@@ -559,7 +554,14 @@ export default function ArtistSheet({ artist, nearby, onClose, onSelectArtist }:
         </button>
       </div>
 
-      <ReportDialog artist={artist} open={reportOpen} onOpenChange={setReportOpen} onBlocked={onClose} />
+      {user && <AddToCollectionDialog artistId={artist.id} open={collectOpen} onOpenChange={setCollectOpen} />}
+      <ReportDialog
+        target={{ kind: 'artist', id: artist.id }}
+        name={artist.name}
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        onBlocked={onClose}
+      />
 
       {bookingOpen && <BookingModal artist={artist} onClose={() => setBookingOpen(false)} />}
     </div>

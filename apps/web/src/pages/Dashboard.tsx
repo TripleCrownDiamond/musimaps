@@ -594,6 +594,9 @@ export default function Dashboard() {
               <Link to={localize('/profil')} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-hairline-strong px-5 py-3 text-sm font-semibold hover:bg-secondary-bg sm:flex-none">
                 <PenLine className="h-4 w-4" aria-hidden="true" /> {t('profile.editProfile')}
               </Link>
+              <Link to={localize('/communaute')} className="flex flex-1 items-center justify-center gap-2 rounded-full border border-hairline-strong px-5 py-3 text-sm font-semibold hover:bg-secondary-bg sm:flex-none">
+                <Users className="h-4 w-4" aria-hidden="true" /> {t('community.title')}
+              </Link>
               <Link to={localize('/globe')} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-brand-deep px-5 py-3 text-sm font-semibold text-brand-deep-foreground transition-transform hover:scale-[1.02] sm:flex-none">
                 <Globe2 className="h-4 w-4" /> {t('dash.explore')}
               </Link>

@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { compactCount, distinctBirthplace, displayGenre, spacing, type Artist } from '@musimaps/shared';
+import { compactCount, distinctBirthplace, displayGenre, radii, spacing, type Artist } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
 import { useAppTheme } from '../context/ThemeContext';
@@ -34,6 +34,7 @@ import { fonts, shadow, type AppColors } from '../theme';
 import { ArtistAvatar } from './ArtistAvatar';
 import { BookingModal } from './BookingModal';
 import { ReportSheet } from './ReportSheet';
+import { AddToCollectionSheet } from './community/AddToCollectionSheet';
 
 const tabs = ['About', 'Musics', 'Events', 'Nearby'] as const;
 type Tab = (typeof tabs)[number];
@@ -193,6 +194,7 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
 
   const requireAuth = () => onRequireAuth?.();
   const [reportOpen, setReportOpen] = useState(false);
+  const [collectOpen, setCollectOpen] = useState(false);
 
   const platforms = artist.platforms ?? {};
 
@@ -590,6 +592,16 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
           </Pressable>
         )}
 
+        {/* Sélections de mélomanes : ranger l'artiste (connexion requise). */}
+        <Pressable
+          accessibilityRole="button"
+          style={styles.collect}
+          onPress={() => (user ? setCollectOpen(true) : requireAuth())}
+        >
+          <Ionicons name="list-outline" size={17} color={colors.ink} />
+          <Text style={styles.collectText}>{t('collection.addTo')}</Text>
+        </Pressable>
+
         {/* Modération : signaler la fiche ou masquer l'artiste (connexion requise). */}
         <Pressable
           accessibilityRole="button"
@@ -601,7 +613,15 @@ export function ArtistSheet({ artist, nearby = [], onClose, onSelectArtist, onOp
         </Pressable>
       </Animated.View>
       {bookingOpen && <BookingModal artist={artist} onClose={() => setBookingOpen(false)} />}
-      {reportOpen && <ReportSheet artist={artist} onClose={() => setReportOpen(false)} onBlocked={onClose} />}
+      {collectOpen && <AddToCollectionSheet artistId={artist.id} onClose={() => setCollectOpen(false)} />}
+      {reportOpen && (
+        <ReportSheet
+          target={{ kind: 'artist', id: artist.id }}
+          name={artist.name}
+          onClose={() => setReportOpen(false)}
+          onBlocked={onClose}
+        />
+      )}
     </View>
   );
 }
@@ -729,6 +749,18 @@ const createStyles = (colors: AppColors) =>
     iconBtn: { width: 54, height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
     claim: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 12, borderRadius: 24, borderWidth: 1, borderColor: colors.brandDeep, backgroundColor: colors.brandSoft, paddingVertical: 11 },
     claimText: { color: colors.brandDeep, fontFamily: fonts.bold, fontSize: 13 },
+    collect: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      minHeight: 46,
+      borderRadius: radii.full,
+      borderWidth: 1.5,
+      borderColor: colors.line,
+      marginTop: spacing.md,
+    },
+    collectText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 14 },
     report: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, marginTop: 4 },
     reportText: { color: colors.danger, fontFamily: fonts.bold, fontSize: 12 },
   });

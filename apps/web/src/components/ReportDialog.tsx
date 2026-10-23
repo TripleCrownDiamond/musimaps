@@ -3,26 +3,35 @@ import { toast } from 'sonner'
 import { Ban, Flag } from 'lucide-react'
 import {
   blockArtist,
+  blockUser,
   REPORT_DETAILS_MAX,
   REPORT_REASONS,
-  reportArtist,
-  type Artist,
+  reportContent,
   type ReportReason,
+  type ReportTarget,
 } from '@musimaps/shared'
 import { useLanguage } from '../i18n/LanguageContext'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog'
 
 /**
- * Signaler une fiche d'artiste ou bloquer l'artiste — même parcours que
- * `ReportSheet` côté mobile, logique dans `@musimaps/shared/lib/moderation`.
+ * Signaler une fiche d'artiste, un profil de mélomane ou une sélection, et
+ * bloquer son auteur — même parcours que `ReportSheet` côté mobile, logique
+ * dans `@musimaps/shared/lib/moderation`.
+ *
+ * `blockUserId` : compte à bloquer pour un profil ou une sélection (un
+ * artiste se bloque par sa fiche).
  */
 export default function ReportDialog({
-  artist,
+  target,
+  name,
+  blockUserId,
   open,
   onOpenChange,
   onBlocked,
 }: {
-  artist: Artist
+  target: ReportTarget
+  name: string
+  blockUserId?: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onBlocked?: () => void
@@ -41,7 +50,7 @@ export default function ReportDialog({
   const send = async () => {
     if (!reason) return
     setBusy(true)
-    const result = await reportArtist(artist.id, reason, details)
+    const result = await reportContent(target, reason, details)
     setBusy(false)
     if (result.ok) {
       toast.success(t('report.sent'))
@@ -51,10 +60,10 @@ export default function ReportDialog({
 
   const block = async () => {
     setBusy(true)
-    const result = await blockArtist(artist.id)
+    const result = target.kind === 'artist' ? await blockArtist(target.id) : await blockUser(blockUserId ?? target.id)
     setBusy(false)
     if (result.ok) {
-      toast.success(t('report.blocked', { name: artist.name }))
+      toast.success(target.kind === 'artist' ? t('report.blocked', { name }) : t('community.blockedProfile', { name }))
       close()
       onBlocked?.()
     } else toast.error(t('report.blockError'), { description: result.error })
@@ -111,6 +120,7 @@ export default function ReportDialog({
           {t('report.submit')}
         </button>
 
+        {(target.kind === 'artist' || blockUserId) && (
         <div className="mt-2 border-t border-hairline pt-4">
           <button
             type="button"
@@ -118,10 +128,13 @@ export default function ReportDialog({
             onClick={() => void block()}
             className="flex w-full items-center justify-center gap-2 rounded-full border border-hairline-strong py-3 text-sm font-bold text-red-500 transition-colors hover:bg-secondary-bg disabled:opacity-50"
           >
-            <Ban className="h-4 w-4" /> {t('report.block')}
+            <Ban className="h-4 w-4" /> {target.kind === 'artist' ? t('report.block') : t('community.blockProfile')}
           </button>
-          <p className="mt-2 text-center text-xs text-secondary-text">{t('report.blockHint')}</p>
+          <p className="mt-2 text-center text-xs text-secondary-text">
+            {target.kind === 'artist' ? t('report.blockHint') : t('community.blockProfileHint')}
+          </p>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   )

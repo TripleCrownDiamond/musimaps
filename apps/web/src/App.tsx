@@ -21,6 +21,9 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const Notifications = lazy(() => import('./pages/Notifications'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const ProfileEdit = lazy(() => import('./pages/ProfileEdit'))
+const Community = lazy(() => import('./pages/Community'))
+const PublicProfile = lazy(() => import('./pages/PublicProfile'))
+const CollectionPage = lazy(() => import('./pages/CollectionPage'))
 const Admin = lazy(() => import('./admin/AdminApp'))
 const PreviewPage = lazy(() => import('./pages/PreviewPage'))
 const Legal = lazy(() => import('./pages/Legal'))
@@ -55,6 +58,10 @@ const PUBLIC_ROUTES: { path: string; element: ReactElement }[] = [
   { path: '/reset-password', element: <ResetPassword /> },
   { path: '/notifications', element: <Notifications /> },
   { path: '/dashboard', element: <Dashboard /> },
+  // Communauté de mélomanes (00080).
+  { path: '/communaute', element: <Community /> },
+  { path: '/m/:handle', element: <PublicProfile /> },
+  { path: '/selection/:id', element: <CollectionPage /> },
 ]
 
 /** Chemin anglais d'une route : `/` → `/en`, `/globe` → `/en/globe`. */

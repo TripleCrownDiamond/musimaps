@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, LogOut, Menu, UserRound, X } from 'lucide-react'
+import { ChevronDown, LogOut, Menu, UserRound, Users, X } from 'lucide-react'
 import NotificationBell from './NotificationBell'
 import ThemeToggle from './ThemeToggle'
 import LangToggle from './LangToggle'
@@ -147,6 +147,9 @@ export default function Navbar() {
                   <DropdownMenuItem onSelect={() => navigate(localize('/dashboard'))}>
                     <UserRound /> {t('nav.account')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => navigate(localize('/communaute'))}>
+                    <Users /> {t('community.title')}
+                  </DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onSelect={() => void handleSignOut()}>
                     <LogOut /> {t('auth.logout')}
                   </DropdownMenuItem>
@@ -209,6 +212,13 @@ export default function Navbar() {
                   className="mt-2 flex items-center gap-2 rounded-full border border-hairline-strong px-6 py-3.5 text-center font-medium"
                 >
                   <UserRound className="size-4" /> {t('nav.account')}
+                </Link>
+                <Link
+                  to={localize('/communaute')}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-2 rounded-full border border-hairline-strong px-6 py-3.5 text-center font-medium"
+                >
+                  <Users className="size-4" /> {t('community.title')}
                 </Link>
                 <button
                   type="button"

@@ -29,6 +29,9 @@ import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ForgotPasswordScreen } from './src/screens/ForgotPasswordScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { CommunityScreen } from './src/screens/CommunityScreen';
+import { PublicProfileScreen } from './src/screens/PublicProfileScreen';
+import { CollectionScreen } from './src/screens/CollectionScreen';
 import { ResetPasswordScreen } from './src/screens/ResetPasswordScreen';
 import { OnboardingScreen, ONBOARDING_SEEN_KEY } from './src/screens/OnboardingScreen';
 import { ProfileEditScreen } from './src/screens/ProfileEditScreen';
@@ -71,6 +74,9 @@ const linking = {
       ResetPassword: 'reset-password',
       ForgotPassword: 'forgot-password',
       Login: 'login',
+      // Liens partagés depuis la communauté (même chemins que le site).
+      PublicProfile: 'm/:handle',
+      Collection: 'selection/:id',
     },
   },
   getInitialURL: async () => {
@@ -198,6 +204,9 @@ function AppNavigator() {
             <RootStack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ animation: 'fade' }} />
             <RootStack.Screen name="ClaimedProfile" component={ClaimedProfileScreen} />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+            <RootStack.Screen name="Community" component={CommunityScreen} />
+            <RootStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+            <RootStack.Screen name="Collection" component={CollectionScreen} />
           </RootStack.Navigator>
         </NavigationContainer>
         {/* Au-dessus de la navigation : une mise à jour imposée doit

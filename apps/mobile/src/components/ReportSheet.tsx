@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import {
   blockArtist,
+  blockUser,
   REPORT_DETAILS_MAX,
   REPORT_REASONS,
-  reportArtist,
-  type Artist,
+  reportContent,
   type ReportReason,
+  type ReportTarget,
 } from '@musimaps/shared';
 import { useApp } from '../context/AppContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -25,16 +26,23 @@ import { useI18n } from '../i18n';
 import { fonts, type AppColors } from '../theme';
 
 /**
- * Signaler une fiche d'artiste ou bloquer l'artiste — même parcours que
- * `ReportDialog` côté web, logique dans `@musimaps/shared/lib/moderation`.
- * Mêmes mesures que `BookingModal` : la feuille appartient à la même famille.
+ * Signaler une fiche d'artiste, un profil de mélomane ou une sélection, et
+ * bloquer son auteur — même parcours que `ReportDialog` côté web, logique
+ * dans `@musimaps/shared/lib/moderation`. Mêmes mesures que `BookingModal` :
+ * la feuille appartient à la même famille.
+ *
+ * `blockUserId` : compte à bloquer pour un profil ou une sélection.
  */
 export function ReportSheet({
-  artist,
+  target,
+  name,
+  blockUserId,
   onClose,
   onBlocked,
 }: {
-  artist: Artist;
+  target: ReportTarget;
+  name: string;
+  blockUserId?: string;
   onClose: () => void;
   onBlocked?: () => void;
 }) {
@@ -51,7 +59,7 @@ export function ReportSheet({
     if (!reason) return;
     setBusy(true);
     setError(null);
-    const result = await reportArtist(artist.id, reason, details);
+    const result = await reportContent(target, reason, details);
     setBusy(false);
     if (!result.ok) return setError(t('report.error'));
     showToast(t('report.sent'), 'flag');
@@ -61,10 +69,10 @@ export function ReportSheet({
   const block = async () => {
     setBusy(true);
     setError(null);
-    const result = await blockArtist(artist.id);
+    const result = target.kind === 'artist' ? await blockArtist(target.id) : await blockUser(blockUserId ?? target.id);
     setBusy(false);
     if (!result.ok) return setError(t('report.blockError'));
-    showToast(t('report.blocked', { name: artist.name }), 'ban');
+    showToast(target.kind === 'artist' ? t('report.blocked', { name }) : t('community.blockedProfile', { name }), 'ban');
     onClose();
     onBlocked?.();
   };
@@ -127,6 +135,7 @@ export function ReportSheet({
               <Text style={styles.nextText}>{t('report.submit')}</Text>
             </Pressable>
 
+            {(target.kind === 'artist' || blockUserId) && (
             <View style={styles.blockBlock}>
               <Pressable
                 accessibilityRole="button"
@@ -135,10 +144,15 @@ export function ReportSheet({
                 onPress={() => void block()}
               >
                 <Ionicons name="ban" size={16} color={colors.danger} />
-                <Text style={styles.blockText}>{t('report.block')}</Text>
+                <Text style={styles.blockText}>
+                  {target.kind === 'artist' ? t('report.block') : t('community.blockProfile')}
+                </Text>
               </Pressable>
-              <Text style={styles.optionHint}>{t('report.blockHint')}</Text>
+              <Text style={styles.optionHint}>
+                {target.kind === 'artist' ? t('report.blockHint') : t('community.blockProfileHint')}
+              </Text>
             </View>
+            )}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>

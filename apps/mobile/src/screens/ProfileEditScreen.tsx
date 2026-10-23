@@ -20,6 +20,7 @@ import { NotificationButton } from '../components/NotificationButton';
 import { AccountAvatar } from '../components/AccountMedia';
 import { NeighborhoodField } from '../components/NeighborhoodField';
 import { RolePicker } from '../components/RolePicker';
+import { PublicProfileSettings } from '../components/community/PublicProfileSettings';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
@@ -415,6 +416,14 @@ export function ProfileEditScreen({ navigation, route }: Props) {
             </Text>
             <Ionicons name="checkmark" size={21} color={colors.white} />
           </Pressable>
+
+          {/* Communauté : profil public au choix (masqué pendant la complétion). */}
+          {user && !completing && (
+            <PublicProfileSettings
+              displayName={displayName}
+              onViewProfile={(handle) => navigation.navigate('PublicProfile', { handle })}
+            />
+          )}
 
           {user && (
             <>

@@ -11,7 +11,8 @@ export const ARTIST_AVATAR_SIZE = 120;
 
 /** Shared visual contract for account media, distinct from public artist media. */
 export const PROFILE_MEDIA = {
-  avatarSize: { profile: 112, edit: 80 },
+  // row : listes de mélomanes (communauté, abonnés).
+  avatarSize: { profile: 112, edit: 80, row: 44 },
   avatarBorder: 4,
   actionSize: 44,
   initialsScale: 0.32,

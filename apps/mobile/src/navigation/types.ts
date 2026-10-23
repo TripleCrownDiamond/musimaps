@@ -49,4 +49,10 @@ export type RootStackParamList = {
   ResetPassword: undefined;
   ClaimedProfile: undefined;
   Notifications: undefined;
+  /** Communauté de mélomanes : recherche, sélections, fil des suivis. */
+  Community: undefined;
+  /** Profil public d'un mélomane (`musimaps://m/<handle>`). */
+  PublicProfile: { handle: string };
+  /** Sélection d'artistes (`musimaps://selection/<id>`). */
+  Collection: { id: string };
 };
