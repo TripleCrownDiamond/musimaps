@@ -53,6 +53,19 @@ via Hostinger, activer le **Custom SMTP** dans le dashboard Supabase
 Une fois activé, les templates (Confirmation, Invite, Reset, Magic Link) partent
 avec le logo/texte édités dans *Email Templates*, expédiés via Hostinger.
 
+### État en production (23 octobre 2026)
+
+- Custom SMTP Hostinger : **activé**.
+- *Sign In / Providers* → **Confirm email : activé**. Les nouveaux comptes reçoivent
+  un e-mail de confirmation ; les comptes existants ne sont pas concernés.
+- *URL Configuration* → Redirect URLs : `https://musimaps.com/**` (web, `/login`)
+  et `musimaps://**` (app : `musimaps://login`, `musimaps://reset-password`).
+- *Email Templates* : **Confirm sign up** et **Reset password** remplacés par les
+  modèles bilingues FR/EN de `supabase/templates/` (`confirm-signup.html`,
+  `reset-password.html`). Le dashboard ne lit pas ces fichiers : après une
+  modification, recoller le HTML dans le template correspondant.
+- Rate limit e-mails : 100/h, 60 s minimum entre deux e-mails au même utilisateur.
+
 ## Points d'accroche possibles (emails métier)
 
 Les notifications *in-app* (réservations, suivis) existent déjà. Pour les doubler
