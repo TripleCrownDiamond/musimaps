@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import type { RootStackParamList } from '../navigation/types';
+import { SocialAuthButtons } from '../components/SocialAuthButtons';
 import { AuthLayout, Button, Field, Input } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -41,6 +42,13 @@ export function LoginScreen({ navigation }: Props) {
     }
   };
 
+  /** Connexion Google/Apple réussie : même suite qu'une connexion par e-mail. */
+  const onSocialSignedIn = () => {
+    void checkin();
+    showToast(t('toast.welcomeBack'), 'checkmark-circle');
+    navigation.navigate('Main', { screen: 'Explore' });
+  };
+
   return (
     <AuthLayout
       icon="headset"
@@ -53,6 +61,11 @@ export function LoginScreen({ navigation }: Props) {
         onPress: () => navigation.navigate('Signup'),
       }}
     >
+      <SocialAuthButtons
+        onSignedIn={onSocialSignedIn}
+        onError={(message) => showToast(message, 'alert-circle', 'error')}
+      />
+
       <Field label={t('auth.email')}>
         <Input
           value={email}

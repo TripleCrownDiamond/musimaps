@@ -165,13 +165,25 @@ function metadataAvatarUrl(user: AuthUserLike): string | null {
   return null;
 }
 
+/**
+ * Nom choisi à l'inscription, sinon celui fourni par Google ou Apple
+ * (`full_name` / `name`) : un compte créé par fournisseur n'a pas de
+ * `display_name`.
+ */
+function metadataDisplayName(user: AuthUserLike): string | null {
+  const metadata = user.user_metadata ?? {};
+  for (const key of ['display_name', 'full_name', 'name']) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 /** Profil de session sûr pendant que le trigger `profiles` termine son travail. */
 function sessionShell(user: AuthUserLike): UserProfile {
   const meta = user.user_metadata ?? {};
   const email = user.email ?? '';
-  const displayName = typeof meta.display_name === 'string' && meta.display_name.trim()
-    ? meta.display_name.trim()
-    : email.split('@')[0] || 'Musimaps';
+  const displayName = metadataDisplayName(user) ?? (email.split('@')[0] || 'Musimaps');
   return {
     id: user.id,
     email,
@@ -202,6 +214,99 @@ export async function signIn(
   // Rattache sa ligne waitlist / son pin à ce compte (migration 00053).
   if (profile?.role === 'artist') void linkArtistAccountToMap();
   return { user: profile, error: null };
+}
+
+/** Fournisseurs d'identité proposés à côté de l'e-mail. */
+export type OAuthProvider = 'google' | 'apple';
+
+/**
+ * Fournisseurs affichés par surface, dans l'ordre des boutons. Apple est
+ * natif sur iOS, où l'App Store l'exige dès qu'un autre fournisseur est
+ * proposé (règle 4.8) ; sur web et Android il demanderait un Services ID
+ * Apple, non configuré.
+ */
+export const OAUTH_PROVIDERS = {
+  web: ['google'],
+  android: ['google'],
+  ios: ['apple', 'google'],
+} as const satisfies Record<'web' | 'android' | 'ios', readonly OAuthProvider[]>;
+
+/**
+ * Démarre la connexion Google/Apple via Supabase. Le web laisse Supabase
+ * rediriger la page ; le mobile passe `skipBrowserRedirect` et ouvre lui-même
+ * l'URL renvoyée dans un navigateur in-app, puis appelle
+ * `completeOAuthSignIn` avec l'URL de retour (`musimaps://login…`).
+ */
+export async function startOAuthSignIn(
+  provider: OAuthProvider,
+  options: { redirectTo: string; skipBrowserRedirect?: boolean },
+): Promise<{ url: string | null; error: AuthError | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { url: null, error: { message: 'Supabase non configuré' } };
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: options.redirectTo, skipBrowserRedirect: options.skipBrowserRedirect },
+  });
+  return { url: data?.url ?? null, error: error ? { message: error.message } : null };
+}
+
+/** Paramètres d'une URL de retour d'authentification, query ET fragment. */
+export function parseAuthCallbackUrl(url: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const parts = [url.split('#')[1] ?? '', (url.split('#')[0].split('?')[1]) ?? ''];
+  for (const part of parts) {
+    for (const pair of part.split('&')) {
+      if (!pair) continue;
+      const [key, value = ''] = pair.split('=');
+      params[decodeURIComponent(key)] = decodeURIComponent(value.replace(/\+/g, ' '));
+    }
+  }
+  return params;
+}
+
+/**
+ * Termine une connexion par fournisseur à partir de l'URL de retour :
+ * `?code=` (flux PKCE) ou `#access_token=…&refresh_token=…` (flux implicite).
+ */
+export async function completeOAuthSignIn(url: string): Promise<{ error: AuthError | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: { message: 'Supabase non configuré' } };
+  const params = parseAuthCallbackUrl(url);
+  if (params.error_description || params.error) {
+    return { error: { message: params.error_description || params.error } };
+  }
+  if (params.code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(params.code);
+    return { error: error ? { message: error.message } : null };
+  }
+  if (params.access_token && params.refresh_token) {
+    const { error } = await supabase.auth.setSession({
+      access_token: params.access_token,
+      refresh_token: params.refresh_token,
+    });
+    return { error: error ? { message: error.message } : null };
+  }
+  return { error: { message: 'missing_token' } };
+}
+
+/**
+ * Connexion « Se connecter avec Apple » native (iOS) : le jeton d'identité
+ * fourni par Apple est vérifié par Supabase, sans passer par le navigateur.
+ * `nonce` est la valeur brute dont le SHA-256 a été transmis à Apple.
+ */
+export async function signInWithAppleIdToken(
+  idToken: string,
+  nonce: string,
+  fullName?: string | null,
+): Promise<{ error: AuthError | null }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: { message: 'Supabase non configuré' } };
+  const { error } = await supabase.auth.signInWithIdToken({ provider: 'apple', token: idToken, nonce });
+  if (error) return { error: { message: error.message } };
+  // Apple ne transmet le nom qu'à la toute première connexion, et jamais dans
+  // le jeton : on le garde dans les métadonnées pour le profil.
+  if (fullName?.trim()) await supabase.auth.updateUser({ data: { full_name: fullName.trim() } });
+  return { error: null };
 }
 
 export async function signOut(): Promise<void> {
@@ -425,7 +530,7 @@ export async function fetchProfile(
       return {
         id: userId,
         email: email ?? '',
-        displayName: data.display_name,
+        displayName: data.display_name ?? (sessionUser ? metadataDisplayName(sessionUser) : null),
         city: data.city,
         district: data.district ?? null,
         country: data.country ?? null,

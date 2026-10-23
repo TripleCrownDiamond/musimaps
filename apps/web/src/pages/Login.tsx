@@ -4,6 +4,7 @@ import { Eye, EyeOff, Headphones, Loader2, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import SocialAuthButtons from '../components/SocialAuthButtons'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
@@ -53,6 +54,10 @@ export default function Login() {
             </span>
             <h1 className="display-font text-3xl font-bold text-center">{t('auth.loginTitle')}</h1>
             <p className="mt-1.5 text-sm text-secondary-text text-center">{t('auth.loginSubtitle')}</p>
+          </div>
+
+          <div className="mb-4">
+            <SocialAuthButtons />
           </div>
 
           <form onSubmit={(e) => void submit(e)} className="grid gap-4" noValidate>

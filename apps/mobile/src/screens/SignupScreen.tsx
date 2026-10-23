@@ -17,6 +17,7 @@ import { useI18n } from '../i18n';
 import type { AccountRole } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { SocialAuthButtons } from '../components/SocialAuthButtons';
 import { AuthLayout, Button, Field, Input, PasswordInput } from '../ui';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
@@ -119,6 +120,15 @@ export function SignupScreen({ navigation, route }: Props) {
         onPress: () => navigation.navigate('Login'),
       }}
     >
+      <SocialAuthButtons
+        onSignedIn={() => {
+          void checkin();
+          showToast(t('toast.welcomeBack'), 'checkmark-circle');
+          navigation.navigate('Main', { screen: 'Explore' });
+        }}
+        onError={(message) => showToast(message, 'alert-circle', 'error')}
+      />
+
       <Field label={t('auth.role')}>
         <View style={styles.roles}>
           {roles.map(({ value, label, hint }) => {

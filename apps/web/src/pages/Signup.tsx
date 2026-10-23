@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import SocialAuthButtons from '../components/SocialAuthButtons'
 import type { AccountRole } from '@musimaps/shared'
 import { countryByCode, countryByName } from '@musimaps/shared'
 import {
@@ -256,6 +257,13 @@ export default function Signup() {
               {editing ? t('dash.editProfileHint') : t('auth.signupSubtitle')}
             </p>
           </div>
+
+          {/* Google : seulement au début de l'inscription, pas en édition de profil. */}
+          {!editing && step === 'role' && (
+            <div className="mb-6">
+              <SocialAuthButtons />
+            </div>
+          )}
 
           {/* Progression — masquée en édition de profil, qui n'a pas d'étapes. */}
           {!editing && (
