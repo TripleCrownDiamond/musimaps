@@ -262,11 +262,11 @@ export type OAuthProvider = 'google' | 'apple';
 /**
  * Fournisseurs affichés par surface, dans l'ordre des boutons. Apple est
  * natif sur iOS, où l'App Store l'exige dès qu'un autre fournisseur est
- * proposé (règle 4.8) ; sur web et Android il demanderait un Services ID
- * Apple, non configuré.
+ * proposé (règle 4.8). Sur le web, Apple passe par un Services ID et un
+ * secret à régénérer tous les 6 mois (`scripts/apple-client-secret.mjs`).
  */
 export const OAUTH_PROVIDERS = {
-  web: ['google'],
+  web: ['google', 'apple'],
   android: ['google'],
   ios: ['apple', 'google'],
 } as const satisfies Record<'web' | 'android' | 'ios', readonly OAuthProvider[]>;
