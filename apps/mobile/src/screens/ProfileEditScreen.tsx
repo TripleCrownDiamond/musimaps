@@ -19,13 +19,17 @@ import { LocationFields } from '../components/LocationFields';
 import { NotificationButton } from '../components/NotificationButton';
 import { AccountAvatar } from '../components/AccountMedia';
 import { NeighborhoodField } from '../components/NeighborhoodField';
+import { RolePicker } from '../components/RolePicker';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import {
+  ACCOUNT_UPGRADES_ENABLED,
   deleteAccount,
+  profileGaps,
   setAccountType,
+  type AccountRole,
   updateEmail,
   updatePassword,
   verifyCurrentPassword,
@@ -68,6 +72,19 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   const [accountBusy, setAccountBusy] = useState<string | null>(null);
   const [accountMsg, setAccountMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  // Compte Google/Apple : rôle, nom ou ville jamais renseignés.
+  const completing = Boolean(user && profileGaps(user).length > 0);
+  const askRole = user?.roleConfirmed === false;
+  const [role, setRole] = useState<AccountRole | null>(null);
+
+  // Nom et lieu fournis par le compte (Google donne le nom) quand l'appareil
+  // n'a pas encore de profil local.
+  useEffect(() => {
+    if (!user) return;
+    setDisplayName((current) => current || user.displayName || '');
+    setCity((current) => current || user.city || '');
+    setDistrict((current) => current || user.district || '');
+  }, [user?.id]);
 
   // Le profil est chargé de façon asynchrone (AsyncStorage) : dès qu'il
   // arrive, on pré-remplit les champs pour ne jamais afficher un formulaire
@@ -107,11 +124,13 @@ export function ProfileEditScreen({ navigation, route }: Props) {
   }, [user?.avatarUrl]);
 
   const finish = () => {
-    if (route.params?.fromStart) navigation.replace('Main', { screen: 'Profile' });
+    if (route.params?.complete) navigation.replace('Main', { screen: 'Explore' });
+    else if (route.params?.fromStart) navigation.replace('Main', { screen: 'Profile' });
     else navigation.goBack();
   };
 
   const submit = async () => {
+    if (askRole && !role) return setError(t('pedit.errRole'));
     if (!displayName.trim()) return setError(t('pedit.errName'));
     if (!city.trim()) return setError(t('pedit.errCity'));
     if (!country.trim()) return setError(t('auth.missingCountry'));
@@ -123,6 +142,19 @@ export function ProfileEditScreen({ navigation, route }: Props) {
       bio,
       favoriteGenres: genres.split(','),
     });
+    if (completing) {
+      // Complétion : écriture attendue (saveProfile synchronise en tâche de
+      // fond) pour que le compte relu ne réclame plus ces champs.
+      const { error: saveError } = await updateAccountProfile({
+        ...(askRole && role ? { role } : {}),
+        displayName,
+        city,
+        country,
+        district,
+      });
+      if (saveError) return setError(saveError.message);
+      await refreshUser();
+    }
     finish();
   };
 
@@ -295,9 +327,11 @@ export function ProfileEditScreen({ navigation, route }: Props) {
 
         <Text style={styles.kicker}>{t(user ? 'pedit.kicker' : 'pedit.kickerDevice')}</Text>
         <Text style={styles.title}>
-          {profile ? t('profile.editProfile') : t('profile.createProfile')}
+          {completing ? t('pedit.completeTitle') : profile ? t('profile.editProfile') : t('profile.createProfile')}
         </Text>
-        <Text style={styles.subtitle}>{t(user ? 'pedit.subtitle' : 'pedit.subtitleDevice')}</Text>
+        <Text style={styles.subtitle}>
+          {completing ? t('pedit.completeText') : t(user ? 'pedit.subtitle' : 'pedit.subtitleDevice')}
+        </Text>
 
         {user && <View style={styles.mediaCard}>
           <View style={styles.avatarRow}>
@@ -338,6 +372,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
         </View>}
 
         <View style={styles.form}>
+          {askRole && <RolePicker value={role} onChange={setRole} />}
           <Field label={t('pedit.nameLabel')} value={displayName} onChangeText={setDisplayName} placeholder={t('pedit.namePh')} colors={colors} styles={styles} />
           <LocationFields
             city={city}
@@ -441,7 +476,8 @@ export function ProfileEditScreen({ navigation, route }: Props) {
                   <Text style={styles.accountBtnText}>{t('account.emailBtn')}</Text>
                 </Pressable>
 
-                {user.accountType !== 'premium' && (
+                {/* Premium / business : masqués tant que les offres ne sont pas prêtes. */}
+                {ACCOUNT_UPGRADES_ENABLED && user.accountType !== 'premium' && (
                   <>
                     <Pressable
                       style={[
@@ -461,7 +497,7 @@ export function ProfileEditScreen({ navigation, route }: Props) {
                   </>
                 )}
 
-                {user.role === 'artist' && user.accountType !== 'premium' && (
+                {ACCOUNT_UPGRADES_ENABLED && user.role === 'artist' && user.accountType !== 'premium' && (
                   <>
                     <Pressable
                       style={[

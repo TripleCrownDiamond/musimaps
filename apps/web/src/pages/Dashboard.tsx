@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import {
   BadgeCheck,
   Banknote,
@@ -36,7 +36,7 @@ import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import { SITE_URL, fetchBookings, type BookingRecord } from '@musimaps/shared'
 import { AccountAvatar } from '../components/AccountMedia'
-import { setAccountType } from '@musimaps/shared'
+import { ACCOUNT_UPGRADES_ENABLED, profileGaps, setAccountType } from '@musimaps/shared'
 import {
   fetchMyArtistProfile,
   updateArtistBooking,
@@ -519,6 +519,10 @@ export default function Dashboard() {
     )
   }
 
+  // Compte Google/Apple : rôle, nom ou ville manquants — on les réclame avant
+  // d'ouvrir le tableau de bord, comme l'inscription par e-mail le fait.
+  if (profileGaps(user).length > 0) return <Navigate to={localize('/profil')} replace />
+
   const statCards: { icon: typeof Eye; label: string; value: string | number }[] = isArtist
     ? [
         { icon: Eye, label: t('dash.statProfileViews'), value: stats.profileViews },
@@ -547,11 +551,14 @@ export default function Dashboard() {
     ...(isArtist
       ? [{ id: 'music', icon: Link2, text: t('dash.guideArtistTracks') }]
       : []),
-    {
-      id: 'account',
-      icon: isBusiness ? Briefcase : Heart,
-      text: isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal'),
-    },
+    // « Passez en compte business » : seulement quand l'offre est ouverte.
+    ...(isBusiness || ACCOUNT_UPGRADES_ENABLED
+      ? [{
+          id: 'account',
+          icon: isBusiness ? Briefcase : Heart,
+          text: isBusiness ? t('dash.guideBusiness') : t('dash.guidePersonal'),
+        }]
+      : []),
   ]
 
   return (
@@ -1663,17 +1670,22 @@ export default function Dashboard() {
                 </li>
               </ul>
 
-              {/* Bascule business : débloque la réservation d'artistes */}
-              <button
-                type="button"
-                onClick={() => void switchAccountType()}
-                disabled={switching}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-brand-deep py-3 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-              >
-                <Briefcase className="h-4 w-4" />
-                {isBusiness ? t('dash.switchPersonal') : t('dash.switchBusiness')}
-              </button>
-              <p className="mt-2 text-center text-xs text-secondary-text">{t('dash.businessDesc')}</p>
+              {/* Bascule business : débloque la réservation d'artistes. Masquée
+                  tant que l'offre n'est pas prête (ACCOUNT_UPGRADES_ENABLED). */}
+              {ACCOUNT_UPGRADES_ENABLED && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void switchAccountType()}
+                    disabled={switching}
+                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-brand-deep py-3 text-sm font-bold text-brand-deep-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
+                  >
+                    <Briefcase className="h-4 w-4" />
+                    {isBusiness ? t('dash.switchPersonal') : t('dash.switchBusiness')}
+                  </button>
+                  <p className="mt-2 text-center text-xs text-secondary-text">{t('dash.businessDesc')}</p>
+                </>
+              )}
 
               <Link
                 to={localize('/profil')}

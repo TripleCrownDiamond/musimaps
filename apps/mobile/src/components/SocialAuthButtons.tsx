@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import {
   completeOAuthSignIn,
+  getSessionProfile,
   OAUTH_PROVIDERS,
+  profileGaps,
   radii,
   signInWithAppleIdToken,
   spacing,
@@ -28,14 +30,14 @@ const BUTTON_HEIGHT = 50;
  * `@musimaps/shared/lib/auth`. Apple passe par la feuille native d'iOS ;
  * Google par un navigateur in-app qui revient sur `musimaps://login`.
  *
- * `onSignedIn` est appelé une fois la session ouverte (le profil arrive par
- * l'écouteur de session d'`AuthContext`).
+ * `onSignedIn` est appelé une fois la session ouverte, avec `needsProfile`
+ * vrai quand le compte doit encore donner son rôle, son nom ou sa ville.
  */
 export function SocialAuthButtons({
   onSignedIn,
   onError,
 }: {
-  onSignedIn: () => void;
+  onSignedIn: (needsProfile: boolean) => void;
   onError: (message: string) => void;
 }) {
   const { colors, theme } = useAppTheme();
@@ -49,6 +51,11 @@ export function SocialAuthButtons({
     void AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
 
+  const signedIn = async () => {
+    const profile = await getSessionProfile();
+    onSignedIn(profile ? profileGaps(profile).length > 0 : false);
+  };
+
   const google = async () => {
     setBusy('google');
     try {
@@ -58,7 +65,7 @@ export function SocialAuthButtons({
       if (result.type !== 'success') return; // fermé par l'utilisateur
       const { error: sessionError } = await completeOAuthSignIn(result.url);
       if (sessionError) return onError(t('auth.oauthError'));
-      onSignedIn();
+      await signedIn();
     } finally {
       setBusy(null);
     }
@@ -81,7 +88,7 @@ export function SocialAuthButtons({
       const fullName = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
       const { error } = await signInWithAppleIdToken(credential.identityToken, rawNonce, fullName);
       if (error) return onError(t('auth.oauthError'));
-      onSignedIn();
+      await signedIn();
     } catch (error) {
       // Feuille Apple fermée par l'utilisateur : pas une erreur à afficher.
       if ((error as { code?: string }).code !== 'ERR_REQUEST_CANCELED') onError(t('auth.oauthError'));

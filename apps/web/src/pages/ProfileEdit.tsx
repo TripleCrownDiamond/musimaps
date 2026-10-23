@@ -7,6 +7,8 @@ import { AccountAvatar } from '../components/AccountMedia'
 import {
   PROFILE_MEDIA,
   deleteAccount,
+  profileGaps,
+  type AccountRole,
   fetchMyArtistProfile,
   uploadProfileImage,
   type ClaimedArtistProfile,
@@ -15,12 +17,17 @@ import { LocationSelect, type LocationValue } from '../components/LocationSelect
 import { NeighborhoodSelect } from '../components/NeighborhoodSelect'
 import { reverseGeocodeBrowser } from '../lib/geolocate'
 import { ArtistPublicLinkEditor } from '../components/ArtistPublicLinkEditor'
+import RolePicker from '../components/RolePicker'
 
 /**
  * Complétion / modification du PROFIL DE COMPTE (table profiles) :
  * nom, ville, genres favoris et avatar. C'est volontairement distinct
  * de la page /artistes (ArtistSignup) qui, elle, sert à rejoindre la
  * liste d'attente / demander le référencement sur la carte.
+ *
+ * Sert aussi d'étape « Complétez votre profil » après une connexion Google :
+ * le rôle, le nom et la ville que l'inscription par e-mail demande y sont
+ * réclamés (`profileGaps`), et le dashboard y renvoie tant qu'ils manquent.
  */
 export default function ProfileEdit() {
   const { user, loading, updateProfile, signOut } = useAuth()
@@ -39,6 +46,7 @@ export default function ProfileEdit() {
   const [city, setCity] = useState('')
   const [country, setCountry] = useState('')
   const [district, setDistrict] = useState('')
+  const [role, setRole] = useState<AccountRole | null>(null)
   const [genres, setGenres] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -62,6 +70,7 @@ export default function ProfileEdit() {
     setCity(user.city || '')
     setCountry(user.country || '')
     setDistrict(user.district || '')
+    setRole(user.roleConfirmed === false ? null : user.role)
     setGenres((user.favoriteGenres ?? []).join(', '))
     setAvatarUrl(user.avatarUrl)
   }, [user])
@@ -107,6 +116,10 @@ export default function ProfileEdit() {
     return Math.round((steps.filter(Boolean).length / steps.length) * 100)
   }, [displayName, city])
 
+  // Compte Google/Apple pas encore complété : le rôle n'a jamais été choisi.
+  const completing = Boolean(user && profileGaps(user).length > 0)
+  const askRole = user?.roleConfirmed === false
+
   if (!loading && !user) return <Navigate to={localize('/login')} state={{ from: location.pathname + location.hash }} replace />
 
   const pickImage = async (file: File | undefined) => {
@@ -145,12 +158,14 @@ export default function ProfileEdit() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (askRole && !role) return setError(t('pedit.errRole'))
     if (!displayName.trim()) return setError(t('pedit.errName'))
     if (!city.trim()) return setError(t('pedit.errCity'))
     if (!country.trim()) return setError(t('auth.missingCountry'))
     setError(null)
     setBusy(true)
     const { error: err } = await updateProfile({
+      ...(askRole && role ? { role } : {}),
       displayName,
       city,
       country,
@@ -182,8 +197,12 @@ export default function ProfileEdit() {
             {t('common.back')}
           </button>
           <p className="text-xs font-bold tracking-[0.2em] text-brand-deep uppercase">{t('pedit.kicker')}</p>
-          <h1 className="display-font mt-1.5 text-3xl font-bold">{t('profile.editProfile')}</h1>
-          <p className="mt-1.5 mb-7 text-sm text-secondary-text">{t('pedit.subtitle')}</p>
+          <h1 className="display-font mt-1.5 text-3xl font-bold">
+            {completing ? t('pedit.completeTitle') : t('profile.editProfile')}
+          </h1>
+          <p className="mt-1.5 mb-7 text-sm text-secondary-text">
+            {completing ? t('pedit.completeText') : t('pedit.subtitle')}
+          </p>
 
           <h2 className="mb-3 text-sm font-bold text-primary-text">{t('pedit.mediaTitle')}</h2>
           {/* Visuel du compte : l'avatar, partagé avec le profil mobile. */}
@@ -249,6 +268,7 @@ export default function ProfileEdit() {
 
           <h2 className="mb-3 text-sm font-bold text-primary-text">{t('pedit.detailsTitle')}</h2>
           <form onSubmit={(e) => void submit(e)} className="grid gap-4 rounded-3xl bg-secondary-bg p-4 sm:p-5" noValidate>
+            {askRole && <RolePicker value={role} onChange={setRole} />}
             <label className="block">
               <span className="mb-1.5 block text-sm font-medium">{t('pedit.nameLabel')}</span>
               <input

@@ -42,11 +42,15 @@ export function LoginScreen({ navigation }: Props) {
     }
   };
 
-  /** Connexion Google/Apple réussie : même suite qu'une connexion par e-mail. */
-  const onSocialSignedIn = () => {
+  /**
+   * Connexion Google/Apple réussie : même suite qu'une connexion par e-mail,
+   * sauf pour un nouveau compte qui complète d'abord son profil.
+   */
+  const onSocialSignedIn = (needsProfile: boolean) => {
     void checkin();
     showToast(t('toast.welcomeBack'), 'checkmark-circle');
-    navigation.navigate('Main', { screen: 'Explore' });
+    if (needsProfile) navigation.replace('ProfileEdit', { complete: true });
+    else navigation.navigate('Main', { screen: 'Explore' });
   };
 
   return (

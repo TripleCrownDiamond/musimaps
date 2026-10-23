@@ -36,6 +36,7 @@ interface AuthContextValue {
   refresh: () => Promise<void>
   /** Met à jour nom / ville / genres du compte connecté, puis recharge. */
   updateProfile: (params: {
+    role?: AccountRole
     displayName?: string
     city?: string
     district?: string

@@ -29,6 +29,12 @@ export type AccountRole = 'artist' | 'melomane';
  */
 export type AccountType = 'personal' | 'business' | 'premium';
 
+/**
+ * Passage en compte business / premium depuis l'app. Désactivé tant que les
+ * offres ne sont pas prêtes : les boutons sont masqués sur web et mobile.
+ */
+export const ACCOUNT_UPGRADES_ENABLED = false;
+
 export interface UserProfile {
   id: string;
   email: string;
@@ -41,6 +47,37 @@ export interface UserProfile {
   favoriteGenres?: string[];
   /** Photo du compte (avatar) — synchro depuis la demande de référencement. */
   avatarUrl: string | null;
+  /**
+   * `false` quand le rôle n'a jamais été choisi : compte créé par Google ou
+   * Apple, que le trigger a mis en mélomane par défaut. Absent = choisi.
+   */
+  roleConfirmed?: boolean;
+}
+
+/** Ce qu'une connexion Google/Apple ne fournit pas et que l'inscription demande. */
+export type ProfileGap = 'role' | 'name' | 'location';
+
+/**
+ * Champs à réclamer avant d'utiliser le compte : rôle, nom, ville et pays —
+ * les mêmes que l'inscription par e-mail exige (`validateSignupStep`).
+ */
+export function profileGaps(profile: UserProfile): ProfileGap[] {
+  const gaps: ProfileGap[] = [];
+  if (profile.roleConfirmed === false) gaps.push('role');
+  if (!profile.displayName?.trim()) gaps.push('name');
+  if (!profile.city?.trim() || !profile.country?.trim()) gaps.push('location');
+  return gaps;
+}
+
+/**
+ * Le rôle reste à choisir seulement pour un compte créé par Google ou Apple
+ * qui ne l'a pas encore donné : l'inscription par e-mail l'exige toujours.
+ */
+function metadataRoleConfirmed(user: AuthUserLike): boolean {
+  const provider = user.app_metadata?.provider;
+  if (provider !== 'google' && provider !== 'apple') return true;
+  const role = (user.user_metadata ?? {}).role;
+  return role === 'artist' || role === 'melomane';
 }
 
 export interface AuthError {
@@ -148,6 +185,8 @@ type AuthUserLike = {
   id: string;
   email?: string | null;
   user_metadata?: Record<string, unknown> | null;
+  /** `provider` : 'email', 'google' ou 'apple' — fixé par Supabase. */
+  app_metadata?: { provider?: string } | null;
 };
 
 /**
@@ -195,6 +234,7 @@ function sessionShell(user: AuthUserLike): UserProfile {
     accountType: 'personal',
     favoriteGenres: [],
     avatarUrl: metadataAvatarUrl(user),
+    roleConfirmed: metadataRoleConfirmed(user),
   };
 }
 
@@ -377,6 +417,8 @@ export async function updateEmail(newEmail: string): Promise<{ error: AuthError 
  * du mobile, qui protège les bases antérieures à leur ajout.
  */
 export async function updateProfile(params: {
+  /** Choix artiste / mélomane — réclamé après une connexion Google ou Apple. */
+  role?: AccountRole;
   displayName?: string;
   city?: string;
   district?: string;
@@ -399,6 +441,11 @@ export async function updateProfile(params: {
     patch.favorite_genres = params.favoriteGenres.map((g) => g.trim()).filter(Boolean);
   }
   if (params.avatarUrl !== undefined) patch.avatar_url = params.avatarUrl;
+  if (params.role !== undefined) {
+    patch.role = params.role;
+    // Les métadonnées gardent la trace du choix : `roleConfirmed` en dépend.
+    await supabase.auth.updateUser({ data: { role: params.role } });
+  }
   // Bio incluse uniquement si non vide : évite une écriture permanente sur
   // les bases où la colonne n'existe pas.
   if (params.bio !== undefined && params.bio.trim()) patch.bio = params.bio.trim();
@@ -538,6 +585,7 @@ export async function fetchProfile(
         accountType: toAccountType(data.account_type),
         favoriteGenres: data.favorite_genres ?? [],
         avatarUrl,
+        roleConfirmed: sessionUser ? metadataRoleConfirmed(sessionUser) : undefined,
       };
     }
     await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));

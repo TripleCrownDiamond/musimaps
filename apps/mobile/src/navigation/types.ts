@@ -30,7 +30,8 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   /** Activité avancée ouverte depuis Profil, sans onglet dédié dans le dock. */
   Dashboard: undefined;
-  ProfileEdit: { fromStart?: boolean } | undefined;
+  /** `complete` : profil Google/Apple à compléter — retour sur la carte une fois enregistré. */
+  ProfileEdit: { fromStart?: boolean; complete?: boolean } | undefined;
   ArtistJoin: {
     /** Pré-remplissage depuis Musibrainz (artiste sans localisation). */
     artistName?: string;

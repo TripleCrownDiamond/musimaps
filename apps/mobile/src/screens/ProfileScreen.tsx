@@ -11,12 +11,12 @@ import { ProfileHeader } from '../components/ProfileHeader';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { PROFILE_GUTTER, LEGAL_LINKS, SITE_URL, getLevelInfo, radii, siteUrl, spacing } from '@musimaps/shared';
+import { PROFILE_GUTTER, LEGAL_LINKS, SITE_URL, getLevelInfo, profileGaps, radii, siteUrl, spacing } from '@musimaps/shared';
 import { AccountAvatar } from '../components/AccountMedia';
 import { LANGS, languageName, useI18n } from '../i18n';
 import { checkin, type StreakInfo } from '@musimaps/shared';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
-import { Card } from '../ui';
+import { Button, Card } from '../ui';
 import { fonts, type AppColors } from '../theme';
 import { levelTitle } from '../lib/gamificationText';
 
@@ -36,8 +36,10 @@ export function ProfileScreen({ navigation }: Props) {
   const city = user?.city || profile?.city || t('profile.defaultCity');
   const isArtist = user?.role === 'artist';
   const isBusiness = user?.accountType === 'business';
+  // Compte Google/Apple : rôle, nom ou ville encore à renseigner.
+  const needsProfile = Boolean(user && profileGaps(user).length > 0);
   const openAccountAction = () => {
-    if (user) navigation.navigate('ProfileEdit');
+    if (user) navigation.navigate('ProfileEdit', needsProfile ? { complete: true } : undefined);
     else navigation.navigate('Signup');
   };
   const level = getLevelInfo(points);
@@ -115,6 +117,20 @@ export function ProfileScreen({ navigation }: Props) {
           </View>
         }
       >
+      {needsProfile && (
+        <Card style={styles.completeCard}>
+          <Text style={styles.completeTitle}>{t('pedit.completeTitle')}</Text>
+          <Text style={styles.completeText}>{t('pedit.completeText')}</Text>
+          <Button
+            block
+            variant="brand"
+            label={t('pedit.completeCta')}
+            onPress={openAccountAction}
+            icon={<Ionicons name="person-circle-outline" size={18} color={colors.black} />}
+          />
+        </Card>
+      )}
+
       <View style={styles.actionRow}>
         <Pressable style={styles.actionPrimary} onPress={() => navigation.navigate('Explore')}>
           <Ionicons name="globe-outline" size={19} color={colors.white} />
@@ -363,6 +379,9 @@ export function ProfileScreen({ navigation }: Props) {
 }
 
 const createStyles = (colors: AppColors) => StyleSheet.create({
+  completeCard: { gap: spacing.sm, marginBottom: spacing.md },
+  completeTitle: { color: colors.ink, fontFamily: fonts.bold, fontSize: 16 },
+  completeText: { color: colors.inkSoft, fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
   container: { flex: 1, backgroundColor: colors.background },
   /** Dégagement pour le dock flottant. */
   content: { paddingBottom: 120 },

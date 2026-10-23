@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { CalendarHeart, ChevronLeft, ChevronRight, Eye, EyeOff, Headphones, Loader2, LocateFixed, MailCheck, MicVocal, Music, UserPlus } from 'lucide-react'
+import { CalendarHeart, ChevronLeft, ChevronRight, Eye, EyeOff, Loader2, LocateFixed, MailCheck, Music, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../context/AuthContext'
 import { useCms } from '../context/CmsContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
+import RolePicker from '../components/RolePicker'
 import SocialAuthButtons from '../components/SocialAuthButtons'
 import type { AccountRole } from '@musimaps/shared'
 import { countryByCode, countryByName } from '@musimaps/shared'
@@ -211,12 +212,6 @@ export default function Signup() {
     )
   }
 
-  const roles: { value: AccountRole; label: string; hint: string; icon: typeof MicVocal }[] = [
-    // Micro chanteur avec fil (comme le mobile) pour l'artiste, casque pour le mélomane.
-    { value: 'artist', label: t('auth.roleArtist'), hint: t('auth.roleArtistHint'), icon: MicVocal },
-    { value: 'melomane', label: t('auth.roleMelomane'), hint: t('auth.roleMelomaneHint'), icon: Headphones },
-  ]
-
   if (sent) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-warm-white px-6 pt-44 pb-24">
@@ -294,38 +289,7 @@ export default function Signup() {
           )}
 
           <form onSubmit={(e) => void submit(e)} className="grid gap-4" noValidate>
-            {!editing && step === 'role' && (
-              <div className="grid gap-3">
-                <span className="text-sm font-medium">{t('auth.role')}</span>
-                {roles.map(({ value, label, hint, icon: Icon }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRole(value)}
-                    aria-pressed={role === value}
-                    className={`flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${
-                      role === value
-                        ? 'border-brand-deep bg-brand-soft ring-2 ring-brand-deep dark:border-brand dark:ring-brand'
-                        : 'border-hairline-strong hover:bg-secondary-bg'
-                    }`}
-                  >
-                    <span
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors ${
-                        role === value
-                          ? 'bg-brand text-black'
-                          : 'bg-brand-soft text-brand-deep dark:bg-brand-soft dark:text-brand'
-                      }`}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span>
-                      <span className="block font-semibold">{label}</span>
-                      <span className="block text-xs text-secondary-text">{hint}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {!editing && step === 'role' && <RolePicker value={role} onChange={setRole} />}
 
             {(editing || step === 'identity') && (
             <div className="grid gap-4">

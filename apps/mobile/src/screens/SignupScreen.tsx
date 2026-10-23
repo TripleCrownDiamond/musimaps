@@ -1,13 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Headphones, MicVocal } from 'lucide-react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import {
-  checkin,
-  radii,
-  spacing,
-} from '@musimaps/shared';
+import { StyleSheet, Text } from 'react-native';
+import { checkin } from '@musimaps/shared';
 import { LocationFields } from '../components/LocationFields';
 import { PasswordGauge } from '../components/PasswordGauge';
 import { useApp } from '../context/AppContext';
@@ -17,6 +12,7 @@ import { useI18n } from '../i18n';
 import type { AccountRole } from '@musimaps/shared';
 import type { RootStackParamList } from '../navigation/types';
 import { fonts, type AppColors } from '../theme';
+import { RolePicker } from '../components/RolePicker';
 import { SocialAuthButtons } from '../components/SocialAuthButtons';
 import { AuthLayout, Button, Field, Input, PasswordInput } from '../ui';
 
@@ -24,11 +20,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Signup'>;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// Mêmes icônes que le web (lucide) : micro chanteur (avec fil) pour l'artiste, casque pour le mélomane.
-const ROLE_ICONS: Record<AccountRole, typeof MicVocal | typeof Headphones> = {
-  artist: MicVocal,
-  melomane: Headphones,
-};
 
 export function SignupScreen({ navigation, route }: Props) {
   const { colors } = useAppTheme();
@@ -69,10 +60,6 @@ export function SignupScreen({ navigation, route }: Props) {
     }
   };
 
-  const roles: { value: AccountRole; label: string; hint: string }[] = [
-    { value: 'artist', label: t('auth.roleArtist'), hint: t('auth.roleArtistHint') },
-    { value: 'melomane', label: t('auth.roleMelomane'), hint: t('auth.roleMelomaneHint') },
-  ];
 
   if (sent) {
     return (
@@ -121,50 +108,18 @@ export function SignupScreen({ navigation, route }: Props) {
       }}
     >
       <SocialAuthButtons
-        onSignedIn={() => {
+        onSignedIn={(needsProfile) => {
           void checkin();
           showToast(t('toast.welcomeBack'), 'checkmark-circle');
-          navigation.navigate('Main', { screen: 'Explore' });
+          // Nouveau compte Google/Apple : rôle, nom et ville d'abord.
+          if (needsProfile) navigation.replace('ProfileEdit', { complete: true });
+          else navigation.navigate('Main', { screen: 'Explore' });
         }}
         onError={(message) => showToast(message, 'alert-circle', 'error')}
       />
 
       <Field label={t('auth.role')}>
-        <View style={styles.roles}>
-          {roles.map(({ value, label, hint }) => {
-            const active = role === value;
-            return (
-              <Pressable
-                key={value}
-                style={[styles.roleCard, active && styles.roleCardActive]}
-                onPress={() => setRole(value)}
-              >
-                <View style={[styles.roleIcon, active && styles.roleIconActive]}>
-                  {(() => {
-                    const RoleIcon = ROLE_ICONS[value];
-                    return (
-                      <RoleIcon
-                        size={22}
-                        color={active ? colors.black : colors.brandPrimary}
-                      />
-                    );
-                  })()}
-                </View>
-                <View style={styles.roleCopy}>
-                  <Text style={[styles.roleLabel, active && styles.roleLabelActive]}>{label}</Text>
-                  <Text style={styles.roleHint}>{hint}</Text>
-                </View>
-                {active && (
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={22}
-                    color={colors.brandPrimary}
-                  />
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+        <RolePicker value={role} onChange={setRole} />
       </Field>
 
       <Field label={t('auth.name')}>
@@ -232,38 +187,4 @@ export function SignupScreen({ navigation, route }: Props) {
 const createStyles = (colors: AppColors) =>
   StyleSheet.create({
     sentEmail: { fontFamily: fonts.bold, fontSize: 15, textAlign: 'center' },
-    roles: { gap: spacing.md },
-    roleCard: {
-      minHeight: 74,
-      borderRadius: radii['3xl'],
-      borderWidth: 1.5,
-      borderColor: colors.line,
-      backgroundColor: colors.surface,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-      padding: spacing.md,
-    },
-    roleCardActive: { borderColor: colors.brandPrimary, backgroundColor: colors.brandSoft },
-    roleIcon: {
-      width: 46,
-      height: 46,
-      borderRadius: radii.full,
-      backgroundColor: colors.brandSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    roleIconActive: { backgroundColor: colors.brandSecondary },
-    roleCopy: { flex: 1 },
-    roleLabel: { color: colors.ink, fontFamily: fonts.bold, fontSize: 15 },
-    // Actif : en clair le fond est lime pâle (texte sombre), en sombre le
-    // fond est bleu nuit (texte clair) — ink s'adapte aux deux.
-    roleLabelActive: { color: colors.ink },
-    roleHint: {
-      color: colors.inkSoft,
-      fontFamily: fonts.body,
-      fontSize: 11,
-      marginTop: spacing.xs,
-      lineHeight: 16,
-    },
   });

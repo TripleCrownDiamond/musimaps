@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 import { useI18n } from '../i18n';
-import { fetchBookings, fetchMyReferralRequest, getLevelInfo, radii, spacing, type BookingRecord, type BookingStatus, type MyReferralRequest } from '@musimaps/shared';
+import { ACCOUNT_UPGRADES_ENABLED, fetchBookings, profileGaps, fetchMyReferralRequest, getLevelInfo, radii, spacing, type BookingRecord, type BookingStatus, type MyReferralRequest } from '@musimaps/shared';
 import {
   fetchArtistIdByName,
   fetchArtistStatsDetail,
@@ -39,6 +39,12 @@ export function DashboardScreen({ navigation }: Props) {
   const [followingCount, setFollowingCount] = useState(0);
   const [myReferral, setMyReferral] = useState<MyReferralRequest | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // Compte Google/Apple incomplet : rôle, nom et ville sont réclamés avant
+  // le tableau de bord, comme sur le web.
+  useEffect(() => {
+    if (user && profileGaps(user).length > 0) navigation.replace('ProfileEdit', { complete: true });
+  }, [user, navigation]);
 
   useEffect(() => {
     if (!user) return;
@@ -237,17 +243,20 @@ export function DashboardScreen({ navigation }: Props) {
                 </View>
               </View>
             )}
-            <View style={[styles.guideStep, { borderColor: colors.line, backgroundColor: colors.surface }]}>
-              <View style={[styles.guideStepIcon, { backgroundColor: colors.brandSoft }]}>
-                <Ionicons name={user.accountType === 'business' ? 'briefcase-outline' : 'heart-outline'} size={17} color={colors.brandDeep} />
+            {/* « Passez en compte business » : seulement quand l'offre est ouverte. */}
+            {(user.accountType === 'business' || ACCOUNT_UPGRADES_ENABLED) && (
+              <View style={[styles.guideStep, { borderColor: colors.line, backgroundColor: colors.surface }]}>
+                <View style={[styles.guideStepIcon, { backgroundColor: colors.brandSoft }]}>
+                  <Ionicons name={user.accountType === 'business' ? 'briefcase-outline' : 'heart-outline'} size={17} color={colors.brandDeep} />
+                </View>
+                <View style={styles.guideStepCopy}>
+                  <Text style={styles.guideStepNumber}>{isArtist ? '03' : '02'}</Text>
+                  <Text style={[styles.guideText, { color: colors.inkSoft }]}>
+                    {user.accountType === 'business' ? t('dash.guideBusiness') : t('dash.guidePersonal')}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.guideStepCopy}>
-                <Text style={styles.guideStepNumber}>{isArtist ? '03' : '02'}</Text>
-                <Text style={[styles.guideText, { color: colors.inkSoft }]}>
-                  {user.accountType === 'business' ? t('dash.guideBusiness') : t('dash.guidePersonal')}
-                </Text>
-              </View>
-            </View>
+            )}
           </View>
         )}
       </Pressable>

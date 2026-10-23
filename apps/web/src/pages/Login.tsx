@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Headphones, Loader2, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
+import { profileGaps } from '@musimaps/shared'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage, useLocalizedPath } from '../i18n/LanguageContext'
 import SocialAuthButtons from '../components/SocialAuthButtons'
@@ -24,11 +25,14 @@ export default function Login() {
       ? requestedPath
       : localize('/globe')
 
-  useEffect(() => {
-    if (!loading && user) navigate(redirectTo, { replace: true })
-  }, [user, loading, navigate, redirectTo])
+  // Retour de Google avec un profil incomplet : on le complète d'abord.
+  const destination = user && profileGaps(user).length > 0 ? localize('/profil') : redirectTo
 
-  if (!loading && user) return <Navigate to={redirectTo} replace />
+  useEffect(() => {
+    if (!loading && user) navigate(destination, { replace: true })
+  }, [user, loading, navigate, destination])
+
+  if (!loading && user) return <Navigate to={destination} replace />
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
