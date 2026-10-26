@@ -1,7 +1,8 @@
-import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef, DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
+import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -18,6 +19,7 @@ import type { MainTabParamList, RootStackParamList } from './src/navigation/type
 import { AchievementToast } from './src/components/AchievementToast';
 import { FloatingDock } from './src/components/FloatingDock';
 import { Toast } from './src/components/Toast';
+import { DAILY_NOTIFICATION_KIND } from './src/lib/dailyDiscovery';
 import { UpdateGate } from './src/components/UpdateGate';
 import { LanguageProvider, useI18n } from './src/i18n';
 import { ArtistJoinScreen } from './src/screens/ArtistJoinScreen';
@@ -57,6 +59,19 @@ configureRuntime({
   resetPasswordUrl: 'musimaps://reset-password',
   signUpConfirmationUrl: 'musimaps://login',
 });
+
+// Notification reçue app ouverte : on l'affiche quand même (artiste du jour).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+/** Navigation hors des écrans : ouverture d'une notification « artiste du jour ». */
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
@@ -156,6 +171,16 @@ function AppNavigator() {
       cancelled = true;
     };
   }, []);
+  // Toucher « Votre artiste du jour » ouvre la fiche de l'artiste, y compris
+  // quand la notification a lancé l'app (réponse rejouée une fois prêt).
+  const lastResponse = Notifications.useLastNotificationResponse();
+  const [navigationReady, setNavigationReady] = useState(false);
+  useEffect(() => {
+    const data = lastResponse?.notification.request.content.data;
+    if (!navigationReady || data?.kind !== DAILY_NOTIFICATION_KIND || typeof data.artistId !== 'string') return;
+    navigationRef.navigate('ArtistProfile', { artistId: data.artistId });
+  }, [lastResponse, navigationReady]);
+
   const baseTheme = theme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
     ...baseTheme,
@@ -177,7 +202,7 @@ function AppNavigator() {
     <AppProvider>
       <AuthProvider>
         <LanguageProvider>
-          <NavigationContainer theme={navigationTheme} linking={linking}>
+          <NavigationContainer ref={navigationRef} onReady={() => setNavigationReady(true)} theme={navigationTheme} linking={linking}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
           <RootStack.Navigator
             initialRouteName={initialRoute}

@@ -114,6 +114,7 @@ import { ArtistSheet } from '../components/ArtistSheet';
 import { BurstClusterGhost, BurstMarkerView, pinBurst, usePinBurstCleanup } from '../components/PinBurst';
 import { PlacePanel, type PlacePanelData } from '../components/PlacePanel';
 import { useApp } from '../context/AppContext';
+import { useDailyDiscovery } from '../lib/useDailyDiscovery';
 import { useAppTheme } from '../context/ThemeContext';
 import { useI18n } from '../i18n';
 import {
@@ -551,6 +552,8 @@ export function ExploreScreen({ navigation, route }: Props) {
 
   // Source unique (comme le web) : tout pin du globe vit dans map_artists.
   const allArtists = useMemo(() => mapArtists, [mapArtists]);
+  // Artiste du jour : notifications locales reprogrammées depuis la carte.
+  useDailyDiscovery(allArtists, userLocation);
 
   // Après autorisation, le globe reste complet mais la zone de recherche est
   // priorisée : les artistes proches deviennent visibles immédiatement, sans

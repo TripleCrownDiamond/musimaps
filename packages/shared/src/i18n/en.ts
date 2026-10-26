@@ -1132,4 +1132,18 @@ export const en: Record<MessageKey, string> = {
   'collection.loginToLike': 'Log in to like this selection.',
   'collection.report': 'Report this selection',
   'collection.titleRequired': 'Give the selection a title.',
+  // Artiste du jour (notification locale quotidienne).
+  'daily.notifTitle': 'Your artist of the day 🎶',
+  'daily.notifBody': '{name} — {genre}, {city}. Tap to discover.',
+  'daily.channel': 'Artist of the day',
+  'daily.settingTitle': 'Artist of the day',
+  'daily.settingOn': 'Every day at {hour}:00, an artist near you.',
+  'daily.settingOff': 'Off. Tap to turn it on.',
+  'daily.promptTitle': 'Discover an artist every day?',
+  'daily.promptText': 'Get a notification every evening at {hour}:00 with an artist near you.',
+  'daily.promptYes': 'Yes, please',
+  'daily.promptLater': 'Later',
+  'daily.enabled': 'Done: an artist every day at {hour}:00.',
+  'daily.disabled': 'Artist of the day turned off.',
+  'daily.permissionDenied': 'Notifications are blocked. Turn them on in your phone settings.',
 };

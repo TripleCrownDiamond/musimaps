@@ -5,13 +5,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, Share, StyleSheet, Switch, Text, View } from 'react-native';
 import { AppBar } from '../components/AppBar';
 import { ProfileHeader } from '../components/ProfileHeader';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useAppTheme } from '../context/ThemeContext';
-import { PROFILE_GUTTER, LEGAL_LINKS, SITE_URL, getLevelInfo, profileGaps, radii, siteUrl, spacing } from '@musimaps/shared';
+import { DAILY_DISCOVERY_HOUR, PROFILE_GUTTER, LEGAL_LINKS, SITE_URL, getLevelInfo, profileGaps, radii, siteUrl, spacing } from '@musimaps/shared';
+import { disableDaily, enableDaily, isDailyEnabled } from '../lib/dailyDiscovery';
 import { AccountAvatar } from '../components/AccountMedia';
 import { LANGS, languageName, useI18n } from '../i18n';
 import { checkin, type StreakInfo } from '@musimaps/shared';
@@ -29,7 +30,7 @@ export function ProfileScreen({ navigation }: Props) {
   const { colors, theme, toggleTheme } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { t, lang, langPref, setLangPref } = useI18n();
-  const { profile, favorites, visitedCities, badges, points } = useApp();
+  const { profile, favorites, visitedCities, badges, points, showToast } = useApp();
   const { user, signOut, refresh: refreshUser } = useAuth();
   const [streak, setStreak] = useState<StreakInfo | null>(null);
   const name = user?.displayName || profile?.displayName || t('profile.defaultName');
@@ -41,6 +42,24 @@ export function ProfileScreen({ navigation }: Props) {
   const openAccountAction = () => {
     if (user) navigation.navigate('ProfileEdit', needsProfile ? { complete: true } : undefined);
     else navigation.navigate('Signup');
+  };
+  // Artiste du jour : notification locale quotidienne (voir lib/dailyDiscovery).
+  const [dailyOn, setDailyOn] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      void isDailyEnabled().then(setDailyOn);
+    }, []),
+  );
+  const toggleDaily = async () => {
+    if (dailyOn) {
+      await disableDaily();
+      setDailyOn(false);
+      return showToast(t('daily.disabled'), 'notifications-off-outline');
+    }
+    const result = await enableDaily(lang);
+    if (result === 'denied') return showToast(t('daily.permissionDenied'), 'notifications-off-outline', 'error');
+    setDailyOn(true);
+    showToast(t('daily.enabled', { hour: DAILY_DISCOVERY_HOUR }), 'notifications-outline');
   };
   const level = getLevelInfo(points);
   const earnedCount = badges.filter((badge) => badge.earned).length;
@@ -307,6 +326,19 @@ export function ProfileScreen({ navigation }: Props) {
             <Text style={styles.menuText}>{t('profile.artistHint')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </Card>
+
+        <Card style={styles.menuItem} onPress={() => void toggleDaily()}>
+          <View style={styles.menuIcon}>
+            <Ionicons name={dailyOn ? 'notifications' : 'notifications-off-outline'} size={22} color={colors.brandPrimary} />
+          </View>
+          <View style={styles.menuCopy}>
+            <Text style={styles.menuTitle}>{t('daily.settingTitle')}</Text>
+            <Text style={styles.menuText}>
+              {dailyOn ? t('daily.settingOn', { hour: DAILY_DISCOVERY_HOUR }) : t('daily.settingOff')}
+            </Text>
+          </View>
+          <Switch value={dailyOn} onValueChange={() => void toggleDaily()} accessibilityLabel={t('daily.settingTitle')} />
         </Card>
 
         <Card style={styles.menuItem} onPress={toggleTheme}>

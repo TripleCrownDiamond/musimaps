@@ -1135,6 +1135,20 @@ export const fr = {
   'collection.loginToLike': 'Connectez-vous pour aimer cette sélection.',
   'collection.report': 'Signaler cette sélection',
   'collection.titleRequired': 'Donnez un titre à la sélection.',
+  // Artiste du jour (notification locale quotidienne).
+  'daily.notifTitle': 'Votre artiste du jour 🎶',
+  'daily.notifBody': '{name} — {genre}, {city}. Touchez pour découvrir.',
+  'daily.channel': 'Artiste du jour',
+  'daily.settingTitle': 'Artiste du jour',
+  'daily.settingOn': 'Chaque jour à {hour} h, un artiste près de chez vous.',
+  'daily.settingOff': 'Désactivé. Touchez pour l’activer.',
+  'daily.promptTitle': 'Un artiste à découvrir chaque jour ?',
+  'daily.promptText': 'Recevez chaque soir à {hour} h une notification avec un artiste proche de chez vous.',
+  'daily.promptYes': 'Oui, volontiers',
+  'daily.promptLater': 'Plus tard',
+  'daily.enabled': 'C’est noté : un artiste chaque jour à {hour} h.',
+  'daily.disabled': 'Artiste du jour désactivé.',
+  'daily.permissionDenied': 'Notifications refusées. Activez-les dans les réglages du téléphone.',
 } as const;
 
 export type MessageKey = keyof typeof fr;
