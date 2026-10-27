@@ -1,5 +1,5 @@
 /**
- * Slug automatique des artistes (00069) contre un vrai Postgres.
+ * Slug automatique des artistes (00069 → 00071 → 00081) contre un vrai Postgres.
  *
  * Le partage (web, mobile) et inject-og choisissent `slug || id` : tant que
  * le slug n'est pas rempli en base, chaque profil partage son UUID. 00069
@@ -10,7 +10,12 @@
  *   - les collisions avec un slug OU un id existant → suffixe -2, -3… ;
  *   - un slug explicite (admin, profil revendiqué) n'est jamais touché, pas
  *     même par un renommage — les liens déjà partagés restent valides ;
- *   - le backfill ne casse pas sur deux artistes homonymes.
+ *   - le backfill ne casse pas sur deux artistes homonymes ;
+ *   - 00081 répare les slugs posés par un slugify antérieur (00069 bogué,
+ *     00071 incomplet) sans toucher aux slugs explicites.
+ *
+ * « Le backfill » se rejoue via BACKFILL (00081, idempotente), jamais via
+ * 00069 : rejouer 00069 réinstallerait son slugify bogué.
  *
  * Lancé par `npm run test:db` (scripts/db-test/run.mjs), qui démarre un
  * Postgres jetable dans Docker et fournit DB_URL. Hors de `check` : il faut
@@ -28,6 +33,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const migration = (file) => readFileSync(path.join(root, 'supabase', 'migrations', file), 'utf8');
 
 const client = new pg.Client({ connectionString: process.env.DB_URL });
+const BACKFILL = '00081_artist_slugify_nfd.sql';
 
 /** Nettoie et sème des artistes couvrant les cas de collision. */
 async function seed() {
@@ -35,7 +41,7 @@ async function seed() {
   await client.query(`
     INSERT INTO public.map_artists (id, name, source) VALUES
       ('mb-1', 'Omah Lay',   'musicbrainz'),  -- slug null : backfill
-      ('mb-2', 'Sans Nom',   'musicbrainz'),  -- nom sans aucune lettre : slug vide
+      ('mb-2', '***',        'musicbrainz'),  -- nom sans aucune lettre : slug vide
       ('omah-lay', 'Autre',  'musicbrainz');  -- un id QUI EST le slug d'un voisin
   `);
 }
@@ -43,11 +49,12 @@ async function seed() {
 before(async () => {
   await client.connect();
   await client.query(readFileSync(path.join(root, 'scripts', 'db-test', 'schema.sql'), 'utf8'));
-  // 00071 corrige le slugify de 00069 (tables translate() désalignées) et
-  // répare les slugs déjà posés : l'état à tester est 00069 PUIS 00071,
-  // exactement comme sur la base réelle.
+  // 00071 corrige le slugify de 00069 (tables translate() désalignées),
+  // 00081 l'aligne sur le TypeScript (NFD) : l'état à tester est 00069 PUIS
+  // 00071 PUIS 00081, exactement comme sur la base réelle.
   await client.query(migration('00069_artist_slug_backfill.sql'));
   await client.query(migration('00071_fix_artist_slugify.sql'));
+  await client.query(migration(BACKFILL));
 });
 
 after(() => client.end());
@@ -61,6 +68,10 @@ test('slugify : translittération et casse identiques au slugify TypeScript', as
     ['Étoile de mer', 'etoile-de-mer'],
     ['DJ  ***  Mix', 'dj-mix'],
     ['Música', 'musica'],
+    ['Àṣà', 'asa'],
+    ['Ọlamide', 'olamide'],
+    ['Youssou N’Dour', 'youssou-n-dour'],
+    ['x'.repeat(100), 'x'.repeat(80)],
   ];
   for (const [input, expected] of cases) {
     const { rows } = await client.query('SELECT public.slugify($1) AS s', [input]);
@@ -86,7 +97,7 @@ test('backfill : les artistes existants reçoivent leur nom comme slug', async (
   );
   await client.query(`ALTER TABLE public.map_artists ENABLE TRIGGER trg_map_artists_assign_slug`);
 
-  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(migration(BACKFILL));
   const { rows } = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-old'`);
   assert.equal(rows[0].slug, 'angelique-kidjo');
 });
@@ -102,7 +113,7 @@ test('collision de nom : deuxième artiste homonyme suffixé -2 (backfill compri
   );
   await client.query(`ALTER TABLE public.map_artists ENABLE TRIGGER trg_map_artists_assign_slug`);
 
-  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(migration(BACKFILL));
   const { rows } = await client.query(
     `SELECT id, slug FROM public.map_artists WHERE name = 'DJ Mix' ORDER BY id`,
   );
@@ -124,7 +135,7 @@ test('slug en collision avec l’ID d’un voisin : suffixé plutôt que disput�
   );
   await client.query(`ALTER TABLE public.map_artists ENABLE TRIGGER trg_map_artists_assign_slug`);
 
-  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(migration(BACKFILL));
   // 'autre' est l'id d'une ligne déjà semée : le slug doit être décalé.
   const { rows } = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-x'`);
   assert.equal(rows[0].slug, 'autre-2');
@@ -132,7 +143,7 @@ test('slug en collision avec l’ID d’un voisin : suffixé plutôt que disput�
 
 test('nom sans lettre : repli sur l’id plutôt qu’un slug vide', async () => {
   await seed();
-  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(migration(BACKFILL));
   const { rows } = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-2'`);
   assert.equal(rows[0].slug, 'mb-2');
 });
@@ -150,8 +161,70 @@ test('slug explicite : jamais réécrit, y compris par un renommage', async () =
 
 test('re-nullification du slug repasse par le trigger (auto-réparation)', async () => {
   await seed();
-  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(migration(BACKFILL));
   await client.query(`UPDATE public.map_artists SET slug = NULL WHERE id = 'mb-1'`);
   const { rows } = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-1'`);
-  assert.equal(rows[0].slug, 'omah-lay');
+  // Le seed contient un artiste dont l'ID est « omah-lay » : le trigger,
+  // qui voit désormais cette ligne, refuse de lui disputer l'adresse.
+  assert.equal(rows[0].slug, 'omah-lay-2');
+});
+
+test('réparation : un slug posé par le slugify bogué de 00069 est recalculé', async () => {
+  await seed();
+  // Quelqu'un rejoue 00069 : slugify bogué réinstallé, Angélique mal nommée.
+  await client.query(migration('00069_artist_slug_backfill.sql'));
+  await client.query(
+    `INSERT INTO public.map_artists (id, name, source) VALUES ('mb-old', 'Angélique Kidjo', 'musicbrainz')`,
+  );
+  const before = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-old'`);
+  assert.equal(before.rows[0].slug, 'yngelique-fidjo');
+
+  await client.query(migration(BACKFILL));
+  const { rows } = await client.query(`SELECT slug FROM public.map_artists WHERE id = 'mb-old'`);
+  assert.equal(rows[0].slug, 'angelique-kidjo');
+});
+
+test('réparation : slug 00071 incomplet recalculé, slugs explicites intouchés', async () => {
+  await seed();
+  // État de la prod avant 00081 : slugify de 00071 installé.
+  await client.query(migration('00071_fix_artist_slugify.sql'));
+  await client.query(
+    `INSERT INTO public.map_artists (id, name, source) VALUES ('mb-asa', 'Àṣà', 'musicbrainz')`,
+  );
+  await client.query(
+    `INSERT INTO public.map_artists (id, name, source) VALUES ('mb-asa2', 'Àṣà', 'musicbrainz')`,
+  );
+  await client.query(
+    `INSERT INTO public.map_artists (id, name, source, slug) VALUES
+       ('mb-perso', 'Àṣà Live', 'musicbrainz', 'mon-lien'),
+       ('mb-admin', 'Ọlamide',  'musicbrainz', 'olamide-officiel')`,
+  );
+  const before = await client.query(
+    `SELECT slug FROM public.map_artists WHERE id LIKE 'mb-asa%' ORDER BY id`,
+  );
+  assert.deepEqual(before.rows.map((r) => r.slug), ['a-a', 'a-a-2']);
+
+  await client.query(migration(BACKFILL));
+  const { rows } = await client.query(
+    `SELECT id, slug FROM public.map_artists
+      WHERE id IN ('mb-asa', 'mb-asa2', 'mb-perso', 'mb-admin') ORDER BY id`,
+  );
+  assert.deepEqual(
+    rows.map((r) => [r.id, r.slug]),
+    [
+      ['mb-admin', 'olamide-officiel'],
+      ['mb-asa', 'asa'],
+      ['mb-asa2', 'asa-2'],
+      ['mb-perso', 'mon-lien'],
+    ],
+  );
+});
+
+test('rejouer 00081 ne change aucun slug déjà correct', async () => {
+  await seed();
+  await client.query(`UPDATE public.map_artists SET slug = 'lien-perso' WHERE id = 'mb-1'`);
+  const before = await client.query(`SELECT id, slug FROM public.map_artists ORDER BY id`);
+  await client.query(migration(BACKFILL));
+  const after = await client.query(`SELECT id, slug FROM public.map_artists ORDER BY id`);
+  assert.deepEqual(after.rows, before.rows);
 });
