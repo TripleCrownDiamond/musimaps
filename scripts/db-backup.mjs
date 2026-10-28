@@ -9,9 +9,12 @@
  * Lecture seule : rien n'est modifié côté Supabase. pg_dump tourne dans Docker
  * (image postgres officielle), aucune installation locale requise.
  * Mêmes identifiants que `db:migrate` : DATABASE_PASSWORD (racine .env) et
- * VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (apps/web/.env.local).
+ * VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (apps/web/.env.local). En
+ * sauvegarde automatique (GitHub Actions, voir docs/SAUVEGARDES.md), les
+ * mêmes valeurs arrivent par l'environnement : DATABASE_PASSWORD,
+ * SUPABASE_URL, SUPABASE_ANON_KEY, et BACKUP_DIR pour le dossier de sortie.
  *
- * Sortie : ../musimaps-play/sauvegardes/supabase-AAAA-MM-JJ/
+ * Sortie : ../musimaps-play/sauvegardes/supabase-AAAA-MM-JJ/ (ou BACKUP_DIR)
  * Contient des données personnelles (e-mails, mots de passe chiffrés) :
  * ne jamais la versionner ni la partager.
  *
@@ -38,9 +41,9 @@ function loadEnv(file) {
 const rootEnv = loadEnv(path.join(root, '.env'))
 const webEnv = loadEnv(path.join(root, 'apps', 'web', '.env.local'))
 
-const password = rootEnv.DATABASE_PASSWORD
-const url = webEnv.VITE_SUPABASE_URL
-const anonKey = webEnv.VITE_SUPABASE_ANON_KEY
+const password = process.env.DATABASE_PASSWORD ?? rootEnv.DATABASE_PASSWORD
+const url = process.env.SUPABASE_URL ?? webEnv.VITE_SUPABASE_URL
+const anonKey = process.env.SUPABASE_ANON_KEY ?? webEnv.VITE_SUPABASE_ANON_KEY
 if (!password || !url) {
   console.error('Manquant : DATABASE_PASSWORD (racine .env) ou VITE_SUPABASE_URL (apps/web/.env.local).')
   process.exit(1)
@@ -48,7 +51,9 @@ if (!password || !url) {
 const ref = url.replace(/^https:\/\/([a-z0-9]+)\..*$/, '$1')
 
 const day = new Date().toISOString().slice(0, 10)
-const outDir = path.join(root, '..', 'musimaps-play', 'sauvegardes', `supabase-${day}`)
+const outDir = process.env.BACKUP_DIR
+  ? path.resolve(process.env.BACKUP_DIR)
+  : path.join(root, '..', 'musimaps-play', 'sauvegardes', `supabase-${day}`)
 mkdirSync(outDir, { recursive: true })
 
 // Le mot de passe passe par l'environnement, jamais par la ligne de commande.

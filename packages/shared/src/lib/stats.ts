@@ -120,12 +120,28 @@ export async function fetchArtistLikes(artistId: string): Promise<number> {
   return typeof data === 'number' ? data : 0
 }
 
+/** Durée pendant laquelle les scores de popularité lus restent valables. */
+export const POPULARITY_FRESH_MS = 5 * 60 * 1000
+let popularityMemo: { at: number; scores: Map<string, number> } | null = null
+let popularityInflight: Promise<Map<string, number>> | null = null
+
 /**
  * Score de popularité de TOUS les artistes en une requête (lecture publique
  * de `artist_stats`) : id → profile_views + pin_views. Sert aux anneaux de
  * couleur des pins de la carte (tier 0-3) sans N+1.
  */
 export async function fetchAllArtistPopularity(): Promise<Map<string, number>> {
+  // Les anneaux de popularité n'ont pas besoin d'être à la seconde près :
+  // une lecture toutes les 5 min au plus, quel que soit le nombre d'écrans.
+  if (popularityMemo && Date.now() - popularityMemo.at < POPULARITY_FRESH_MS) return new Map(popularityMemo.scores)
+  // Écrans montés ensemble : une seule requête partagée.
+  popularityInflight ??= readAllArtistPopularity().finally(() => {
+    popularityInflight = null
+  })
+  return new Map(await popularityInflight)
+}
+
+async function readAllArtistPopularity(): Promise<Map<string, number>> {
   const out = new Map<string, number>()
   const supabase = getSupabase()
 
@@ -144,6 +160,7 @@ export async function fetchAllArtistPopularity(): Promise<Map<string, number>> {
     }>) {
       out.set(row.artist_id, (row.profile_views ?? 0) + (row.pin_views ?? 0))
     }
+    popularityMemo = { at: Date.now(), scores: new Map(out) }
   } catch {
     /* silencieux */
   }
@@ -261,42 +278,116 @@ export async function notifyBookingStatus(
   }
 }
 
-/** Compte une vue de profil artiste (fire-and-forget). Inclut la clé d'appareil
- *  et le pays du visiteur pour l'analytique unique (vues par user / par pays). */
+/** Délai avant l'envoi groupé des vues (une écriture au lieu d'une par vue). */
+export const VIEW_FLUSH_DELAY_MS = 30_000
+/** Au-delà de ce nombre de vues en attente, envoi immédiat. */
+export const VIEW_FLUSH_MAX_PENDING = 50
+
+type ViewKind = 'profile' | 'pin'
+
+/**
+ * Vues en attente, regroupées par appareil + pays puis par artiste et type.
+ * Envoyées en un seul appel `record_artist_views` (00082) toutes les
+ * VIEW_FLUSH_DELAY_MS, ou dès VIEW_FLUSH_MAX_PENDING vues. Les apps appellent
+ * aussi `flushArtistViews` quand elles passent en arrière-plan.
+ */
+const pendingViews = new Map<string, { viewerKey: string; country: string | null; counts: Map<string, number> }>()
+let pendingTotal = 0
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+/** Faux dès que le RPC groupé manque en base : repli vue par vue. */
+let batchRpcAvailable = true
+
+async function queueView(
+  artistId: string,
+  kind: ViewKind,
+  opts?: { viewerKey?: string; country?: string | null },
+): Promise<void> {
+  if (!getSupabase() || !artistId) return
+  const viewerKey = opts?.viewerKey ?? (await getViewerKey())
+  const country = opts?.country ?? null
+  const groupKey = `${viewerKey}|${country ?? ''}`
+  let group = pendingViews.get(groupKey)
+  if (!group) {
+    group = { viewerKey, country, counts: new Map() }
+    pendingViews.set(groupKey, group)
+  }
+  const countKey = `${kind}|${artistId}`
+  group.counts.set(countKey, (group.counts.get(countKey) ?? 0) + 1)
+  pendingTotal += 1
+
+  if (pendingTotal >= VIEW_FLUSH_MAX_PENDING) {
+    void flushArtistViews()
+  } else if (!flushTimer) {
+    flushTimer = setTimeout(() => void flushArtistViews(), VIEW_FLUSH_DELAY_MS)
+  }
+}
+
+/** Envoie tout de suite les vues en attente (arrière-plan, fermeture d'onglet). */
+export async function flushArtistViews(): Promise<void> {
+  if (flushTimer) {
+    clearTimeout(flushTimer)
+    flushTimer = null
+  }
+  const supabase = getSupabase()
+  if (!supabase || pendingViews.size === 0) return
+  const groups = [...pendingViews.values()]
+  pendingViews.clear()
+  pendingTotal = 0
+
+  for (const group of groups) {
+    const events = [...group.counts.entries()].map(([key, count]) => {
+      const [kind, ...rest] = key.split('|')
+      return { artist_id: rest.join('|'), kind: kind as ViewKind, count }
+    })
+    try {
+      if (batchRpcAvailable) {
+        const { error } = await supabase.rpc('record_artist_views', {
+          p_events: events,
+          p_viewer_key: group.viewerKey,
+          p_country: group.country,
+        })
+        if (!error) continue
+        // RPC absent (migration 00082 non appliquée) : on bascule vue par vue.
+        if (error.code !== 'PGRST202' && !/record_artist_views/.test(error.message)) continue
+        batchRpcAvailable = false
+      }
+      for (const event of events) {
+        for (let i = 0; i < event.count; i += 1) {
+          await supabase.rpc('record_artist_view', {
+            p_artist_id: event.artist_id,
+            p_kind: event.kind,
+            p_viewer_key: group.viewerKey,
+            p_country: group.country,
+          })
+        }
+      }
+    } catch {
+      /* silencieux : les stats ne bloquent jamais l'UI */
+    }
+  }
+}
+
+/** Compte une vue de profil artiste (fire-and-forget, envoi groupé). Inclut la
+ *  clé d'appareil et le pays du visiteur pour l'analytique unique (vues par
+ *  user / par pays). */
 export async function recordProfileView(
   artistId: string,
   opts?: { viewerKey?: string; country?: string | null },
 ): Promise<void> {
-  const supabase = getSupabase()
-
-  if (!supabase || !artistId) return
   try {
-    await supabase.rpc('record_artist_view', {
-      p_artist_id: artistId,
-      p_kind: 'profile',
-      p_viewer_key: opts?.viewerKey ?? (await getViewerKey()),
-      p_country: opts?.country ?? null,
-    })
+    await queueView(artistId, 'profile', opts)
   } catch {
     /* silencieux : les stats ne bloquent jamais l'UI */
   }
 }
 
-/** Compte une vue de pin sur la carte (fire-and-forget). */
+/** Compte une vue de pin sur la carte (fire-and-forget, envoi groupé). */
 export async function recordPinView(
   artistId: string,
   opts?: { viewerKey?: string; country?: string | null },
 ): Promise<void> {
-  const supabase = getSupabase()
-
-  if (!supabase || !artistId) return
   try {
-    await supabase.rpc('record_artist_view', {
-      p_artist_id: artistId,
-      p_kind: 'pin',
-      p_viewer_key: opts?.viewerKey ?? (await getViewerKey()),
-      p_country: opts?.country ?? null,
-    })
+    await queueView(artistId, 'pin', opts)
   } catch {
     /* silencieux */
   }

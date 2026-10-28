@@ -1,4 +1,5 @@
-import { getMapboxToken, getSupabase } from '../runtime'
+import { getMapboxToken, getStorage, getSupabase } from '../runtime'
+import { createVersionedCache } from './versionedCache'
 import { fetchBlockedArtists } from './moderation'
 import { triggerDiscoveryNotification } from './notifications'
 import type { Artist, ArtistEvent } from '../index'
@@ -1625,11 +1626,11 @@ export async function searchNeighborhoods(
  */
 export const MAP_ARTISTS_FETCH_LIMIT = 500
 
-/** Artistes déjà ajoutés à la carte (table map_artists). */
-export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
+/** Lecture réseau de `map_artists`, `null` si la base ne répond pas. */
+async function fetchMapArtistRows(): Promise<DiscoveredArtist[] | null> {
   const supabase = getSupabase()
 
-  if (!supabase) return []
+  if (!supabase) return null
   // La migration 00016 ajoute plateformes/sociaux/vérification. Tant qu'elle
   // n'est pas appliquée en base, on retombe sur le schéma précédent.
   const RICH_SELECT =
@@ -1649,15 +1650,12 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
       .limit(MAP_ARTISTS_FETCH_LIMIT)
     data = (fallback.data ?? null) as unknown as typeof data
   }
-  if (!data) return []
-  // Artistes bloqués par l'utilisateur : absents de sa carte, de ses listes
-  // et de ses fiches, sur les deux plateformes (un seul point d'entrée).
-  const blocked = new Set(await fetchBlockedArtists())
+  if (!data) return null
   // Filtre repris du mobile : une ligne sans coordonnées numériques valides
   // ne doit jamais devenir un pin. Le web ne filtrait pas ici et s'en
   // remettait entièrement à la garde de GlobeMap.
   return data
-    .filter((row) => typeof row.lat === 'number' && typeof row.lng === 'number' && !blocked.has(row.id))
+    .filter((row) => typeof row.lat === 'number' && typeof row.lng === 'number')
     .map((row) => ({
     id: row.id,
     name: row.name,
@@ -1680,6 +1678,45 @@ export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
     followers: row.followers ? String(row.followers) : '',
     slug: row.slug ?? null,
   }))
+}
+
+/**
+ * Liste de la carte gardée sur l'appareil (00082) : chaque ouverture ne
+ * demande que le numéro de version ; la liste n'est retéléchargée que si un
+ * artiste a changé. Sans la migration, la version est `null` et la liste est
+ * relue comme avant.
+ */
+const mapArtistsCache = createVersionedCache<DiscoveredArtist>(
+  {
+    key: 'musimaps.mapArtists.v1',
+    fetchVersion: async () => {
+      const supabase = getSupabase()
+      if (!supabase) return null
+      const { data, error } = await supabase.rpc('map_artists_version')
+      return error || data === null || data === undefined ? null : Number(data)
+    },
+    fetchRows: fetchMapArtistRows,
+  },
+  { storage: getStorage },
+)
+
+/**
+ * À appeler après toute écriture sur `map_artists` faite hors de ce module
+ * (admin, profil revendiqué) : la prochaine lecture revérifie la version au
+ * lieu d'attendre la fin de la fenêtre de fraîcheur.
+ */
+export function invalidateMapArtistsCache(): void {
+  mapArtistsCache.invalidate()
+}
+
+/** Artistes déjà ajoutés à la carte (table map_artists). */
+export async function fetchMapArtists(): Promise<DiscoveredArtist[]> {
+  if (!getSupabase()) return []
+  const [rows, blockedIds] = await Promise.all([mapArtistsCache.get(), fetchBlockedArtists()])
+  // Artistes bloqués par l'utilisateur : absents de sa carte, de ses listes
+  // et de ses fiches, sur les deux plateformes (un seul point d'entrée).
+  const blocked = new Set(blockedIds)
+  return blocked.size > 0 ? rows.filter((row) => !blocked.has(row.id)) : rows
 }
 
 /**
@@ -1732,6 +1769,7 @@ export async function addMapArtist(artist: DiscoveredArtist): Promise<{
     const retry = await supabase.from('map_artists').upsert(payload, insertOnly)
     error = retry.error
   }
+  mapArtistsCache.invalidate()
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
@@ -1775,6 +1813,7 @@ export async function addOrUpdateMapArtist(
     },
   })
   if (error) return { ok: false, error: error.message }
+  mapArtistsCache.invalidate()
   const result = data as { ok?: boolean; error?: string; id?: string; updated?: boolean } | null
   if (!result?.ok) return { ok: false, error: result?.error ?? 'Erreur inconnue' }
   // Nouvel artiste : on notifie les utilisateurs concernés (migration 00029,
@@ -1800,6 +1839,7 @@ export async function removeMapArtist(id: string): Promise<{ ok: boolean; error?
 
   if (!supabase) return { ok: false, error: 'Supabase non configuré' }
   const { error } = await supabase.from('map_artists').delete().eq('id', id)
+  mapArtistsCache.invalidate()
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 
@@ -1839,6 +1879,7 @@ export async function updateMapArtist(
     const retry = await supabase.from('map_artists').update(base).eq('id', id)
     error = retry.error
   }
+  mapArtistsCache.invalidate()
   return error ? { ok: false, error: error.message } : { ok: true }
 }
 

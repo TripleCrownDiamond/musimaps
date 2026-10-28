@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { configureRuntime } from '@musimaps/shared'
+import { configureRuntime, flushArtistViews } from '@musimaps/shared'
 import './index.css'
 import App from './App'
 import { supabase } from './lib/supabase'
@@ -23,6 +23,13 @@ configureRuntime({
   resetPasswordUrl: `${window.location.origin}/reset-password`,
   signUpConfirmationUrl: `${window.location.origin}/login`,
 })
+
+// Les vues d'artistes partent par lots : on vide le lot quand l'onglet est
+// caché ou fermé, sinon les dernières vues de la visite seraient perdues.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void flushArtistViews()
+})
+window.addEventListener('pagehide', () => void flushArtistViews())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

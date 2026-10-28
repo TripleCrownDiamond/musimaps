@@ -6,10 +6,10 @@ import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Linking, Platform, StyleSheet } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { configureRuntime } from '@musimaps/shared';
+import { configureRuntime, flushArtistViews } from '@musimaps/shared';
 import { AppProvider } from './src/context/AppContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { BrandProvider } from './src/context/BrandContext';
@@ -58,6 +58,12 @@ configureRuntime({
   // Deep link : le lien de l'email rouvre l'app sur l'écran de réinitialisation.
   resetPasswordUrl: 'musimaps://reset-password',
   signUpConfirmationUrl: 'musimaps://login',
+});
+
+// Les vues d'artistes partent par lots : on vide le lot quand l'app passe en
+// arrière-plan, sinon les dernières vues de la session seraient perdues.
+AppState.addEventListener('change', (state) => {
+  if (state !== 'active') void flushArtistViews();
 });
 
 // Notification reçue app ouverte : on l'affiche quand même (artiste du jour).

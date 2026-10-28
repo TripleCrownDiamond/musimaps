@@ -4,6 +4,7 @@
  * compte (migration 00031). Partagé web + mobile.
  */
 import { getSupabase } from '../runtime';
+import { invalidateMapArtistsCache } from './discovery';
 import { slugify } from '../index';
 
 export interface ClaimedArtistProfile {
@@ -77,6 +78,7 @@ export async function updateMyArtistProfile(input: {
     p_slug: input.slug ?? null,
   });
   if (error) return { ok: false, error: error.message };
+  invalidateMapArtistsCache();
   const result = data as { ok?: boolean; error?: string } | null;
   return result?.ok ? { ok: true } : { ok: false, error: result?.error ?? 'Erreur inconnue' };
 }

@@ -6,7 +6,7 @@
  * Ce module se contente d'écrire les champs que l'admin peut toucher — et
  * seulement ceux-là.
  */
-import { slugify } from '@musimaps/shared'
+import { invalidateMapArtistsCache, slugify } from '@musimaps/shared'
 import { supabase, hasSupabase } from './supabase'
 
 /**
@@ -79,5 +79,6 @@ export async function saveMapArtist(
   if (Object.keys(row).length === 0) return { ok: true }
 
   const { error } = await supabase!.from('map_artists').update(row).eq('id', id)
+  invalidateMapArtistsCache()
   return error ? { ok: false, error: error.message } : { ok: true }
 }

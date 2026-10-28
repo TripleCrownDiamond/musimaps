@@ -1,0 +1,72 @@
+# Sauvegarde quotidienne de Supabase, hors de Supabase.
+#
+# À placer dans un dépôt GitHub PRIVÉ (musimaps-sauvegardes), sous
+# .github/workflows/sauvegarde.yml — jamais dans le dépôt public musimaps :
+# les archives contiennent des données personnelles. Mode d'emploi et
+# restauration : docs/SAUVEGARDES.md du dépôt musimaps.
+#
+# Chaque nuit : pg_dump de toute la base + fichiers du stockage
+# (scripts/db-backup.mjs du dépôt public), archive chiffrée AES-256 avec
+# BACKUP_PASSPHRASE, gardée 14 jours dans les artefacts du dépôt privé.
+# En cas d'échec, GitHub envoie un e-mail au propriétaire du dépôt.
+#
+# Secrets du dépôt privé (Settings → Secrets and variables → Actions) :
+#   DATABASE_PASSWORD   mot de passe de la base Supabase
+#   SUPABASE_URL        https://<ref>.supabase.co
+#   SUPABASE_ANON_KEY   clé publique (anon)
+#   BACKUP_PASSPHRASE   phrase de chiffrement — à garder AUSSI hors de GitHub
+name: Sauvegarde Supabase
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # 02 h 30 UTC (03 h 30 à Cotonou)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sauvegarde:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Script de sauvegarde (dépôt public musimaps)
+        uses: actions/checkout@v4
+        with:
+          repository: TripleCrownDiamond/musimaps
+          path: musimaps
+          sparse-checkout: scripts
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sauvegarde de la base et du stockage
+        env:
+          DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BACKUP_DIR: ${{ runner.temp }}/supabase
+        run: node musimaps/scripts/db-backup.mjs
+
+      - name: Chiffrement
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$BACKUP_PASSPHRASE" || { echo "BACKUP_PASSPHRASE manquant"; exit 1; }
+          test -s "$RUNNER_TEMP/supabase/base.dump" || { echo "base.dump vide"; exit 1; }
+          name="musimaps-$(date -u +%F).tar.gz.gpg"
+          tar -C "$RUNNER_TEMP" -czf - supabase \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 \
+                  --passphrase-fd 3 3<<<"$BACKUP_PASSPHRASE" -o "$RUNNER_TEMP/$name"
+          rm -rf "$RUNNER_TEMP/supabase"
+          echo "ARCHIVE=$RUNNER_TEMP/$name" >> "$GITHUB_ENV"
+          ls -lh "$RUNNER_TEMP/$name"
+
+      - name: Archive (14 jours)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-${{ github.run_id }}
+          path: ${{ env.ARCHIVE }}
+          retention-days: 14
+          if-no-files-found: error

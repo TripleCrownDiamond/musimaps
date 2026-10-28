@@ -19,6 +19,8 @@
  *   npx supabase functions deploy ai_artist_agent
  *   npx supabase secrets set MISTRAL_API_KEY=xxx MAPBOX_TOKEN=xxx
  */
+import { consumeAiQuota } from '../_shared/aiQuota.ts'
+
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions'
 const MISTRAL_KEY = Deno.env.get('MISTRAL_API_KEY') ?? ''
 const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') ?? ''
@@ -550,6 +552,10 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: 'Fournisseur LLM non pris en charge.' }, 400, cors)
     }
     const model = modelFromBody(body)
+    // Quota du jour (00082) : au-delà, l'app garde ses résultats de base.
+    if (!(await consumeAiQuota(req))) {
+      return json({ ok: false, error: 'quota_exceeded' }, 429, cors)
+    }
 
     const state = await runAgent(query, maxSteps, model)
     return json({
