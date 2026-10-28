@@ -4,7 +4,8 @@
  * Démarre `postgres:15-alpine` sur 127.0.0.1:54329, lance les tests de
  * scripts/db-test/, puis supprime le conteneur quoi qu'il arrive.
  *
- * Usage : npm run test:db   (Docker doit tourner)
+ * Usage : npm run test:db              (Docker doit tourner)
+ *         npm run test:db -- account   (seuls les fichiers dont le nom contient « account »)
  */
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync } from 'node:fs'
@@ -53,13 +54,27 @@ try {
   }
   if (!ready) throw new Error('Postgres ne démarre pas')
 
+  // Une base par fichier, fichiers l'un après l'autre : chacun rejoue
+  // schema.sql (CREATE TABLE auth.users…) et les rôles sont communs au
+  // cluster. Lancés ensemble sur la même base, ils se marchaient dessus.
+  const only = process.argv.slice(2)
   const tests = readdirSync(here)
     .filter((file) => file.endsWith('.test.mjs'))
-    .map((file) => path.join(here, file))
-  status = spawnSync(process.execPath, ['--test', ...tests], {
-    stdio: 'inherit',
-    env: { ...process.env, DB_URL: `postgres://postgres:test@127.0.0.1:${PORT}/postgres` },
-  }).status ?? 1
+    .filter((file) => only.length === 0 || only.some((part) => file.includes(part)))
+    .sort()
+  if (tests.length === 0) throw new Error(`Aucun test ne correspond à : ${only.join(' ')}`)
+  let failed = false
+  for (const file of tests) {
+    const db = `test_${path.basename(file, '.test.mjs').replace(/\W/g, '_')}`
+    const created = docker('exec', CONTAINER, 'createdb', '-U', 'postgres', db)
+    if (created.status !== 0) throw new Error(created.stderr)
+    const run = spawnSync(process.execPath, ['--test', path.join(here, file)], {
+      stdio: 'inherit',
+      env: { ...process.env, DB_URL: `postgres://postgres:test@127.0.0.1:${PORT}/${db}` },
+    })
+    if (run.status !== 0) failed = true
+  }
+  status = failed ? 1 : 0
 } catch (error) {
   console.error(error.message)
 } finally {
