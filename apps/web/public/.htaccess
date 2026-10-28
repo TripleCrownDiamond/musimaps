@@ -32,7 +32,7 @@ Options -MultiViews
   # script-src is not restricted yet: index.html has an inline theme script
   # and Apple / Google sign-in load their own scripts. Tighten it once those
   # are listed and tested.
-  Header set Content-Security-Policy "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
+  Header set Content-Security-Policy "upgrade-insecure-requests; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
 </IfModule>
 
 <IfModule mod_rewrite.c>

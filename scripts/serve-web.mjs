@@ -39,6 +39,20 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json',
 }
 
+/**
+ * En-têtes de sécurité, identiques à `apps/web/public/.htaccess` : quand
+ * Hostinger sert le site par ce serveur plutôt que par Apache, le
+ * `.htaccess` est ignoré et ces protections disparaissaient.
+ */
+const SECURITY_HEADERS = {
+  'X-Frame-Options': 'SAMEORIGIN',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
+  'Strict-Transport-Security': 'max-age=31536000',
+  'Content-Security-Policy': "upgrade-insecure-requests; object-src 'none'; base-uri 'self'; frame-ancestors 'self'",
+}
+
 /** Chemin demandé ramené dans `root` : jamais de remontée hors du dossier. */
 function safePath(urlPath) {
   const decoded = decodeURIComponent(urlPath.split('?')[0])
@@ -53,6 +67,7 @@ function send(res, status, file) {
   // un déploiement reste invisible pour les visiteurs déjà venus.
   const immutable = file.includes(`${sep}assets${sep}`) || file.includes(`${sep}brand${sep}`)
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     'Content-Type': type,
     'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache, must-revalidate',
   })

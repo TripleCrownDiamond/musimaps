@@ -67,7 +67,7 @@ quotidien `rate_limits` (par compte, sinon par IP, plus un plafond global).
 
 - [x] `npm run db:migrate` — 00082, 00083, 00084 appliquées le 29 octobre (00079 l'était déjà).
 - [x] `npx supabase functions deploy ai_verify ai_artist_agent --project-ref sminkhihrfcvpggamdsy`.
-- [ ] `npm run deploy:web` (formulaires, filtre HTML, en-têtes de sécurité).
+- [ ] Push sur `main` : Hostinger reconstruit le site (le FTP de `deploy:web` n’est plus configuré).
 - [ ] Build mobile (EAS) : le formulaire d'artiste passe par `submit_waitlist`.
 - [ ] Commiter `00079_guard_account_type.sql` (appliquée en production, absente du dépôt).
 - [ ] Contrôle : un formulaire « Rejoindre la liste » envoyé depuis le site arrive dans l'admin.
