@@ -1,0 +1,47 @@
+# Vérifications automatiques à chaque push et pull request.
+#
+# - `npm run check` : tokens, i18n, design, contraste, tests unitaires et
+#   node, build web + balises de partage, typecheck mobile (voir CLAUDE.md).
+# - `npm run test:db` : tests SQL des migrations sur un Postgres jetable
+#   (Docker du runner) — jamais contre la production.
+#
+# Aucun secret : le build web fonctionne sans Supabase (inject-og saute
+# les pages artiste), et les tests SQL n'utilisent que leur propre base.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:db

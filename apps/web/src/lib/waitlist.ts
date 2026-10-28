@@ -3,6 +3,7 @@ import {
   addOrUpdateMapArtist,
   geocodeArtistLocation,
   geocodeCityWithCountry,
+  submitWaitlistEntry,
   type DiscoveredArtist,
 } from '@musimaps/shared'
 
@@ -65,7 +66,7 @@ export async function saveSignup(
   const signup: Signup = { ...entry, createdAt: new Date().toISOString(), userId: opts.userId }
 
   if (hasSupabase()) {
-    const enriched = {
+    const result = await submitWaitlistEntry({
       email: signup.email,
       profile: signup.profile,
       artist_name: signup.artistName,
@@ -80,31 +81,9 @@ export async function saveSignup(
       youtube: signup.youtube,
       instagram: signup.instagram,
       user_id: signup.userId ?? null,
-      created_at: signup.createdAt,
-    }
-    const base = {
-      email: signup.email,
-      profile: signup.profile,
-      artist_name: signup.artistName,
-      city: signup.city,
-      genre: signup.genre,
-      link: signup.link,
-      user_id: signup.userId ?? null,
-      created_at: signup.createdAt,
-    }
-    const { error } = await supabase!.from('waitlist').upsert(enriched, { onConflict: 'email' })
-    // Colonnes bio/photo/liens/user_id absentes (migrations 00021/00044 pas
-    // encore appliquées) : on retombe sur l'upsert historique pour ne jamais
-    // perdre la waitlist.
-    if (error && /bio|photo|spotify|youtube|instagram|user_id|country/i.test(error.message)) {
-      const retry = await supabase!.from('waitlist').upsert(base, { onConflict: 'email' })
-      if (retry.error) console.error('Supabase insert failed, falling back to localStorage', retry.error.message)
-      else return signup
-    } else if (error) {
-      console.error('Supabase insert failed, falling back to localStorage', error.message)
-    } else {
-      return signup
-    }
+    })
+    if (result.ok) return signup
+    console.error('Supabase insert failed, falling back to localStorage', result.error)
   }
 
   saveLocal(signup)

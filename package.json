@@ -21,6 +21,7 @@
     "deploy:web": "npm run build:web && node scripts/deploy-hostinger.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:backup": "node scripts/db-backup.mjs",
+    "db:schema": "node scripts/db-schema.mjs",
     "load:test": "node scripts/load-test/run.mjs",
     "populate:map": "node scripts/populate-map.mjs",
     "purge": "node scripts/purge-hostinger-cache.mjs",

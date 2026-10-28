@@ -1,6 +1,23 @@
-import ReactMarkdown, { type Components } from 'react-markdown'
+import ReactMarkdown, { type Components, type Options } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+
+/**
+ * Le HTML de l'admin passe par rehype-raw, puis par ce filtre : balises
+ * de mise en forme, liens et images gardés ; scripts, iframes, `on*` et
+ * liens `javascript:` retirés. Un compte admin volé ne peut donc plus
+ * injecter de code dans la landing. `className` et `style` restent
+ * permis : le contenu existant s'en sert pour sa mise en forme.
+ */
+const SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'className', 'style'],
+  },
+}
+const REHYPE_PLUGINS: Options['rehypePlugins'] = [rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]
 
 /**
  * Rendu public d'un contenu markdown (+ HTML) édité dans l'admin.
@@ -33,7 +50,7 @@ export default function RichText({
     const Tag = asHeading
     components.p = ({ children }) => <Tag className={className}>{children}</Tag>
     return (
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={REHYPE_PLUGINS} components={components}>
         {content || ''}
       </ReactMarkdown>
     )
@@ -42,7 +59,7 @@ export default function RichText({
   components.p = ({ children }) => <p className="mb-2 last:mb-0">{children}</p>
   return (
     <div className={className}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]} components={components}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={REHYPE_PLUGINS} components={components}>
         {content || ''}
       </ReactMarkdown>
     </div>

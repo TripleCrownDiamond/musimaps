@@ -43,8 +43,24 @@ function jwtPayload(token: string): { role?: string; sub?: string } | null {
  * (signature vérifiée) : l'appel à is_admin() sert à la fois de vérification
  * et de test administrateur. Sinon, l'appelant est compté par adresse IP.
  */
+/**
+ * Adresse du visiteur. cf-connecting-ip est posé par Cloudflare devant
+ * Supabase et écrase la valeur envoyée par le client ; le premier élément
+ * de x-forwarded-for, lui, peut être forgé (un robot changerait d'« IP » à
+ * chaque appel et n'aurait plus que le plafond global). Même ordre que
+ * public.request_subject (00083).
+ */
+function clientIp(req: Request): string {
+  return (
+    req.headers.get('cf-connecting-ip')?.trim() ||
+    req.headers.get('x-real-ip')?.trim() ||
+    (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() ||
+    'inconnue'
+  )
+}
+
 async function caller(req: Request): Promise<{ subject: string; admin: boolean; anonymous: boolean }> {
-  const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'inconnue'
+  const ip = clientIp(req)
   const anonymous = { subject: `ip:${ip}`, admin: false, anonymous: true }
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim()
   const payload = jwtPayload(token)

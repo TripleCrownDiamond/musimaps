@@ -24,6 +24,15 @@ Options -MultiViews
 
   # Restrict browser features: allow geolocation for self only.
   Header set Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
+
+  # HTTPS only for a year (no includeSubDomains: other subdomains are not audited).
+  Header set Strict-Transport-Security "max-age=31536000"
+
+  # Minimal CSP: no plugins, no <base> hijack, no framing by other sites.
+  # script-src is not restricted yet: index.html has an inline theme script
+  # and Apple / Google sign-in load their own scripts. Tighten it once those
+  # are listed and tested.
+  Header set Content-Security-Policy "object-src 'none'; base-uri 'self'; frame-ancestors 'self'"
 </IfModule>
 
 <IfModule mod_rewrite.c>

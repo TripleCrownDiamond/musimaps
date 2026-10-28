@@ -20,6 +20,7 @@ import {
   removeFavorite,
   toggleFavorite as sharedToggleFavorite,
   updateProfile,
+  submitWaitlistEntry,
 } from '@musimaps/shared';
 import { supabase } from '../lib/supabase';
 
@@ -412,7 +413,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
   const applyAsArtist = useCallback(async (application: ArtistApplication) => {
     if (!supabase) return 'Supabase n\'est pas configuré. La demande n\'a pas pu être envoyée.';
-    const enriched = {
+    const result = await submitWaitlistEntry({
       email: application.email.trim(),
       profile: 'artiste',
       artist_name: application.artistName.trim(),
@@ -426,26 +427,8 @@ export function AppProvider({ children }: PropsWithChildren) {
       youtube: application.youtube?.trim() || null,
       instagram: application.instagram?.trim() || null,
       user_id: application.userId ?? null,
-    };
-    const { error } = await supabase.from('waitlist').upsert(enriched, { onConflict: 'email' });
-    // Colonnes bio/photo/liens absentes (migration 00021 pas encore appliquée) :
-    // on retombe sur l'upsert historique pour ne jamais perdre la waitlist.
-    if (error && /bio|photo|spotify|youtube|instagram|user_id|country/i.test(error.message)) {
-      const retry = await supabase.from('waitlist').upsert(
-        {
-          email: application.email.trim(),
-          profile: 'artiste',
-          artist_name: application.artistName.trim(),
-          city: application.city.trim(),
-          district: application.district?.trim() || null,
-          genre: application.genre.trim(),
-          link: application.link.trim(),
-        },
-        { onConflict: 'email' },
-      );
-      return retry.error?.message ?? null;
-    }
-    return error?.message ?? null;
+    });
+    return result.ok ? null : result.error;
   }, []);
 
   // Gamification : calcule les badges à débloquer dès que l'état évolue.
