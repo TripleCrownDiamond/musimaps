@@ -181,7 +181,7 @@ async function readExpoMapLocation(): Promise<MapLocation | null> {
           (next) => resolve(next),
           () => resolve(null),
           {
-            enableHighAccuracy: true,
+            enableHighAccuracy: false,
             timeout: LOCATION_POSITION_TIMEOUT_MS,
             maximumAge: 60_000,
           },
