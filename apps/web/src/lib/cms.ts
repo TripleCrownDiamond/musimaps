@@ -122,6 +122,11 @@ export interface LandingContent {
     playStoreLabel: string
     /** Libellé « bientôt disponible » affiché au-dessus du badge. */
     soonLabel: string
+    /** Libellé « disponible sur » affiché au-dessus d'un badge en ligne. */
+    availableLabel: string
+    /** L'app est publiée sur ce store : badge cliquable « Disponible sur ». */
+    appStoreLive: boolean
+    playStoreLive: boolean
   }
 }
 
@@ -342,14 +347,17 @@ export const DEFAULT_CONTENT: CmsContent = {
     },
     stores: {
       badge: 'Applications mobiles',
-      title: 'Bientôt disponible.',
+      title: 'Disponible sur Android.',
       subtitle:
-        "Musimaps arrive bientôt sur iOS et Android. Rejoignez la liste d'attente pour être prévenu·e du lancement.",
-      appStoreUrl: 'https://apps.apple.com/app/musimaps',
+        "Musimaps est disponible sur Google Play. La version iOS arrive très bientôt sur l'App Store.",
+      appStoreUrl: 'https://apps.apple.com/app/id6820383449',
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.musimaps.app',
       appStoreLabel: 'App Store',
       playStoreLabel: 'Google Play',
       soonLabel: 'Bientôt disponible',
+      availableLabel: 'Disponible sur',
+      appStoreLive: false,
+      playStoreLive: true,
     },
   },
   seo: {

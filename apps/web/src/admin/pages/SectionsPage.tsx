@@ -5,6 +5,7 @@ import { useSection } from '../useSection'
 import { LangSwitch } from '../components/LangSwitch'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
 import { Field, TextInput, TextAreaInput, ArrayEditor, ImageField } from '../components/fields'
 import { RichEditor } from '../components/RichEditor'
 import { PublishBar } from '../components/PublishBar'
@@ -217,7 +218,7 @@ export default function SectionsPage() {
             <CardHeader>
               <CardTitle>Applications mobiles</CardTitle>
               <CardDescription>
-                Section « Bientôt disponible » : badges App Store / Google Play, libellés et liens.
+                Badges App Store / Google Play : état (en ligne ou bientôt), libellés et liens.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4">
@@ -230,9 +231,30 @@ export default function SectionsPage() {
               <Field label="Sous-titre">
                 <TextAreaInput value={draft.stores.subtitle} onChange={(v) => setStores({ subtitle: v })} />
               </Field>
-              <Field label="Libellé « bientôt disponible » (au-dessus des badges)">
-                <TextInput value={draft.stores.soonLabel} onChange={(v) => setStores({ soonLabel: v })} />
-              </Field>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field label="Libellé « bientôt disponible » (store pas encore en ligne)">
+                  <TextInput value={draft.stores.soonLabel} onChange={(v) => setStores({ soonLabel: v })} />
+                </Field>
+                <Field label="Libellé « disponible sur » (store en ligne)">
+                  <TextInput value={draft.stores.availableLabel} onChange={(v) => setStores({ availableLabel: v })} />
+                </Field>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+                  App Store en ligne
+                  <Switch
+                    checked={draft.stores.appStoreLive}
+                    onCheckedChange={(checked) => setStores({ appStoreLive: checked })}
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-4 rounded-lg border p-3 text-sm">
+                  Google Play en ligne
+                  <Switch
+                    checked={draft.stores.playStoreLive}
+                    onCheckedChange={(checked) => setStores({ playStoreLive: checked })}
+                  />
+                </label>
+              </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Label badge App Store">
                   <TextInput value={draft.stores.appStoreLabel} onChange={(v) => setStores({ appStoreLabel: v })} />

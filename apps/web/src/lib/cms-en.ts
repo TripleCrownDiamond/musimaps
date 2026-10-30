@@ -98,14 +98,17 @@ export const DEFAULT_CONTENT_EN: CmsContent = {
     },
     stores: {
       badge: 'Mobile apps',
-      title: 'Coming soon.',
+      title: 'Now on Android.',
       subtitle:
-        'Musimaps is coming to iOS and Android. Join the waitlist to be notified at launch.',
-      appStoreUrl: 'https://apps.apple.com/app/musimaps',
+        'Musimaps is available on Google Play. The iOS version is coming soon to the App Store.',
+      appStoreUrl: 'https://apps.apple.com/app/id6820383449',
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.musimaps.app',
       appStoreLabel: 'App Store',
       playStoreLabel: 'Google Play',
       soonLabel: 'Coming soon',
+      availableLabel: 'Get it on',
+      appStoreLive: false,
+      playStoreLive: true,
     },
   },
   seo: {

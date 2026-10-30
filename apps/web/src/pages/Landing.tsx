@@ -39,25 +39,21 @@ const profileIcons: Record<string, typeof Headphones> = {
   amateur: Headphones,
 }
 
-/** Badge de téléchargement façon App Store / Google Play (rendu maison). */
+/** Badge de téléchargement façon App Store / Google Play (rendu maison).
+ *  Sans `href`, l'app n'est pas encore publiée : badge inerte « Bientôt ». */
 function StoreBadge({
   href,
   icon: Icon,
   top,
   bottom,
 }: {
-  href: string
+  href?: string
   icon: typeof Apple
   top: string
   bottom: string
 }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex w-full items-center justify-center gap-4 rounded-2xl border border-white/15 bg-white/[0.06] px-7 py-4 backdrop-blur transition-all hover:scale-105 hover:border-brand hover:bg-brand sm:w-auto"
-    >
+  const content = (
+    <>
       <Icon className="h-8 w-8 shrink-0 text-brand transition-colors group-hover:text-black" />
       <span className="text-left">
         <span className="block text-[11px] uppercase tracking-widest text-gray-400 transition-colors group-hover:text-black/70">
@@ -67,6 +63,25 @@ function StoreBadge({
           {bottom}
         </span>
       </span>
+    </>
+  )
+  const base =
+    'flex w-full items-center justify-center gap-4 rounded-2xl border border-white/15 bg-white/[0.06] px-7 py-4 backdrop-blur sm:w-auto'
+  if (!href) {
+    return (
+      <div className={`${base} opacity-60`} aria-disabled="true">
+        {content}
+      </div>
+    )
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`group ${base} transition-all hover:scale-105 hover:border-brand hover:bg-brand`}
+    >
+      {content}
     </a>
   )
 }
@@ -77,8 +92,9 @@ export default function Landing() {
   const { t } = useLanguage()
   const localize = useLocalizedPath()
   const landing = content.landing
-  // L'app n'est pas encore en ligne : les boutons annoncent l'arrivée
-  // (« Bientôt disponible ») plutôt qu'une disponibilité immédiate.
+  // Chaque store a son propre état : « Disponible sur » (lien) une fois
+  // l'app publiée, « Bientôt disponible » (badge inerte) avant.
+  const stores = landing.stores
 
   const mapBgRef = useRef<HTMLDivElement>(null)
   // `loading` compte autant que `user` : `fetchProfile` réessaie jusqu'à
@@ -333,20 +349,20 @@ export default function Landing() {
               {landing.stores.appStoreUrl && (
                 <Reveal from="up" delay={0}>
                   <StoreBadge
-                    href={landing.stores.appStoreUrl}
+                    href={stores.appStoreLive ? stores.appStoreUrl : undefined}
                     icon={Apple}
-                    top={landing.stores.soonLabel}
-                    bottom={landing.stores.appStoreLabel}
+                    top={stores.appStoreLive ? stores.availableLabel : stores.soonLabel}
+                    bottom={stores.appStoreLabel}
                   />
                 </Reveal>
               )}
               {landing.stores.playStoreUrl && (
                 <Reveal from="up" delay={120}>
                   <StoreBadge
-                    href={landing.stores.playStoreUrl}
+                    href={stores.playStoreLive ? stores.playStoreUrl : undefined}
                     icon={Play}
-                    top={landing.stores.soonLabel}
-                    bottom={landing.stores.playStoreLabel}
+                    top={stores.playStoreLive ? stores.availableLabel : stores.soonLabel}
+                    bottom={stores.playStoreLabel}
                   />
                 </Reveal>
               )}
