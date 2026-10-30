@@ -1147,4 +1147,7 @@ export const en: Record<MessageKey, string> = {
   'daily.disabled': 'Artist of the day turned off.',
   'daily.permissionDenied': 'Notifications are blocked. Turn them on in your phone settings.',
   'download.mockupAlt': 'The Musimaps app on a phone: the globe of music scenes',
+  'download.title': 'The world’s music, city by city.',
+  'download.description': 'Spin the globe, zoom into a city and discover the artists who live and create there. Listen to them, follow them and keep your favorites. Free, with no ads.',
+  'download.backToSite': 'Back to the website',
 };

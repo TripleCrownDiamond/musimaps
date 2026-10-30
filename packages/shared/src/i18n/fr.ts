@@ -1150,6 +1150,9 @@ export const fr = {
   'daily.disabled': 'Artiste du jour désactivé.',
   'daily.permissionDenied': 'Notifications refusées. Activez-les dans les réglages du téléphone.',
   'download.mockupAlt': 'L’application Musimaps sur un téléphone : le globe des scènes musicales',
+  'download.title': 'La musique du monde, ville par ville.',
+  'download.description': 'Faites tourner le globe, zoomez sur une ville et découvrez les artistes qui y vivent et y créent. Écoutez-les, suivez-les et gardez vos coups de cœur. Gratuit et sans publicité.',
+  'download.backToSite': 'Retour au site',
 } as const;
 
 export type MessageKey = keyof typeof fr;
