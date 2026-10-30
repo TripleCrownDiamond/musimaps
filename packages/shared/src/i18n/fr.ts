@@ -1149,6 +1149,7 @@ export const fr = {
   'daily.enabled': 'C’est noté : un artiste chaque jour à {hour} h.',
   'daily.disabled': 'Artiste du jour désactivé.',
   'daily.permissionDenied': 'Notifications refusées. Activez-les dans les réglages du téléphone.',
+  'download.mockupAlt': 'L’application Musimaps sur un téléphone : le globe des scènes musicales',
 } as const;
 
 export type MessageKey = keyof typeof fr;
