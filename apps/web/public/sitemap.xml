@@ -33,4 +33,14 @@
     <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/artistes" />
     <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/artistes" />
   </url>
+  <url>
+    <loc>https://musimaps.com/download</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/download" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/download" />
+  </url>
+  <url>
+    <loc>https://musimaps.com/en/download</loc>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://musimaps.com/download" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://musimaps.com/en/download" />
+  </url>
 </urlset>

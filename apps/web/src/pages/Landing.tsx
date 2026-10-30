@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Apple,
   ArrowRight,
   ChevronDown,
   Globe2,
@@ -20,6 +19,7 @@ import { isValidEmail, saveSignup } from '../lib/waitlist'
 import PulseDots from '../components/PulseDots'
 import Reveal from '../components/Reveal'
 import Footer from '../components/Footer'
+import { StoreBadge, storeBadges } from '../components/StoreBadge'
 import RichText from '../components/RichText'
 import { useCms } from '../context/CmsContext'
 import { useAuth } from '../context/AuthContext'
@@ -39,62 +39,12 @@ const profileIcons: Record<string, typeof Headphones> = {
   amateur: Headphones,
 }
 
-/** Badge de téléchargement façon App Store / Google Play (rendu maison).
- *  Sans `href`, l'app n'est pas encore publiée : badge inerte « Bientôt ». */
-function StoreBadge({
-  href,
-  icon: Icon,
-  top,
-  bottom,
-}: {
-  href?: string
-  icon: typeof Apple
-  top: string
-  bottom: string
-}) {
-  const content = (
-    <>
-      <Icon className="h-8 w-8 shrink-0 text-brand transition-colors group-hover:text-black" />
-      <span className="text-left">
-        <span className="block text-[11px] uppercase tracking-widest text-gray-400 transition-colors group-hover:text-black/70">
-          {top}
-        </span>
-        <span className="block text-lg font-bold text-white transition-colors group-hover:text-black">
-          {bottom}
-        </span>
-      </span>
-    </>
-  )
-  const base =
-    'flex w-full items-center justify-center gap-4 rounded-2xl border border-white/15 bg-white/[0.06] px-7 py-4 backdrop-blur sm:w-auto'
-  if (!href) {
-    return (
-      <div className={`${base} opacity-60`} aria-disabled="true">
-        {content}
-      </div>
-    )
-  }
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`group ${base} transition-all hover:scale-105 hover:border-brand hover:bg-brand`}
-    >
-      {content}
-    </a>
-  )
-}
-
 export default function Landing() {
   const navigate = useNavigate()
   const { content } = useCms()
   const { t } = useLanguage()
   const localize = useLocalizedPath()
   const landing = content.landing
-  // Chaque store a son propre état : « Disponible sur » (lien) une fois
-  // l'app publiée, « Bientôt disponible » (badge inerte) avant.
-  const stores = landing.stores
 
   const mapBgRef = useRef<HTMLDivElement>(null)
   // `loading` compte autant que `user` : `fetchProfile` réessaie jusqu'à
@@ -346,26 +296,11 @@ export default function Landing() {
               </p>
             </Reveal>
             <div className="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row">
-              {landing.stores.appStoreUrl && (
-                <Reveal from="up" delay={0}>
-                  <StoreBadge
-                    href={stores.appStoreLive ? stores.appStoreUrl : undefined}
-                    icon={Apple}
-                    top={stores.appStoreLive ? stores.availableLabel : stores.soonLabel}
-                    bottom={stores.appStoreLabel}
-                  />
+              {storeBadges(landing.stores).map(({ key, ...badge }, i) => (
+                <Reveal key={key} from="up" delay={i * 120}>
+                  <StoreBadge {...badge} />
                 </Reveal>
-              )}
-              {landing.stores.playStoreUrl && (
-                <Reveal from="up" delay={120}>
-                  <StoreBadge
-                    href={stores.playStoreLive ? stores.playStoreUrl : undefined}
-                    icon={Play}
-                    top={stores.playStoreLive ? stores.availableLabel : stores.soonLabel}
-                    bottom={stores.playStoreLabel}
-                  />
-                </Reveal>
-              )}
+              ))}
             </div>
           </div>
         </section>

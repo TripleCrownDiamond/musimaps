@@ -27,6 +27,7 @@ const CollectionPage = lazy(() => import('./pages/CollectionPage'))
 const Admin = lazy(() => import('./admin/AdminApp'))
 const PreviewPage = lazy(() => import('./pages/PreviewPage'))
 const Legal = lazy(() => import('./pages/Legal'))
+const Download = lazy(() => import('./pages/Download'))
 
 /**
  * Synchronise la langue active du contexte avec le préfixe d'URL porté par la
@@ -62,6 +63,8 @@ const PUBLIC_ROUTES: { path: string; element: ReactElement }[] = [
   { path: '/communaute', element: <Community /> },
   { path: '/m/:handle', element: <PublicProfile /> },
   { path: '/selection/:id', element: <CollectionPage /> },
+  // Page minimale : uniquement les badges des stores.
+  { path: '/download', element: <Download /> },
 ]
 
 /** Chemin anglais d'une route : `/` → `/en`, `/globe` → `/en/globe`. */
@@ -83,7 +86,9 @@ export default function App() {
   // L'apercu brouillon rend ses propres pages avec bandeau.
   const stripped = pathname.replace(/^\/(en)(?=\/|$)/, '') || '/'
   const isPreview = pathname.startsWith('/preview')
-  const showNavbar = stripped !== '/globe' && !pathname.startsWith('/admin') && !isPreview
+  // La page /download ne montre que les badges des stores.
+  const showNavbar =
+    stripped !== '/globe' && stripped !== '/download' && !pathname.startsWith('/admin') && !isPreview
 
   return (
     <>
