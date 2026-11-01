@@ -25,10 +25,9 @@ spirale de ~1 à 2 km. Zoomer au-delà du quartier afficherait :
 2. `MAX_OFFSET_KM = 3` — borne de **véracité** du dés-empilement. Au-delà,
    on n'écarte plus des pins, on invente une localisation. Valait 1,5 : les
    scènes volumineuses (Cotonou ~58 pins) saturaient la borne et re-empilaient.
-3. `SPREAD_ZOOM = 11` — en dessous, les artistes restent groupés.
+3. `SPREAD_ZOOM = 12.75` — en dessous, les artistes restent groupés.
 
-Le dés-empilement part de la séparation ÉCRAN voulue (60 px, 40 px en amas
-dense > 30 pins) et en déduit le rayon géographique. L'ancienne formule
+Le dés-empilement part de la séparation ÉCRAN voulue (84 px) et en déduit le rayon géographique. L'ancienne formule
 faisait l'inverse — le rayon croissait avec le zoom, alors que le zoom double
 déjà la séparation en pixels. Mesuré : 9 px de séparation à z9 (pins empilés)
 et 995 px à z15, avec un pin posé à **2,4 km** de la vraie position. Désormais

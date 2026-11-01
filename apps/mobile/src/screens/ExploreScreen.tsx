@@ -84,7 +84,6 @@ import {
   NEIGHBORHOOD_RADIUS_DEG,
   type MapOverlay,
   MAX_ZOOM,
-  PIN_LABEL_ZOOM,
   pinOpacityFor,
   pinRingWidthFor,
   pinScaleFor,
@@ -403,13 +402,12 @@ export function ExploreScreen({ navigation, route }: Props) {
   const [history, setHistory] = useState<string[]>([]);
   const [discoverCity, setDiscoverCity] = useState('');
   const [discoverGenre, setDiscoverGenre] = useState('');
-  // Pin survolé (web) — affiche le nom comme sur le web. Sur natif (pas de
-  // hover), le nom s'affiche en zoom quartier (z ≥ 12.5, pins détachés).
+  // Pin survolé (web) — affiche le nom comme sur le web.
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const isNative = Platform.OS !== 'web';
-  // Web : un seul nom à la fois (celui du pin survolé). Natif : tous les noms
-  // en zoom quartier (z ≥ 12.5, pins détachés), pas de survol tactile.
-  const showPinNameFor = (key: string) => (isNative ? mapZoom >= PIN_LABEL_ZOOM : hoveredId === key);
+  // Seul le pin sélectionné porte son nom. Web : aussi celui du pin survolé.
+  // Natif : plus aucun autre nom, ils tombaient sur les pins voisins.
+  const showPinNameFor = (key: string) => !isNative && hoveredId === key;
 
   // --- Localisation : le premier écran demande l'autorisation si nécessaire ---
   const [locState, setLocState] = useState<'checking' | 'granted' | 'denied' | 'skipped'>('checking');

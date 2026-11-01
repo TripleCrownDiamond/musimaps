@@ -724,7 +724,9 @@ export default function GlobeMap({
       el.style.setProperty('--pin-tier-color', tierVars.bg)
       el.style.setProperty('--pin-tier-glow', tierVars.glow)
       el.style.setProperty('--pin-ink', tierVars.ink)
-      el.style.setProperty('--pin-tier-size', String(TIER_SIZE_FACTOR[tier]))
+      // Sur le wrapper : le nom est un FRÈRE du pin et décale sa position avec
+      // ce facteur. Posé sur le pin, le nom n'y avait pas accès.
+      wrapper.style.setProperty('--pin-tier-size', String(TIER_SIZE_FACTOR[tier]))
       el.style.setProperty('--pin-tier-ring-width', `${tierVars.ringWidth}px`)
       const tip = document.createElement('span')
       tip.className = 'artist-pin__tooltip'

@@ -422,10 +422,14 @@
 }
 
 /* Nom de l'artiste au survol d'un pin individuel — petite étiquette
-   discrète au-dessus du pin, comme sur le web (parité mobile). */
+   discrète au-dessus du pin, comme sur le web (parité mobile).
+   `scale` n'agrandit pas la boîte du pin : le décalage part donc de son rayon
+   visuel (anneau de 6 px compris) au grossissement du survol.
+   z-index : le nom précède le pin dans le DOM, qui le recouvrirait sinon. */
 .artist-pin__tooltip {
   position: absolute;
-  bottom: calc(100% + 10px);
+  z-index: 1;
+  bottom: calc(100% + 6px + (var(--map-pin-diameter) / 2 + 6px) * var(--pin-scale, 1) * var(--pin-tier-size, 1) * 1.12 - var(--map-pin-diameter) / 2);
   left: 50%;
   transform: translateX(-50%);
   background: var(--map-label-surface);
@@ -478,11 +482,10 @@
    `scale` est une transformation visuelle : elle n'agrandit pas la boîte de
    mise en page. Un pin sélectionné est mis à l'échelle 1,28 × notoriété ×
    zoom — jusqu'à 68 px pour une boîte de 36 — et son anneau déborde encore
-   de 9 px plus 3 px d'ombre. Les 10 px d'écart d'origine étaient donc
-   entièrement recouverts, et le nom illisible.
-   On décale d'autant que le pin a grossi, en lisant les mêmes variables. */
+   de 9 px plus 3 px d'ombre. On part donc de ce rayon visuel, avec les mêmes
+   variables que le pin. */
 .artist-pin__wrapper--selected .artist-pin__tooltip {
-  bottom: calc(100% + 10px + 26px * var(--pin-scale, 1) * var(--pin-tier-size, 1));
+  bottom: calc(100% + 6px + (var(--map-pin-diameter) / 2 + 12px) * var(--pin-scale, 1) * var(--pin-tier-size, 1) * 1.28 - var(--map-pin-diameter) / 2);
   z-index: 1300;
 }
 .artist-pin__wrapper--selected {

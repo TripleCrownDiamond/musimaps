@@ -51,8 +51,13 @@ export type ClusterLevel = 'country' | 'city' | 'sub' | 'spread';
  * 60 px entre voisins. À z11 ces 60 px n'en font plus que 15, pour des pins
  * de 30 à 40 px : ils s'agglutinaient dans les villes denses. À z12,5 l'écart
  * vaut encore 42 px ; en dessous on montre les pastilles « N artistes ».
+ *
+ * Puis 12,5 → 12,75 : à 42 px, les grands pins (64 px avec leur anneau) se
+ * recouvraient encore (« il y a des pins qui se superposent »). À 12,75, avec
+ * `TARGET_SEPARATION_PX` à 84, l'écart vaut 70 px : aucun pin ne touche son
+ * voisin dès qu'ils apparaissent. Doit rester sous `CAMERA.artist.zoom` (13).
  */
-export const SPREAD_ZOOM = 12.5;
+export const SPREAD_ZOOM = 12.75;
 
 /** Seuils de zoom : monde → pays → ville → sous-groupe → pins individuels. */
 export function levelFor(zoom: number): ClusterLevel {
@@ -139,10 +144,12 @@ function pixelsPerDegree(zoom: number): number {
   return (512 * 2 ** zoom) / 360;
 }
 
-/** Séparation visée entre deux pins voisins, en pixels écran.
- *  60 px : deux avatars de 36 px gardent une large marge d'air —
- *  la valeur 46 px collait les ronds (retour utilisateur « trop serrés »). */
-const TARGET_SEPARATION_PX = 60;
+/** Séparation visée entre deux pins voisins, en pixels écran, à `PIN_LAYOUT_ZOOM`.
+ *  84 px : le plus grand pin mesure 66 px avec son anneau à z13, et les
+ *  positions étant fixes, l'écart à l'écran diminue en dézoomant. 60 px ne
+ *  suffisaient que pour les avatars de 36 px, pas pour les pins de notoriété
+ *  maximale (retour utilisateur « des pins se superposent encore »). */
+const TARGET_SEPARATION_PX = 84;
 
 /**
  * Décalage géographique maximal admis, en kilomètres.
@@ -382,6 +389,16 @@ export function declump(artists: Artist[], zoom: number): Map<string, [number, n
   return out;
 }
 
+/** Latitude → ordonnée Mercator, en degrés (même échelle que la longitude). */
+function mercatorY(lat: number): number {
+  return (Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) * 180) / Math.PI;
+}
+
+/** Ordonnée Mercator en degrés → latitude. */
+function mercatorLat(y: number): number {
+  return ((2 * Math.atan(Math.exp((y * Math.PI) / 180)) - Math.PI / 2) * 180) / Math.PI;
+}
+
 /** Passes de relaxation maximales (s'arrête plus tôt dès qu'aucun pin ne se chevauche). */
 const SEPARATION_PASSES = 60;
 
@@ -395,16 +412,18 @@ const SEPARATION_PASSES = 60;
  * `TARGET_SEPARATION_PX`, en déplaçant les deux pins à parts égales — le
  * minimum nécessaire, la spirale reste la forme de départ. Déterministe
  * (ordre fixe des identifiants) : les pins ne bougent pas d'un rendu à l'autre.
+ *
+ * Les distances sont celles de l'ÉCRAN (projection Mercator). Une correction
+ * par cos(lat) propre à chaque point faisait diverger x entre deux voisins
+ * loin de Greenwich : à San Francisco, les pins n'étaient jamais repoussés.
  */
 function separatePins(positions: Map<string, [number, number]>, zoom: number): void {
   if (positions.size < 2) return;
   const ppd = pixelsPerDegree(zoom);
   const ids = [...positions.keys()].sort();
-  // Projection locale : x corrigé par cos(lat), comme les spirales.
   const pts = ids.map((id) => {
     const [lng, lat] = positions.get(id)!;
-    const k = Math.max(0.25, Math.cos((lat * Math.PI) / 180));
-    return { id, x: lng * ppd * k, y: lat * ppd, k };
+    return { id, x: lng * ppd, y: mercatorY(lat) * ppd, moved: false };
   });
   const min = TARGET_SEPARATION_PX;
   for (let pass = 0; pass < SEPARATION_PASSES; pass += 1) {
@@ -440,6 +459,8 @@ function separatePins(positions: Map<string, [number, number]>, zoom: number): v
             p.y -= vy * push;
             q.x += vx * push;
             q.y += vy * push;
+            p.moved = true;
+            q.moved = true;
             moved = true;
           }
         }
@@ -448,7 +469,7 @@ function separatePins(positions: Map<string, [number, number]>, zoom: number): v
     if (!moved) break;
   }
   for (const p of pts) {
-    positions.set(p.id, [p.x / (ppd * p.k), Math.min(85, Math.max(-85, p.y / ppd))]);
+    if (p.moved) positions.set(p.id, [p.x / ppd, Math.min(85, Math.max(-85, mercatorLat(p.y / ppd)))]);
   }
 }
 
@@ -746,14 +767,6 @@ export function searchSheetHeight({
   );
   return Math.min(resting, compact, available);
 }
-
-/**
- * Zoom à partir duquel le nom d'un pin s'affiche en permanence (tactile).
- * 14 : les pins sont posés à 60 px d'écart à z13, trop serré pour des
- * étiquettes de 80-100 px — elles se chevauchaient. À z14 l'écart double.
- * Le pin sélectionné garde son nom à tous les zooms.
- */
-export const PIN_LABEL_ZOOM = 14;
 
 /** Rayon de recherche autour d'un quartier/localité, en degrés. */
 export const NEIGHBORHOOD_RADIUS_DEG = 0.04;

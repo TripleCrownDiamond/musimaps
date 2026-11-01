@@ -87,7 +87,7 @@ Le callback obsolète `onRegionIsChanging`, incompatible avec `onCameraChanged` 
 | Point | Web | Mobile |
 |---|---|---|
 | Opacité du pin par zoom | `min(1, max(0.5, 0.5 + (z−1)·0.06))` (`:424`) | **absente** |
-| Affichage du nom | au survol uniquement | `mapZoom >= 12.5` (`:265`) |
+| Affichage du nom | pin sélectionné et survol | pin sélectionné uniquement |
 | `spreadFactor` | calculé hors boucle (`:154`) | recalculé dans la boucle (`:129`) |
 | Rotation auto | `requestAnimationFrame` + `jumpTo`, −0.06°/frame | `setInterval` 120 ms |
 

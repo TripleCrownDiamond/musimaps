@@ -17,15 +17,18 @@ import type { Artist } from '../index';
 import {
   CAMERA,
   PIN_LAYOUT_ZOOM,
+  SPREAD_ZOOM,
   TIER_RING_WIDTH,
   isGlobeView,
   declump,
   firstRenderedPosition,
   pinRingWidthFor,
+  pinScaleFor,
   renderedPosition,
   levelFor,
   spinPixelsFor,
 } from './index';
+import { mapUi } from '../design/tokens';
 
 /** Artiste minimal posé sur une coordonnée donnée. */
 const at = (id: string, name: string, coordinates: [number, number]): Artist => ({
@@ -222,6 +225,35 @@ describe('écart minimal entre pins, quelle que soit la densité', () => {
     // Un second groupe à ~2,5 km, dans la case voisine.
     for (let i = 0; i < 25; i += 1) near.push(at(`d${i}`, `Akpakpa ${i}`, [2.4630, 6.3740]))
     expect(minGap(declump(near, PIN_LAYOUT_ZOOM))).toBeGreaterThan(58)
+  })
+
+  it('ne laisse aucun pin toucher son voisin dès que les pins individuels apparaissent', () => {
+    // Le plus grand pin : disque de notoriété maximale + anneau à 6 px (CSS web).
+    const largestPin = (mapUi.artistPinDiameter + 12) * pinScaleFor(SPREAD_ZOOM, 3)
+    const crowd: Artist[] = []
+    for (let i = 0; i < 80; i += 1) crowd.push({ ...at(`e${i}`, `Abidjan ${i}`, [-4.0083, 5.36]), district: i % 4 === 0 ? 'Cocody' : i % 4 === 1 ? 'Yopougon' : '' })
+    for (let i = 0; i < 50; i += 1) crowd.push(at(`f${i}`, `Plateau ${i}`, [-3.985, 5.36]))
+    const gapAtSpreadZoom = minGap(declump(crowd, PIN_LAYOUT_ZOOM)) * 2 ** (SPREAD_ZOOM - PIN_LAYOUT_ZOOM)
+    expect(gapAtSpreadZoom).toBeGreaterThanOrEqual(largestPin)
+  })
+
+  it('écarte aussi les pins loin de Greenwich (San Francisco)', () => {
+    // La passe de séparation multipliait la longitude par cos(lat) point par
+    // point : à -122°, un écart de latitude infime décalait x de plusieurs
+    // milliers de pixels, et deux voisins n'étaient plus vus comme voisins.
+    const scene: Artist[] = []
+    for (let i = 0; i < 24; i += 1) scene.push({ ...at(`g${i}`, `Bay ${i}`, [-122.4194, 37.7749]), district: i % 3 === 0 ? 'Haight-Ashbury' : i % 3 === 1 ? 'Mission' : '' })
+    const zoomPx = 512 * 2 ** PIN_LAYOUT_ZOOM
+    const project = ([lng, lat]: [number, number]) => [
+      ((lng + 180) / 360) * zoomPx,
+      ((1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2) * zoomPx,
+    ]
+    const points = [...declump(scene, PIN_LAYOUT_ZOOM).values()].map(project)
+    let min = Infinity
+    for (let i = 0; i < points.length; i += 1)
+      for (let j = i + 1; j < points.length; j += 1)
+        min = Math.min(min, Math.hypot(points[i][0] - points[j][0], points[i][1] - points[j][1]))
+    expect(min).toBeGreaterThan(80)
   })
 
   it('reste stable d’un appel à l’autre', () => {
