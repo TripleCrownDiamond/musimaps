@@ -53,8 +53,8 @@ const CITIES = {
 }
 
 const ARTISTS = [
-  { name: 'Santana', key: 'SF', genre: 'Rock latino' },
-  { name: 'Journey', key: 'SF', genre: 'Rock' },
+  { name: 'Santana', wikiTitle: 'Santana_(groupe)', key: 'SF', genre: 'Rock latino' },
+  { name: 'Journey', wikiTitle: 'Journey_(groupe)', key: 'SF', genre: 'Rock' },
   { name: 'Grateful Dead', key: 'SF', district: 'Haight-Ashbury', genre: 'Rock psychédélique' },
   { name: 'Jefferson Airplane', key: 'SF', district: 'Haight-Ashbury', genre: 'Rock psychédélique' },
   { name: 'Metallica', key: 'SF', genre: 'Metal' },
@@ -68,11 +68,11 @@ const ARTISTS = [
   { name: 'Dead Kennedys', key: 'SF', genre: 'Punk' },
   { name: 'Faith No More', key: 'SF', genre: 'Metal alternatif' },
   { name: 'Chris Isaak', key: 'SF', genre: 'Rock / Rockabilly' },
-  { name: 'Train', key: 'SF', genre: 'Pop rock' },
+  { name: 'Train', wikiTitle: 'Train_(groupe)', key: 'SF', genre: 'Pop rock' },
   { name: 'Steve Miller Band', key: 'SF', genre: 'Rock / Blues' },
   { name: 'Osees', key: 'SF', genre: 'Garage rock' },
-  { name: 'Primus', key: 'SF', genre: 'Funk metal / Rock alternatif' },
-  { name: 'Tycho', key: 'SF', genre: 'Électronique / Ambient' },
+  { name: 'Primus', wikiTitle: 'Primus_(groupe)', key: 'SF', genre: 'Funk metal / Rock alternatif' },
+  { name: 'Tycho', wikiTitle: 'Tycho_(musician)', key: 'SF', genre: 'Électronique / Ambient' },
   { name: 'Deerhoof', key: 'SF', genre: 'Rock indépendant' },
   { name: 'Kehlani', key: 'OAK', genre: 'R&B' },
   { name: 'Too $hort', key: 'OAK', genre: 'Hip-hop' },
@@ -199,6 +199,8 @@ async function wikipedia(name) {
   const summary = async (title, lang) => {
     const base = lang === 'fr' ? 'https://fr.wikipedia.org' : 'https://en.wikipedia.org'
     const data = await getJson(`${base}/api/rest_v1/page/summary/${encodeURIComponent(title)}`)
+    // Page d'homonymie : jamais une bio d'artiste (Santana, Journey…).
+    if (data?.type === 'disambiguation') return { bio: '', image: '' }
     const image = data?.originalimage?.source ?? data?.thumbnail?.source ?? ''
     return { bio: (data?.extract ?? '').slice(0, 400), image: image ? image.split('?')[0] : '' }
   }
@@ -276,7 +278,7 @@ async function main() {
         }
         return null
       })(),
-      wikipedia(a.name),
+      wikipedia(a.wikiTitle ?? a.name),
       spotifyVerified(a.name, a.spotifyUrl),
       appleMusicLink(a.name, a.appleId),
     ])
