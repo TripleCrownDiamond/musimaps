@@ -356,7 +356,7 @@ export const DEFAULT_CONTENT: CmsContent = {
       playStoreLabel: 'Google Play',
       soonLabel: 'Bientôt disponible',
       availableLabel: 'Disponible sur',
-      appStoreLive: false,
+      appStoreLive: true,
       playStoreLive: true,
     },
   },
