@@ -1,0 +1,6 @@
+{
+  "CFBundleDisplayName": "Musimaps",
+  "NSLocationWhenInUseUsageDescription": "Musimaps uses your location to show artists and music places near you.",
+  "NSPhotoLibraryUsageDescription": "Musimaps uses your photos so you can choose a profile picture and a cover image.",
+  "NSCameraUsageDescription": "Musimaps uses the camera so you can take a profile picture."
+}

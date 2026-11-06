@@ -64,7 +64,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.musimaps.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleAllowMixedLocalizations": true
       },
       "usesAppleSignIn": true
     },
@@ -91,6 +92,10 @@
         "projectId": "3f965840-435d-4bf8-a090-6168547dd897"
       }
     },
-    "owner": "musimaps-devs-team"
+    "owner": "musimaps-devs-team",
+    "locales": {
+      "fr": "./locales/fr.json",
+      "en": "./locales/en.json"
+    }
   }
 }
