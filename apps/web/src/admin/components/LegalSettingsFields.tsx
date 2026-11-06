@@ -8,7 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
-const IDENTITY_FIELDS = ['publisherName', 'publisherAddress', 'registrationNumber', 'contactEmail', 'updatedOn'] as const
+const IDENTITY_FIELDS = [
+  'publisherName', 'publisherAddress', 'registrationNumber', 'technicalLead', 'contactPhone', 'contactEmail', 'updatedOn',
+] as const
 
 export function LegalSettingsFields({ value, onChange }: {
   value?: LegalContent
@@ -34,7 +36,7 @@ export function LegalSettingsFields({ value, onChange }: {
             <label key={field} className="grid gap-2 text-sm font-medium">
               {t(`legal.${field}` as MessageKey)}
               <Input
-                type={field === 'contactEmail' ? 'email' : field === 'updatedOn' ? 'date' : 'text'}
+                type={field === 'contactEmail' ? 'email' : field === 'contactPhone' ? 'tel' : field === 'updatedOn' ? 'date' : 'text'}
                 value={legal[field]}
                 onChange={(event) => onChange({ ...legal, [field]: event.target.value })}
               />

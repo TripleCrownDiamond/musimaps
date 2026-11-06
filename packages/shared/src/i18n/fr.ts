@@ -1009,6 +1009,8 @@ export const fr = {
   'legal.publisherName': "Nom officiel de l’éditeur",
   'legal.publisherAddress': "Adresse de l’éditeur",
   'legal.registrationNumber': "Numéro d’immatriculation (si applicable)",
+  'legal.technicalLead': "Directeur technique (CTO)",
+  'legal.contactPhone': "Téléphone",
   'legal.contactEmail': "E-mail de contact et de demande de suppression",
   'legal.updatedOn': "Date de mise à jour",
   'legal.adminDescription': "Ces informations publiques alimentent les pages légales du site et les liens de l’app mobile. L’identité est commune aux deux langues. Enregistrez le brouillon, puis publiez pour mettre les pages à jour.",

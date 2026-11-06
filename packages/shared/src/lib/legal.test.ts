@@ -13,6 +13,12 @@ describe('legal CMS contract', () => {
       .toEqual({ fr: 'Texte', en: '' });
     expect(normalizeLegalContent({ publisherName: 42 }).publisherName).toBe('');
   });
+  it('keeps the technical lead and the public phone, which stay optional', () => {
+    const legal = normalizeLegalContent({ technicalLead: 'Test lead', contactPhone: '+229 00 00 00 00', publisherName: 'P' });
+    expect([legal.technicalLead, legal.contactPhone]).toEqual(['Test lead', '+229 00 00 00 00']);
+    expect(normalizeLegalContent({ technicalLead: 7 }).technicalLead).toBe('');
+    expect(legalPublicationIssues(legal)).not.toContain('legal.contactPhone');
+  });
   it('requires both document translations, an identity and a valid contact', () => {
     const legal = { ...EMPTY_LEGAL_CONTENT, publisherName: 'Test publisher', contactEmail: 'contact@example.invalid',
       privacy: { fr: 'FR', en: 'EN' }, terms: { fr: 'FR', en: 'EN' }, deletion: { fr: 'FR', en: '' } };

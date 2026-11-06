@@ -1006,6 +1006,8 @@ export const en: Record<MessageKey, string> = {
   'legal.publisherName': "Publisher’s legal name",
   'legal.publisherAddress': "Publisher’s address",
   'legal.registrationNumber': "Registration number (if applicable)",
+  'legal.technicalLead': "Chief Technology Officer (CTO)",
+  'legal.contactPhone': "Phone",
   'legal.contactEmail': "Contact and account deletion request email",
   'legal.updatedOn': "Last updated",
   'legal.adminDescription': "This public information supplies the website’s legal pages and the mobile app’s links. The identity is shared across languages. Save a draft, then publish to update the pages.",

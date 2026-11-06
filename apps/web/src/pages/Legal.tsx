@@ -34,10 +34,14 @@ export default function Legal({ document }: { document: LegalDocument }) {
           {loading ? <Loader /> : (
             <>
               <dl className="my-8 grid gap-4 rounded-2xl border border-hairline bg-surface p-6 text-sm">
-                {(['publisherName', 'publisherAddress', 'registrationNumber', 'updatedOn'] as const).map((field) => legal[field].trim() ? (
+                {(['publisherName', 'publisherAddress', 'registrationNumber', 'technicalLead', 'contactPhone', 'updatedOn'] as const).map((field) => legal[field].trim() ? (
                   <div key={field}>
                     <dt className="font-semibold">{t(`legal.${field}`)}</dt>
-                    <dd className="mt-1 whitespace-pre-line text-secondary-text">{field === 'updatedOn' ? updatedOn : legal[field]}</dd>
+                    <dd className="mt-1 whitespace-pre-line text-secondary-text">
+                      {field === 'updatedOn' ? updatedOn
+                        : field === 'contactPhone' ? <a className="underline" href={`tel:${legal.contactPhone.replace(/[^\d+]/g, '')}`}>{legal.contactPhone}</a>
+                        : legal[field]}
+                    </dd>
                   </div>
                 ) : null)}
                 {email && <div><dt className="font-semibold">{t('legal.contact')}</dt><dd className="mt-1"><a className="underline" href={`mailto:${encodeURIComponent(email)}`}>{email}</a></dd></div>}

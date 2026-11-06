@@ -9,6 +9,8 @@ export interface LegalContent {
   publisherName: string;
   publisherAddress: string;
   registrationNumber: string;
+  technicalLead: string;
+  contactPhone: string;
   contactEmail: string;
   updatedOn: string;
   privacy: Record<Lang, string>;
@@ -17,7 +19,8 @@ export interface LegalContent {
 }
 
 export const EMPTY_LEGAL_CONTENT: LegalContent = {
-  publisherName: '', publisherAddress: '', registrationNumber: '', contactEmail: '', updatedOn: '',
+  publisherName: '', publisherAddress: '', registrationNumber: '', technicalLead: '', contactPhone: '',
+  contactEmail: '', updatedOn: '',
   privacy: { fr: '', en: '' }, terms: { fr: '', en: '' }, deletion: { fr: '', en: '' },
 };
 
@@ -36,7 +39,8 @@ export function normalizeLegalContent(value: unknown): LegalContent {
   };
   return {
     publisherName: text(raw.publisherName), publisherAddress: text(raw.publisherAddress),
-    registrationNumber: text(raw.registrationNumber), contactEmail: text(raw.contactEmail),
+    registrationNumber: text(raw.registrationNumber), technicalLead: text(raw.technicalLead),
+    contactPhone: text(raw.contactPhone), contactEmail: text(raw.contactEmail),
     updatedOn: text(raw.updatedOn), privacy: localized('privacy'),
     terms: localized('terms'), deletion: localized('deletion'),
   };
